@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -60,6 +61,11 @@ export function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
+    if (!auth) {
+        toast({ variant: "destructive", title: "Login Failed", description: "Firebase not initialized." });
+        setIsSubmitting(false);
+        return;
+    }
     try {
       await signInWithEmailAndPassword(auth, values.email, values.password);
       // The onAuthStateChanged listener will handle redirection
@@ -74,6 +80,10 @@ export function LoginForm() {
   }
 
   const handleGoogleSignIn = async () => {
+    if (!auth || !firestore) {
+      toast({ variant: "destructive", title: "Login Failed", description: "Firebase not initialized." });
+      return;
+    }
     setIsSubmitting(true);
     try {
       const provider = new GoogleAuthProvider();

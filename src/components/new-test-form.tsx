@@ -11,7 +11,7 @@ import {
   classifyFineAggregate,
   SIEVE_SIZES,
 } from "@/lib/sieve-analysis";
-import type { AggregateType, AnalysisResults } from "@/lib/definitions";
+import type { AggregateType, AnalysisResults, SieveAnalysisTest } from "@/lib/definitions";
 import { SieveResultsDisplay } from "./sieve-results-display";
 
 import { Button } from "@/components/ui/button";
@@ -31,8 +31,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, WandSparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser } from "@/firebase";
-import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
-import { collection } from "firebase/firestore";
+import { collection, addDoc } from "firebase/firestore";
 
 const formSchema = z.object({
   type: z.enum(["Fine", "Coarse"], {
@@ -70,6 +69,7 @@ export function NewTestForm() {
   React.useEffect(() => {
     const newSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
     replace(newSieves.map(() => ({ value: null })));
+    setAnalysisResults(null);
   }, [aggregateType, replace]);
 
   async function handleCalculate(values: z.infer<typeof formSchema>) {
@@ -106,7 +106,7 @@ export function NewTestForm() {
   }
 
   async function handleSave() {
-    if (!analysisResults || !user) {
+    if (!analysisResults || !user || !firestore) {
         toast({
             variant: "destructive",
             title: "Error",
@@ -118,7 +118,7 @@ export function NewTestForm() {
     
     const currentSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
 
-    const newTest = {
+    const newTest: Omit<SieveAnalysisTest, 'id'> = {
       userId: user.uid,
       type: aggregateType,
       timestamp: Date.now(),
@@ -129,7 +129,7 @@ export function NewTestForm() {
     
     try {
         const testsCollection = collection(firestore, 'tests');
-        await addDocumentNonBlocking(testsCollection, newTest);
+        await addDoc(testsCollection, newTest);
         
         toast({
             title: "Test Saved Successfully",
@@ -262,7 +262,7 @@ export function NewTestForm() {
               type={aggregateType}
             />
           <div className="flex flex-col-reverse gap-4 sm:flex-row sm:justify-between">
-            <Button variant="outline" onClick={() => setStep(1)}>
+            <Button variant="outline" onClick={() => { setStep(1); }}>
               Back to Inputs
             </Button>
             <Button onClick={handleSave} disabled={isSaving || !user}>
@@ -279,5 +279,3 @@ export function NewTestForm() {
     </Form>
   );
 }
-
-    

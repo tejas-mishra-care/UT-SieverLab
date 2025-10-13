@@ -21,9 +21,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import React from "react";
 import { useDoc, useFirestore, useUser } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { doc, deleteDoc } from "firebase/firestore";
 import { useMemoFirebase } from "@/firebase/provider";
-import { deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 export default function TestViewPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -40,7 +39,7 @@ export default function TestViewPage({ params }: { params: { id: string } }) {
 
   const handleDelete = async () => {
     if (!test || !testDocRef) return;
-    deleteDocumentNonBlocking(testDocRef);
+    await deleteDoc(testDocRef);
     toast({title: "Test Deleted", description: `Test #${test.id.slice(-6)} has been deleted.`});
     router.push("/dashboard");
   }
