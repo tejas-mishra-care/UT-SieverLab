@@ -251,10 +251,12 @@ function TestView({ id }: { id: string }) {
 
 // This is the main page component, now simplified.
 export default function TestViewPage({ params }: { params: { id: string } }) {
-  // `params` are guaranteed to be available in pages.
+  // `params` is a promise, so we use `React.use` to unwrap it.
+  const { id } = React.use(params);
+
   return (
     <Suspense fallback={<div className="flex h-full min-h-[500px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
-      <TestView id={params.id} />
+      <TestView id={id} />
     </Suspense>
   );
 }

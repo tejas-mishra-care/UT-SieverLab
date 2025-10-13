@@ -7,7 +7,7 @@ import type { SieveAnalysisTest } from "@/lib/definitions";
 import { Loader2 } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { notFound, useRouter } from "next/navigation";
-import React, { useEffect, useState, use } from "react";
+import React, { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 // The page component now correctly unwraps the params promise.
@@ -87,10 +87,12 @@ function EditTestView({ id }: { id: string }) {
 // This is the main page component. It is now a server component
 // that uses Suspense to handle the loading state.
 export default function EditTestPage({ params }: { params: { id: string } }) {
-  // `params` are guaranteed to be available in pages.
+  // `params` is a promise, so we use `React.use` to unwrap it.
+  const { id } = React.use(params);
+  
   return (
     <React.Suspense fallback={<div className="flex h-full min-h-[500px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
-      <EditTestView id={params.id} />
+      <EditTestView id={id} />
     </React.Suspense>
   );
 }
