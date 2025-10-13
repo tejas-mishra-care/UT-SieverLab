@@ -128,9 +128,9 @@ export function LoginForm() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel htmlFor="email">Email</FormLabel>
                   <FormControl>
-                    <Input placeholder="you@example.com" {...field} suppressHydrationWarning autoComplete="email" />
+                    <Input id="email" placeholder="you@example.com" {...field} suppressHydrationWarning autoComplete="email" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -141,9 +141,9 @@ export function LoginForm() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel htmlFor="password">Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} suppressHydrationWarning autoComplete="current-password" />
+                    <Input id="password" type="password" placeholder="••••••••" {...field} suppressHydrationWarning autoComplete="current-password" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

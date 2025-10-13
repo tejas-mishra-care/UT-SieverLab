@@ -252,11 +252,11 @@ function TestView({ id }: { id: string }) {
 }
 
 export default function TestViewPage({ params }: { params: { id: string } }) {
-  const id = React.use(params).id;
+  const resolvedParams = React.use(params);
 
   return (
     <Suspense fallback={<div className="flex h-full min-h-[500px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
-      <TestView id={id} />
+      <TestView id={resolvedParams.id} />
     </Suspense>
   );
 }

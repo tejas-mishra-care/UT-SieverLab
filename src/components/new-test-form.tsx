@@ -30,7 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, WandSparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser } from "@/firebase";
-import { doc, setDoc, collection } from "firebase/firestore";
+import { doc, setDoc, collection, serverTimestamp } from "firebase/firestore";
 import { SieveInputsDisplay } from "./sieve-inputs-display";
 
 const formSchema = z.object({
@@ -61,21 +61,13 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   const [isSaving, setIsSaving] = React.useState(false);
   const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(null);
 
-  const defaultValues = React.useMemo(() => {
-    const type = existingTest?.type || 'Fine';
-    const sieves = getSievesForType(type);
-    return {
-      name: existingTest?.name || '',
-      type: type,
-      weights: sieves.map((_, index) => ({
-        value: existingTest?.weights?.[index] ?? null,
-      })),
-    };
-  }, [existingTest]);
-
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: defaultValues,
+    defaultValues: {
+      name: '',
+      type: 'Fine',
+      weights: getSievesForType('Fine').map(() => ({ value: null })),
+    }
   });
 
   const { fields, replace } = useFieldArray({
@@ -109,11 +101,10 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
       }
     }
   }, [existingTest, form]);
-  
+
   React.useEffect(() => {
     const newSieves = getSievesForType(aggregateType);
-    const oldWeights = form.getValues('weights');
-    const newWeights = newSieves.map((_, i) => oldWeights[i] || { value: null });
+    const newWeights = newSieves.map(() => ({ value: null }));
     replace(newWeights);
     setAnalysisResults(null);
     if(step === 2) setStep(1);
@@ -211,6 +202,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         description: `"${testData.name}" has been successfully saved.`,
       });
       router.push(`/dashboard/test/${testData.id}`);
+      router.refresh();
     } catch (error) {
       console.error("Firestore save error:", error);
       toast({

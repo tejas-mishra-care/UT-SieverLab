@@ -52,8 +52,6 @@ function EditTestView({ id }: { id: string }) {
   }
 
   if(!test) {
-    // This can happen if the doc doesn't exist or there was an error.
-    // The useEffect hooks above will handle redirection or notFound.
      return (
       <div className="flex h-full min-h-[500px] items-center justify-center">
         <p>Test not found or you do not have permission to view it.</p>
@@ -77,11 +75,11 @@ function EditTestView({ id }: { id: string }) {
 
 
 export default function EditTestPage({ params }: { params: { id: string } }) {
-  const id = React.use(params).id;
+  const resolvedParams = React.use(params);
   
   return (
     <React.Suspense fallback={<div className="flex h-full min-h-[500px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
-      <EditTestView id={id} />
+      <EditTestView id={resolvedParams.id} />
     </React.Suspense>
   );
 }
