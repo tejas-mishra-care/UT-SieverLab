@@ -30,9 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, WandSparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser } from "@/firebase";
-import { doc, setDoc } from "firebase/firestore";
-import Link from "next/link";
-import { useDebouncedCallback } from "use-debounce";
+import { doc, setDoc, addDoc, collection } from "firebase/firestore";
 
 const formSchema = z.object({
   name: z.string().min(1, "Test name is required."),
@@ -43,7 +41,7 @@ const formSchema = z.object({
 });
 
 interface NewTestFormProps {
-  existingTest: SieveAnalysisTest; // Changed to be required
+  existingTest?: SieveAnalysisTest;
 }
 
 export function NewTestForm({ existingTest }: NewTestFormProps) {
@@ -52,13 +50,14 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   const firestore = useFirestore();
   const { user } = useUser();
 
-  const [step, setStep] = React.useState(existingTest.status === 'completed' ? 2 : 1);
+  const isEditMode = !!existingTest;
+
+  const [step, setStep] = React.useState(isEditMode ? 1 : 1);
   const [isCalculating, setIsCalculating] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
-  const [saveStatus, setSaveStatus] = React.useState<'saved' | 'saving' | 'unsaved'>('saved');
 
   const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(
-    existingTest.status === 'completed' ? {
+    isEditMode ? {
       percentRetained: existingTest.percentRetained,
       cumulativeRetained: existingTest.cumulativeRetained,
       percentPassing: existingTest.percentPassing,
@@ -67,13 +66,15 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     } : null
   );
 
+  const defaultType: AggregateType = existingTest?.type || "Fine";
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: existingTest.name,
-      type: existingTest.type,
-      weights: (SIEVE_SIZES[existingTest.type] || SIEVE_SIZES.FINE).map(
-        (_, index) => ({ value: existingTest.weights[index] ?? null })
+      name: existingTest?.name || "",
+      type: defaultType,
+      weights: (SIEVE_SIZES[defaultType] || []).map(
+        (_, index) => ({ value: existingTest?.weights[index] ?? null })
       ),
     },
   });
@@ -84,47 +85,14 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   });
 
   const aggregateType = form.watch("type") as AggregateType;
-  const formValues = form.watch();
-
-  const debouncedSave = useDebouncedCallback(async (data: SieveAnalysisTest) => {
-    if (!firestore || !user) return;
-    setSaveStatus('saving');
-    const testDocRef = doc(firestore, 'tests', existingTest.id);
-    try {
-      await setDoc(testDocRef, data, { merge: true });
-      setSaveStatus('saved');
-    } catch (error) {
-      console.error("Autosave error:", error);
-      toast({ variant: 'destructive', title: 'Autosave Failed' });
-      setSaveStatus('unsaved');
-    }
-  }, 2000); // 2-second debounce
 
   React.useEffect(() => {
-    setSaveStatus('unsaved');
-    const currentSieves = SIEVE_SIZES[formValues.type as AggregateType] || [];
-    const weights = formValues.weights.map(w => w.value ?? 0);
-    const updatedData: Partial<SieveAnalysisTest> = {
-      name: formValues.name,
-      type: formValues.type as AggregateType,
-      weights: weights,
-      sieves: currentSieves,
-    };
-    debouncedSave(updatedData as SieveAnalysisTest);
-  }, [formValues, debouncedSave]);
-
-
-  React.useEffect(() => {
-    const newSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
-    replace(newSieves.map(() => ({ value: null })));
+    const newSieves = SIEVE_SIZES[aggregateType] || [];
+    const oldWeights = form.getValues('weights');
+    const newWeights = newSieves.map((_, i) => oldWeights[i] || { value: null });
+    replace(newWeights);
     setAnalysisResults(null);
-    form.reset({
-        name: form.getValues('name'),
-        type: aggregateType,
-        weights: newSieves.map(() => ({ value: null }))
-    });
   }, [aggregateType, replace]);
-
 
   async function handleCalculate(values: z.infer<typeof formSchema>) {
     setIsCalculating(true);
@@ -166,7 +134,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     }
   }
 
-  async function handleCompleteTest() {
+  async function handleSave() {
     if (!analysisResults || !user || !firestore) {
         toast({
             variant: "destructive",
@@ -176,13 +144,12 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         return;
     };
     setIsSaving(true);
-    setSaveStatus('saving');
     
     const currentSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
     const weights = form.getValues('weights').map(w => w.value || 0);
 
-    const testData: SieveAnalysisTest = {
-      ...existingTest,
+    const baseTestData = {
+      userId: user.uid,
       name: form.getValues("name"),
       type: aggregateType,
       sieves: currentSieves,
@@ -192,22 +159,29 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
       percentPassing: analysisResults.percentPassing,
       finenessModulus: analysisResults.finenessModulus,
       classification: analysisResults.classification,
-      status: 'completed',
-      timestamp: existingTest.timestamp || Date.now() // Keep original timestamp
+      status: 'completed' as const,
+      timestamp: isEditMode ? existingTest.timestamp : Date.now()
     };
     
     try {
-      const testDocRef = doc(firestore, 'tests', existingTest.id);
-      await setDoc(testDocRef, testData, { merge: true });
-      setSaveStatus('saved');
+      let testId: string;
+      if (isEditMode) {
+        testId = existingTest.id;
+        const testDocRef = doc(firestore, 'tests', testId);
+        await setDoc(testDocRef, { ...baseTestData, id: testId }, { merge: true });
+      } else {
+        const newTestRef = doc(collection(firestore, "tests"));
+        testId = newTestRef.id;
+        await setDoc(newTestRef, { ...baseTestData, id: testId });
+      }
+      
       toast({
-        title: "Test Completed",
-        description: `"${testData.name}" has been saved.`,
+        title: isEditMode ? "Test Updated" : "Test Saved",
+        description: `"${baseTestData.name}" has been successfully saved.`,
       });
-      router.push(`/dashboard/test/${existingTest.id}`);
+      router.push(`/dashboard/test/${testId}`);
       router.refresh(); 
     } catch (error) {
-      setSaveStatus('unsaved');
       console.error("Firestore save error:", error);
       toast({
         variant: "destructive",
@@ -221,17 +195,6 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   const currentSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
   
-  const getSaveStatusMessage = () => {
-    switch (saveStatus) {
-      case 'saving':
-        return <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Saving...</>;
-      case 'saved':
-        return <>All changes saved</>;
-      case 'unsaved':
-        return <>Unsaved changes</>;
-    }
-  };
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleCalculate)}>
@@ -264,9 +227,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
                        <FormLabel>Aggregate Type</FormLabel>
                       <FormControl>
                         <RadioGroup
-                          onValueChange={(value) => {
-                            field.onChange(value);
-                          }}
+                          onValueChange={(value) => field.onChange(value as AggregateType)}
                           defaultValue={field.value}
                           className="flex flex-col space-y-1"
                         >
@@ -341,8 +302,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
               </CardContent>
             </Card>
 
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground flex items-center">{getSaveStatusMessage()}</span>
+            <div className="flex justify-end">
               <Button type="submit" disabled={isCalculating}>
                 {isCalculating ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -364,17 +324,17 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
               {...analysisResults}
             />
           <div className="flex flex-col-reverse gap-4 sm:flex-row sm:justify-between">
-            <Button variant="outline" onClick={() => { setStep(1); }}>
+            <Button variant="outline" onClick={() => setStep(1)}>
                 Back to Inputs
             </Button>
 
-            <Button onClick={handleCompleteTest} disabled={isSaving || !user}>
+            <Button onClick={handleSave} disabled={isSaving || !user}>
               {isSaving ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              {existingTest.status === 'completed' ? 'Save Changes' : 'Complete and Save Test'}
+              {isEditMode ? 'Save Changes' : 'Save Test'}
             </Button>
           </div>
         </div>
