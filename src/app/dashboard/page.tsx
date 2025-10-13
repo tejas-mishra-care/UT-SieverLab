@@ -2,14 +2,13 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import { PlusCircle, Loader2 } from "lucide-react";
 import { TestCard } from "@/components/test-card";
 import type { SieveAnalysisTest } from "@/lib/definitions";
 import { useCollection, useUser, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, where, addDoc, doc, setDoc } from "firebase/firestore";
+import { collection, query, where, doc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import {_} from 'lodash';
+import _ from 'lodash';
 
 export default function DashboardPage() {
   const { user } = useUser();
@@ -46,7 +45,7 @@ export default function DashboardPage() {
     router.push(`/dashboard/test/${newTestRef.id}/edit`);
   };
 
-  const sortedTests = _.orderBy(tests, ['timestamp'], ['desc']);
+  const sortedTests = tests ? _.orderBy(tests, ['timestamp'], ['desc']) : [];
 
   return (
     <div className="space-y-6">
