@@ -7,10 +7,11 @@ import type { SieveAnalysisTest } from "@/lib/definitions";
 import { Loader2 } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { notFound, useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, use } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-export default function EditTestPage({ params }: { params: { id: string } }) {
+// The page component now correctly unwraps the params promise.
+function EditTestView({ id }: { id: string }) {
   const router = useRouter();
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -28,7 +29,7 @@ export default function EditTestPage({ params }: { params: { id: string } }) {
     }
 
     const fetchTest = async () => {
-      const testDocRef = doc(firestore, "tests", params.id);
+      const testDocRef = doc(firestore, "tests", id);
       const testSnap = await getDoc(testDocRef);
 
       if (!testSnap.exists()) {
@@ -53,7 +54,7 @@ export default function EditTestPage({ params }: { params: { id: string } }) {
     };
 
     fetchTest();
-  }, [firestore, isUserLoading, user, params.id, router, toast]);
+  }, [firestore, isUserLoading, user, id, router, toast]);
 
   if (isLoading || isUserLoading) {
     return (
@@ -64,6 +65,8 @@ export default function EditTestPage({ params }: { params: { id: string } }) {
   }
   
   if (!test) {
+    // This case is hit if loading is done but test is still null (e.g., not found).
+    // The notFound() inside fetchTest should handle this, but this is a safeguard.
     return null;
   }
 
@@ -77,5 +80,17 @@ export default function EditTestPage({ params }: { params: { id: string } }) {
       </div>
       <NewTestForm existingTest={test} />
     </div>
+  );
+}
+
+
+// This is the main page component. It is now a server component
+// that uses Suspense to handle the loading state.
+export default function EditTestPage({ params }: { params: { id: string } }) {
+  // `params` are guaranteed to be available in pages.
+  return (
+    <React.Suspense fallback={<div className="flex h-full min-h-[500px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+      <EditTestView id={params.id} />
+    </React.Suspense>
   );
 }

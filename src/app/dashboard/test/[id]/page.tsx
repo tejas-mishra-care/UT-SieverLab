@@ -1,7 +1,7 @@
 
 "use client";
 
-import { use, Suspense, useState, useEffect, useRef } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import { notFound, useRouter } from "next/navigation";
 import { SieveResultsDisplay } from "@/components/sieve-results-display";
 import { Button } from "@/components/ui/button";
@@ -251,11 +251,10 @@ function TestView({ id }: { id: string }) {
 
 // This is the main page component, now simplified.
 export default function TestViewPage({ params }: { params: { id: string } }) {
-  // `params` are guaranteed to be available in pages, no need for `use`.
+  // `params` are guaranteed to be available in pages.
   return (
     <Suspense fallback={<div className="flex h-full min-h-[500px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
       <TestView id={params.id} />
     </Suspense>
   );
 }
-
