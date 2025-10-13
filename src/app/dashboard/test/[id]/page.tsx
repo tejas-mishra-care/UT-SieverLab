@@ -26,8 +26,7 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import Link from "next/link";
 
-export default function TestViewPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default function TestViewPage({ params: { id } }: { params: { id: string } }) {
   const router = useRouter();
   const { toast } = useToast();
   const firestore = useFirestore();
