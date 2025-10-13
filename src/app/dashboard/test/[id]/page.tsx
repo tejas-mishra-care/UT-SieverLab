@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import React from "react";
+import React, { use } from "react";
 import { useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { doc, deleteDoc } from "firebase/firestore";
 import jsPDF from "jspdf";
@@ -208,6 +208,6 @@ function TestView({ id }: { id: string }) {
 }
 
 export default function TestViewPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = React.use(params);
+  const { id } = use(params);
   return <TestView id={id} />;
 }

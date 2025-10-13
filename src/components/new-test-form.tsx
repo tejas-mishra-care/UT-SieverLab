@@ -193,8 +193,9 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
             title: "An Error Occurred",
             description: "Could not save the test. Please try again.",
         });
+    } finally {
         setIsSaving(false);
-    } 
+    }
   }
 
   const currentSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;

@@ -7,7 +7,7 @@ import type { SieveAnalysisTest } from "@/lib/definitions";
 import { Loader2 } from "lucide-react";
 import { doc } from "firebase/firestore";
 import { notFound, useRouter } from "next/navigation";
-import React from "react";
+import React, { use } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 
@@ -64,6 +64,6 @@ function EditTest({ id }: { id: string }) {
 
 
 export default function EditTestPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = React.use(params);
+  const { id } = use(params);
   return <EditTest id={id} />;
 }
