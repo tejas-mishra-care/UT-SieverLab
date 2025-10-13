@@ -27,8 +27,9 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, useUser } from "@/firebase";
+import { useAuth, useUser, useFirestore } from "@/firebase";
 import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }),
@@ -39,6 +40,7 @@ export function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -75,7 +77,16 @@ export function LoginForm() {
     setIsSubmitting(true);
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+       const firebaseUser = result.user;
+
+      // Create or update user document
+      await setDoc(doc(firestore, "users", firebaseUser.uid), {
+        name: firebaseUser.displayName,
+        email: firebaseUser.email,
+        createdAt: new Date().toISOString(),
+      }, { merge: true });
+
       toast({
         title: "Login Successful",
         description: "Welcome!",
