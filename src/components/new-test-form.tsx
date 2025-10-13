@@ -10,7 +10,7 @@ import {
   classifyFineAggregate,
   SIEVE_SIZES,
 } from "@/lib/sieve-analysis";
-import type { AggregateType, AnalysisResults } from "@/lib/definitions";
+import type { AggregateType, AnalysisResults, SieveAnalysisTest } from "@/lib/definitions";
 import { SieveResultsDisplay } from "./sieve-results-display";
 
 import { Button } from "@/components/ui/button";
@@ -27,8 +27,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ArrowRight, Save, WandSparkles } from "lucide-react";
+import { Loader2, Save, WandSparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useFirestore, useUser } from "@/firebase";
+import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { collection } from "firebase/firestore";
 
 
 const formSchema = z.object({
@@ -41,6 +44,9 @@ const formSchema = z.object({
 export function NewTestForm() {
   const { toast } = useToast();
   const router = useRouter();
+  const firestore = useFirestore();
+  const { user } = useUser();
+
   const [step, setStep] = React.useState(1);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
@@ -50,7 +56,7 @@ export function NewTestForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       type: "Fine",
-      weights: SIEVE_SIZES.Fine.map(() => ({ value: 0 })),
+      weights: SIEVE_SIZES.FINE.map(() => ({ value: 0 })),
     },
   });
 
@@ -59,10 +65,10 @@ export function NewTestForm() {
     name: "weights",
   });
 
-  const aggregateType = form.watch("type");
+  const aggregateType = form.watch("type") as AggregateType;
 
   React.useEffect(() => {
-    const newSieves = aggregateType === "Fine" ? SIEVE_SIZES.Fine : SIEVE_SIZES.Coarse;
+    const newSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
     replace(newSieves.map(() => ({ value: 0 })));
   }, [aggregateType, replace]);
 
@@ -70,7 +76,7 @@ export function NewTestForm() {
     setIsLoading(true);
     setAnalysisResults(null);
     try {
-      const currentSieves = values.type === "Fine" ? SIEVE_SIZES.Fine : SIEVE_SIZES.Coarse;
+      const currentSieves = values.type === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
       const weights = values.weights.map((w) => w.value);
 
       const calculated = calculateSieveAnalysis(weights, currentSieves, values.type);
@@ -82,7 +88,7 @@ export function NewTestForm() {
         classification = classifyCoarseAggregate(calculated.percentPassing, currentSieves);
       }
       
-      const finalResults = { ...calculated, classification };
+      const finalResults: AnalysisResults = { ...calculated, classification };
       setAnalysisResults(finalResults);
       
       setStep(2);
@@ -99,18 +105,48 @@ export function NewTestForm() {
   }
 
   async function handleSave() {
+    if (!analysisResults || !user) {
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Cannot save test. User not logged in or analysis not complete."
+        });
+        return;
+    }
     setIsSaving(true);
-    // Simulate saving to Firebase
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsSaving(false);
-    toast({
-        title: "Test Saved Successfully",
-        description: "Your sieve analysis has been saved to your dashboard.",
-    });
-    router.push('/dashboard');
+    const currentSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
+    const weights = form.getValues('weights').map(w => w.value);
+    
+    const newTest: Omit<SieveAnalysisTest, 'id'> = {
+        userId: user.uid,
+        type: aggregateType,
+        timestamp: Date.now(),
+        sieves: currentSieves,
+        weights: weights,
+        results: analysisResults,
+    };
+    
+    try {
+      const testsCollection = collection(firestore, "tests");
+      await addDocumentNonBlocking(testsCollection, newTest);
+
+      toast({
+          title: "Test Saved Successfully",
+          description: "Your sieve analysis has been saved to your dashboard.",
+      });
+      router.push('/dashboard');
+    } catch(error) {
+        console.error("Firestore save error:", error);
+        toast({
+            variant: "destructive",
+            title: "Save Failed",
+            description: "Could not save the test to the database.",
+        });
+        setIsSaving(false);
+    }
   }
 
-  const currentSieves = aggregateType === "Fine" ? SIEVE_SIZES.Fine : SIEVE_SIZES.Coarse;
+  const currentSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
 
   return (
     <Form {...form}>

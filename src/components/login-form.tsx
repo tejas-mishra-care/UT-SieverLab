@@ -27,6 +27,8 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth, useUser } from "@/firebase";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }),
@@ -36,7 +38,9 @@ const formSchema = z.object({
 export function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = React.useState(false);
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -46,27 +50,52 @@ export function LoginForm() {
     },
   });
 
+  React.useEffect(() => {
+    if (!isUserLoading && user) {
+      router.push("/dashboard");
+    }
+  }, [user, isUserLoading, router]);
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    // In a real app, you'd handle Firebase auth here.
-    if (values.email === "test@example.com" && values.password === "password") {
+    setIsSubmitting(true);
+    try {
+      await auth.signInWithEmailAndPassword(values.email, values.password);
       toast({
         title: "Login Successful",
         description: "Welcome back!",
       });
-      router.push("/dashboard");
-    } else {
-       toast({
+      // Redirect is handled by useEffect
+    } catch (error: any) {
+      toast({
         variant: "destructive",
         title: "Login Failed",
-        description: "Invalid email or password. Use test@example.com and 'password'.",
+        description: error.message || "An unexpected error occurred.",
       });
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   }
+
+  const handleGoogleSignIn = async () => {
+    setIsSubmitting(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      toast({
+        title: "Login Successful",
+        description: "Welcome!",
+      });
+      // Redirect is handled by useEffect
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Google Sign-In Failed",
+        description: error.message || "Could not sign in with Google.",
+      });
+      setIsSubmitting(false);
+    }
+  };
+  
+  const isLoading = isSubmitting || isUserLoading;
 
   return (
     <Card className="w-full">
@@ -117,7 +146,8 @@ export function LoginForm() {
             </span>
           </div>
         </div>
-        <Button variant="outline" className="w-full" disabled={isLoading}>
+        <Button variant="outline" className="w-full" disabled={isLoading} onClick={handleGoogleSignIn}>
+          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Google
         </Button>
       </CardContent>

@@ -27,6 +27,10 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth, useUser } from "@/firebase";
+import { GoogleAuthProvider, signInWithPopup, updateProfile } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -37,7 +41,10 @@ const formSchema = z.object({
 export function SignupForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = React.useState(false);
+  const auth = useAuth();
+  const firestore = useFirestore();
+  const { user, isUserLoading } = useUser();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -48,18 +55,68 @@ export function SignupForm() {
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsLoading(true);
-    // Simulate API call for signup
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+  React.useEffect(() => {
+    if (!isUserLoading && user) {
+      router.push("/dashboard");
+    }
+  }, [user, isUserLoading, router]);
 
-    // In a real app, you'd handle Firebase user creation and Firestore doc creation.
-    toast({
-      title: "Account Created",
-      description: "You have been successfully signed up.",
-    });
-    router.push("/dashboard");
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
+    try {
+      const userCredential = await auth.createUserWithEmailAndPassword(values.email, values.password);
+      const firebaseUser = userCredential.user;
+      
+      await updateProfile(firebaseUser, { displayName: values.name });
+
+      await setDoc(doc(firestore, "users", firebaseUser.uid), {
+        name: values.name,
+        email: values.email,
+        createdAt: new Date().toISOString(),
+      });
+      
+      toast({
+        title: "Account Created",
+        description: "You have been successfully signed up.",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Sign Up Failed",
+        description: error.message || "An unexpected error occurred.",
+      });
+      setIsSubmitting(false);
+    }
   }
+
+  const handleGoogleSignIn = async () => {
+    setIsSubmitting(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const firebaseUser = result.user;
+
+      await setDoc(doc(firestore, "users", firebaseUser.uid), {
+        name: firebaseUser.displayName,
+        email: firebaseUser.email,
+        createdAt: new Date().toISOString(),
+      }, { merge: true });
+
+      toast({
+        title: "Account Created",
+        description: "Welcome!",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Google Sign-In Failed",
+        description: error.message || "Could not sign in with Google.",
+      });
+      setIsSubmitting(false);
+    }
+  };
+
+  const isLoading = isSubmitting || isUserLoading;
 
   return (
     <Card className="w-full">
@@ -125,7 +182,8 @@ export function SignupForm() {
             </span>
           </div>
         </div>
-        <Button variant="outline" className="w-full" disabled={isLoading}>
+        <Button variant="outline" className="w-full" disabled={isLoading} onClick={handleGoogleSignIn}>
+           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Sign Up with Google
         </Button>
       </CardContent>

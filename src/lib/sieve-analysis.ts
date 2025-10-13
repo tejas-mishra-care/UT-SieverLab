@@ -87,7 +87,8 @@ export function calculateSieveAnalysis(
       }
       return sum;
     }, 0);
-    finenessModulus = sumCumulativeForFM / 100;
+    // Pan is not included, so we add 100 for it
+    finenessModulus = (sumCumulativeForFM + 100) / 100;
   }
 
   return {
