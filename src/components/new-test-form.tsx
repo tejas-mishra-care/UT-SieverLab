@@ -64,7 +64,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     defaultValues: {
       name: existingTest?.name || "",
       type: existingTest?.type || "Fine",
-      weights: (existingTest?.weights || SIEVE_SIZES.FINE.map(() => null)).map(
+      weights: (existingTest?.weights.length ? existingTest.weights : SIEVE_SIZES.FINE.map(() => null)).map(
         (w) => ({ value: w })
       ),
     },
@@ -78,13 +78,20 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   const aggregateType = form.watch("type") as AggregateType;
 
   React.useEffect(() => {
-    // Only reset if it's a new test form
-    if (!existingTest) {
-      const newSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
-      replace(newSieves.map(() => ({ value: null })));
-      setAnalysisResults(null);
+    const newSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
+    const currentWeights = form.getValues('weights');
+    
+    // Only update if the number of sieves changes (i.e. type change)
+    if (currentWeights.length !== newSieves.length) {
+      if (!existingTest || existingTest.type !== aggregateType) {
+        replace(newSieves.map(() => ({ value: null })));
+        setAnalysisResults(null);
+      } else {
+        // If it's an existing test and type matches, restore its weights
+        replace(existingTest.weights.map(w => ({ value: w })));
+      }
     }
-  }, [aggregateType, replace, existingTest]);
+  }, [aggregateType, replace, existingTest, form]);
 
   React.useEffect(() => {
     if (existingTest) {
@@ -152,7 +159,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     try {
         if (existingTest) {
           const testDocRef = doc(firestore, 'tests', existingTest.id);
-          await setDoc(testDocRef, testData);
+          await setDoc(testDocRef, testData, { merge: true });
           toast({
             title: "Test Updated Successfully",
             description: `"${testData.name}" has been updated.`,
@@ -160,7 +167,9 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         router.push(`/dashboard/test/${existingTest.id}`);
         } else {
             const testsCollection = collection(firestore, 'tests');
-            const docRef = await addDoc(testsCollection, testData);
+            const newDoc = { ...testData, id: ''};
+            const docRef = await addDoc(testsCollection, newDoc);
+            await setDoc(docRef, { id: docRef.id }, { merge: true });
             
             toast({
                 title: "Test Saved Successfully",
@@ -191,7 +200,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
                 <CardTitle>Step 1: Test Details</CardTitle>
                 <CardDescription>Enter a name for your test and select the aggregate type.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pt-6">
                  <FormField
                   control={form.control}
                   name="name"
@@ -242,7 +251,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
               <CardHeader>
                 <CardTitle>Step 2: Enter Weights</CardTitle>
                 <CardDescription>
-                  Enter the weight (in grams) retained on each sieve. Leave blank if not used.
+                  Enter the weight (in grams) retained on each sieve. Leave blank or enter 0 if not used.
                 </CardDescription>
               </CardHeader>
               <CardContent>
