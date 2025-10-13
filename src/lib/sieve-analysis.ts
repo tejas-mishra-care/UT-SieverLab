@@ -1,5 +1,5 @@
 
-import type { AggregateType } from "./definitions";
+import type { AnalysisResults } from "./definitions";
 
 // IS 383: 2016
 export const SIEVE_SIZES = {

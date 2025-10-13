@@ -56,7 +56,6 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   
-  // Combine all results into a single state
   const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(
     existingTest ? {
       percentRetained: existingTest.percentRetained,
@@ -91,7 +90,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         replace(newSieves.map(() => ({ value: null })));
         setAnalysisResults(null);
     }
-  }, [aggregateType, replace, existingTest, form]);
+  }, [aggregateType, replace, existingTest]);
 
   React.useEffect(() => {
     if (existingTest) {

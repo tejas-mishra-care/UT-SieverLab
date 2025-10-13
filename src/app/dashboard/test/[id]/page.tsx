@@ -36,7 +36,6 @@ export default function TestViewPage({ params: { id } }: { params: { id: string 
 
   const printRef = React.useRef<HTMLDivElement>(null);
 
-
   const testDocRef = useMemoFirebase(() => {
       if (!id || !firestore) return null;
       return doc(firestore, "tests", id);
@@ -110,7 +109,7 @@ export default function TestViewPage({ params: { id } }: { params: { id: string 
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-full min-h-[500px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
