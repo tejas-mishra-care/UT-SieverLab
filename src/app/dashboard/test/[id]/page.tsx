@@ -1,7 +1,7 @@
 
 "use client";
 
-import { use, Suspense } from 'react';
+import { use, Suspense, useState, useEffect } from 'react';
 import { notFound, useRouter } from "next/navigation";
 import { SieveResultsDisplay } from "@/components/sieve-results-display";
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import React from "react";
-import { useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
-import { doc, deleteDoc } from "firebase/firestore";
+import { useFirestore, useUser } from "@/firebase";
+import { doc, deleteDoc, getDoc } from "firebase/firestore";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import Link from "next/link";
@@ -33,39 +33,51 @@ function TestView({ id }: { id: string }) {
   const { user, isUserLoading } = useUser();
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [isDownloading, setIsDownloading] = React.useState(false);
+  
+  const [test, setTest] = useState<SieveAnalysisTest | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const printRef = React.useRef<HTMLDivElement>(null);
 
-  const testDocRef = useMemoFirebase(() => {
-    if (firestore && id) {
-      return doc(firestore, "tests", id);
+  useEffect(() => {
+    if (!firestore || isUserLoading) {
+      return; // Wait for Firebase and user
     }
-    return null;
-  }, [firestore, id]);
 
-  const { data: test, isLoading: isTestLoading } = useDoc<SieveAnalysisTest>(testDocRef);
+    const fetchTest = async () => {
+      setIsLoading(true);
+      const testDocRef = doc(firestore, 'tests', id);
+      const testSnap = await getDoc(testDocRef);
 
-  React.useEffect(() => {
-    const isDataLoaded = !isUserLoading && !isTestLoading;
-    if (isDataLoaded && testDocRef) { // Ensure doc ref was created
-      if (!test) {
+      if (!testSnap.exists()) {
         notFound();
         return;
       }
-      if (user && test.userId !== user.uid) {
+      
+      const testData = testSnap.data() as SieveAnalysisTest;
+
+      if (testData.userId !== user?.uid) {
         toast({
           variant: "destructive",
           title: "Access Denied",
           description: "You do not have permission to view this test.",
         });
         router.push("/dashboard");
+        return;
       }
-    }
-  }, [isUserLoading, isTestLoading, test, user, testDocRef, router, toast]);
+      
+      setTest(testData);
+      setIsLoading(false);
+    };
+
+    fetchTest();
+  }, [id, firestore, user, isUserLoading, router, toast]);
+
 
   const handleDelete = async () => {
-    if (!test || !testDocRef) return;
+    if (!test || !firestore) return;
     setIsDeleting(true);
+    const testDocRef = doc(firestore, 'tests', id);
     try {
       await deleteDoc(testDocRef);
       toast({
@@ -117,14 +129,16 @@ function TestView({ id }: { id: string }) {
     }
   };
 
-  const isLoading = isUserLoading || isTestLoading || !test;
-
   if (isLoading) {
     return (
       <div className="flex h-full min-h-[500px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
+  }
+
+  if (!test) {
+    return notFound();
   }
 
   return (

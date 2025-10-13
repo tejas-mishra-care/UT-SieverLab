@@ -2,12 +2,12 @@
 "use client";
 
 import { NewTestForm } from "@/components/new-test-form";
-import { useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
+import { useFirestore, useUser } from "@/firebase";
 import type { SieveAnalysisTest } from "@/lib/definitions";
 import { Loader2 } from "lucide-react";
-import { doc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { notFound, useRouter } from "next/navigation";
-import React, { use, useEffect } from "react";
+import React, { use, useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 function EditTest({ id }: { id: string }) {
@@ -16,20 +16,29 @@ function EditTest({ id }: { id: string }) {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
 
-  const testDocRef = useMemoFirebase(() => {
-    if (firestore && id) {
-      return doc(firestore, "tests", id);
-    }
-    return null;
-  }, [firestore, id]);
-
-  const { data: test, isLoading: isTestLoading } = useDoc<SieveAnalysisTest>(testDocRef);
+  const [test, setTest] = useState<SieveAnalysisTest | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // This effect handles authorization after data loading is complete.
     // It runs only when the loading states or data changes.
-    if (!isTestLoading && !isUserLoading && user && test) {
-      if (test.userId !== user.uid) {
+    if (!firestore || isUserLoading) {
+      return; // Wait until firebase is ready and user auth state is known
+    }
+
+    const fetchTest = async () => {
+      setIsLoading(true);
+      const testDocRef = doc(firestore, "tests", id);
+      const testSnap = await getDoc(testDocRef);
+
+      if (!testSnap.exists()) {
+        notFound();
+        return;
+      }
+      
+      const testData = testSnap.data() as SieveAnalysisTest;
+
+      if (testData.userId !== user?.uid) {
         // If the test doesn't belong to the current user, deny access.
         toast({
           variant: "destructive",
@@ -37,18 +46,16 @@ function EditTest({ id }: { id: string }) {
           description: "You do not have permission to edit this test.",
         });
         router.push("/dashboard");
+        return;
       }
-    }
-  }, [isTestLoading, isUserLoading, test, user, router, toast]);
 
-  // Combined loading state. Show spinner until all initial data fetching is attempted.
-  const isLoading = isUserLoading || isTestLoading || !testDocRef;
-  
-  // After loading, if the test is still not found, then it's a 404.
-  // This prevents the race condition where we check for `test` before `useDoc` has had a chance to fetch it.
-  if (!isLoading && !test) {
-    notFound();
-  }
+      setTest(testData);
+      setIsLoading(false);
+    };
+
+    fetchTest();
+
+  }, [firestore, isUserLoading, user, id, router, toast]);
 
   if (isLoading) {
     return (
@@ -56,6 +63,11 @@ function EditTest({ id }: { id: string }) {
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
+  }
+  
+  if (!test) {
+    // This will be caught by the notFound in the effect, but as a safeguard:
+    return notFound();
   }
 
   // We can only reach this point if isLoading is false and test is not null.
