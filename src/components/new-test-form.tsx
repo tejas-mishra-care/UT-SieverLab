@@ -52,12 +52,12 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   const isEditMode = !!existingTest;
 
-  const [step, setStep] = React.useState(isEditMode ? 1 : 1);
+  const [step, setStep] = React.useState(1);
   const [isCalculating, setIsCalculating] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
 
   const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(
-    isEditMode ? {
+    isEditMode && existingTest.status === 'completed' ? {
       percentRetained: existingTest.percentRetained,
       cumulativeRetained: existingTest.cumulativeRetained,
       percentPassing: existingTest.percentPassing,
@@ -89,10 +89,17 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   React.useEffect(() => {
     const newSieves = SIEVE_SIZES[aggregateType] || [];
     const oldWeights = form.getValues('weights');
-    const newWeights = newSieves.map((_, i) => oldWeights[i] || { value: null });
+    const newWeights = newSieves.map((_, i) => (isEditMode && aggregateType === existingTest?.type) ? { value: existingTest?.weights[i] ?? null } : { value: null });
     replace(newWeights);
     setAnalysisResults(null);
-  }, [aggregateType, replace]);
+  }, [aggregateType, replace, isEditMode, existingTest]);
+
+  React.useEffect(() => {
+    if (isEditMode && existingTest.status === 'completed') {
+      setStep(2);
+    }
+  }, [isEditMode, existingTest]);
+
 
   async function handleCalculate(values: z.infer<typeof formSchema>) {
     setIsCalculating(true);
@@ -101,6 +108,16 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     try {
       const currentSieves = values.type === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
       const weights = values.weights.map((w) => w.value || 0);
+
+      if (weights.reduce((a,b) => a+b, 0) <= 0) {
+        toast({
+          variant: "destructive",
+          title: "Invalid Input",
+          description: "Total weight must be greater than zero.",
+        });
+        setIsCalculating(false);
+        return;
+      }
 
       const calculated = calculateSieveAnalysis(weights);
       
@@ -160,7 +177,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
       finenessModulus: analysisResults.finenessModulus,
       classification: analysisResults.classification,
       status: 'completed' as const,
-      timestamp: isEditMode ? existingTest.timestamp : Date.now()
+      timestamp: existingTest?.timestamp || Date.now()
     };
     
     try {
@@ -170,9 +187,9 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         const testDocRef = doc(firestore, 'tests', testId);
         await setDoc(testDocRef, { ...baseTestData, id: testId }, { merge: true });
       } else {
-        const newTestRef = doc(collection(firestore, "tests"));
-        testId = newTestRef.id;
-        await setDoc(newTestRef, { ...baseTestData, id: testId });
+        const newTestDoc = doc(collection(firestore, "tests"));
+        testId = newTestDoc.id;
+        await setDoc(newTestDoc, { ...baseTestData, id: testId });
       }
       
       toast({
@@ -334,7 +351,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              {isEditMode ? 'Save Changes' : 'Save Test'}
+              {isEditMode ? 'Update Test' : 'Save Test'}
             </Button>
           </div>
         </div>
@@ -342,3 +359,5 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     </Form>
   );
 }
+
+    
