@@ -61,18 +61,21 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   const [isSaving, setIsSaving] = React.useState(false);
   const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(null);
 
-  const defaultSieves = getSievesForType(existingTest?.type || 'Fine');
-  const defaultWeights = defaultSieves.map((_, index) => ({
-    value: existingTest?.weights?.[index] ?? null,
-  }));
+  const defaultValues = React.useMemo(() => {
+    const type = existingTest?.type || 'Fine';
+    const sieves = getSievesForType(type);
+    return {
+      name: existingTest?.name || '',
+      type: type,
+      weights: sieves.map((_, index) => ({
+        value: existingTest?.weights?.[index] ?? null,
+      })),
+    };
+  }, [existingTest]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: existingTest?.name || '',
-      type: existingTest?.type || 'Fine',
-      weights: defaultWeights,
-    },
+    defaultValues: defaultValues,
   });
 
   const { fields, replace } = useFieldArray({
@@ -82,13 +85,13 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   const aggregateType = form.watch("type") as AggregateType;
 
-  // Sync form with existingTest data when it loads
   React.useEffect(() => {
     if (existingTest) {
-      const sieves = getSievesForType(existingTest.type);
+      const type = existingTest.type;
+      const sieves = getSievesForType(type);
       form.reset({
         name: existingTest.name,
-        type: existingTest.type,
+        type: type,
         weights: sieves.map((_, index) => ({
           value: existingTest.weights?.[index] ?? null,
         })),
@@ -105,15 +108,16 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         setStep(2);
       }
     }
-  }, [existingTest, form.reset]);
+  }, [existingTest, form]);
   
-  // Update weights array when aggregate type changes
   React.useEffect(() => {
     const newSieves = getSievesForType(aggregateType);
-    const newWeights = newSieves.map(() => ({ value: null }));
+    const oldWeights = form.getValues('weights');
+    const newWeights = newSieves.map((_, i) => oldWeights[i] || { value: null });
     replace(newWeights);
     setAnalysisResults(null);
     if(step === 2) setStep(1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aggregateType, replace]);
 
 
@@ -236,9 +240,9 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Test Name</FormLabel>
+                      <FormLabel htmlFor="testName">Test Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., 'Sample from Site A'" {...field} autoComplete="off" />
+                        <Input id="testName" placeholder="e.g., 'Sample from Site A'" {...field} autoComplete="off" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -314,6 +318,8 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
                                       value={controllerField.value ?? ""}
                                       onChange={event => controllerField.onChange(event.target.value === '' ? null : parseFloat(event.target.value))}
                                       className="max-w-sm"
+                                      id={`weight-${index}`}
+                                      name={`weight-${index}`}
                                     />
                                   </FormControl>
                                   <FormMessage>

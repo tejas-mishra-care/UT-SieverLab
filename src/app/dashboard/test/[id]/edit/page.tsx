@@ -7,7 +7,7 @@ import type { SieveAnalysisTest } from "@/lib/definitions";
 import { Loader2 } from "lucide-react";
 import { doc } from "firebase/firestore";
 import { notFound, useRouter } from "next/navigation";
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 function EditTestView({ id }: { id: string }) {
@@ -85,5 +85,3 @@ export default function EditTestPage({ params }: { params: { id: string } }) {
     </React.Suspense>
   );
 }
-
-    

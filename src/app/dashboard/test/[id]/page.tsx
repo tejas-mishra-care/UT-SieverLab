@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Suspense, useState, useEffect, useRef, useMemo } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import { notFound, useRouter } from "next/navigation";
 import { SieveResultsDisplay } from "@/components/sieve-results-display";
 import { Button } from "@/components/ui/button";
@@ -260,5 +260,3 @@ export default function TestViewPage({ params }: { params: { id: string } }) {
     </Suspense>
   );
 }
-
-    
