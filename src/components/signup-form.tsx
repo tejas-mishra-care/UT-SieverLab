@@ -30,7 +30,7 @@ import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, useUser, useFirestore } from "@/firebase";
 import { GoogleAuthProvider, signInWithPopup, updateProfile, createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -63,6 +63,7 @@ export function SignupForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
+    if (!auth || !firestore) return;
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const firebaseUser = userCredential.user;
@@ -90,17 +91,24 @@ export function SignupForm() {
   }
 
   const handleGoogleSignIn = async () => {
+    if (!auth || !firestore) return;
     setIsSubmitting(true);
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       const firebaseUser = result.user;
 
-      await setDoc(doc(firestore, "users", firebaseUser.uid), {
-        name: firebaseUser.displayName,
-        email: firebaseUser.email,
-        createdAt: new Date().toISOString(),
-      }, { merge: true });
+      const userDocRef = doc(firestore, "users", firebaseUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+          await setDoc(userDocRef, {
+            name: firebaseUser.displayName,
+            email: firebaseUser.email,
+            createdAt: new Date().toISOString(),
+          });
+      }
+
 
       toast({
         title: "Account Created",
@@ -149,7 +157,7 @@ export function SignupForm() {
                 <FormItem>
                   <FormLabel htmlFor="email">Email</FormLabel>
                   <FormControl>
-                    <Input id="email" placeholder="you@example.com" {...field} autoComplete="email" />
+                    <Input id="email" type="email" placeholder="you@example.com" {...field} autoComplete="email" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

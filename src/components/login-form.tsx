@@ -30,7 +30,7 @@ import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, useUser, useFirestore } from "@/firebase";
 import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }),
@@ -88,14 +88,18 @@ export function LoginForm() {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-       const firebaseUser = result.user;
+      const firebaseUser = result.user;
+      
+      const userDocRef = doc(firestore, "users", firebaseUser.uid);
+      const userDoc = await getDoc(userDocRef);
 
-      // Create or update user document
-      await setDoc(doc(firestore, "users", firebaseUser.uid), {
-        name: firebaseUser.displayName,
-        email: firebaseUser.email,
-        createdAt: new Date().toISOString(),
-      }, { merge: true });
+      if (!userDoc.exists()) {
+        await setDoc(userDocRef, {
+          name: firebaseUser.displayName,
+          email: firebaseUser.email,
+          createdAt: new Date().toISOString(),
+        });
+      }
 
       toast({
         title: "Login Successful",
@@ -130,7 +134,7 @@ export function LoginForm() {
                 <FormItem>
                   <FormLabel htmlFor="email">Email</FormLabel>
                   <FormControl>
-                    <Input id="email" placeholder="you@example.com" {...field} suppressHydrationWarning autoComplete="email" />
+                    <Input id="email" type="email" placeholder="you@example.com" {...field} autoComplete="email" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -143,7 +147,7 @@ export function LoginForm() {
                 <FormItem>
                   <FormLabel htmlFor="password">Password</FormLabel>
                   <FormControl>
-                    <Input id="password" type="password" placeholder="••••••••" {...field} suppressHydrationWarning autoComplete="current-password" />
+                    <Input id="password" type="password" placeholder="••••••••" {...field} autoComplete="current-password" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
