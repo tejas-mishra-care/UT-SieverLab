@@ -70,7 +70,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     defaultValues: {
       name: existingTest?.name || "",
       type: existingTest?.type || "Fine",
-      weights: SIEVE_SIZES[(existingTest?.type || "Fine").toUpperCase() as keyof typeof SIEVE_SIZES].map(
+      weights: (SIEVE_SIZES[(existingTest?.type || "Fine").toUpperCase() as keyof typeof SIEVE_SIZES] || []).map(
         (_, index) => ({ value: existingTest?.weights?.[index] ?? null })
       ),
     },
@@ -85,16 +85,24 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   React.useEffect(() => {
     const newSieves = SIEVE_SIZES[aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
-    const newWeights = newSieves.map((_, index) => {
-        // If we are in edit mode and the type is the same, keep the old weight
-        if (isEditMode && existingTest.type === aggregateType) {
-            return { value: existingTest.weights?.[index] ?? null };
-        }
-        return { value: null };
-    });
+    const newWeights = newSieves.map(() => ({ value: null }));
     replace(newWeights);
     setAnalysisResults(null);
-  }, [aggregateType, replace, isEditMode, existingTest]);
+    form.setValue('weights', newWeights);
+  }, [aggregateType, replace, form]);
+
+  React.useEffect(() => {
+    if (existingTest) {
+      const currentSieves = SIEVE_SIZES[existingTest.type.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
+      form.reset({
+        name: existingTest.name,
+        type: existingTest.type,
+        weights: currentSieves.map((_, index) => ({
+          value: existingTest.weights?.[index] ?? null,
+        })),
+      });
+    }
+  }, [existingTest, form]);
 
   async function handleCalculate(values: z.infer<typeof formSchema>) {
     setIsCalculating(true);
@@ -159,7 +167,8 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     const currentSieves = SIEVE_SIZES[aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES];
     const weights = form.getValues('weights').map(w => w.value || 0);
 
-    const testData: Omit<SieveAnalysisTest, 'id'> = {
+    const testData: SieveAnalysisTest = {
+      id: isEditMode ? existingTest.id : doc(collection(firestore, "tests")).id,
       userId: user.uid,
       name: form.getValues("name"),
       type: aggregateType,
@@ -175,15 +184,14 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     };
     
     try {
-      const testId = isEditMode ? existingTest.id : doc(collection(firestore, "tests")).id;
-      const testDocRef = doc(firestore, 'tests', testId);
-      await setDoc(testDocRef, { ...testData, id: testId });
+      const testDocRef = doc(firestore, 'tests', testData.id);
+      await setDoc(testDocRef, testData);
       
       toast({
         title: isEditMode ? "Test Updated" : "Test Saved",
         description: `"${testData.name}" has been successfully saved.`,
       });
-      router.push(`/dashboard/test/${testId}`);
+      router.push(`/dashboard/test/${testData.id}`);
       router.refresh(); 
     } catch (error) {
       console.error("Firestore save error:", error);
@@ -197,7 +205,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     }
   }
 
-  const currentSieves = SIEVE_SIZES[aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES];
+  const currentSieves = SIEVE_SIZES[aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
   
   return (
     <Form {...form}>

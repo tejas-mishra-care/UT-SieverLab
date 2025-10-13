@@ -208,15 +208,7 @@ function TestView({ id }: { id: string }) {
         </div>
       </div>
 
-      <div ref={printRef} className="bg-background rounded-lg p-6">
-        <div className="mb-6 border-b pb-4">
-          <h1 className="font-headline text-2xl font-bold">{test.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            Sieve Analysis Report &bull;{" "}
-            {new Date(test.timestamp).toLocaleDateString()}
-          </p>
-        </div>
-        
+      <div className="bg-background rounded-lg p-6">
         {isDraft ? (
              <div className="flex min-h-[200px] flex-col items-center justify-center rounded-lg border border-dashed text-center">
                 <h3 className="text-xl font-bold tracking-tight">This is a draft.</h3>
@@ -231,7 +223,14 @@ function TestView({ id }: { id: string }) {
                 </Button>
             </div>
         ) : (
-          <div className="space-y-6">
+          <div ref={printRef} className="space-y-6 bg-background rounded-lg p-4">
+             <div className="mb-6 border-b pb-4">
+              <h1 className="font-headline text-2xl font-bold">{test.name}</h1>
+              <p className="text-sm text-muted-foreground">
+                Sieve Analysis Report &bull;{" "}
+                {new Date(test.timestamp).toLocaleDateString()}
+              </p>
+            </div>
             <SieveInputsDisplay sieves={test.sieves} weights={test.weights} />
             <SieveResultsDisplay
               sieves={test.sieves}
@@ -251,8 +250,7 @@ function TestView({ id }: { id: string }) {
 
 // This is the main page component, now simplified.
 export default function TestViewPage({ params }: { params: { id: string } }) {
-  // `params` is a promise, so we use `React.use` to unwrap it.
-  const { id } = React.use(params);
+  const id = React.use(params).id;
 
   return (
     <Suspense fallback={<div className="flex h-full min-h-[500px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
