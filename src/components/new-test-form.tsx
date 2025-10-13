@@ -30,7 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, WandSparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser } from "@/firebase";
-import { doc, setDoc, addDoc, collection } from "firebase/firestore";
+import { doc, setDoc, collection } from "firebase/firestore";
 
 const formSchema = z.object({
   name: z.string().min(1, "Test name is required."),
@@ -88,11 +88,18 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   React.useEffect(() => {
     const newSieves = SIEVE_SIZES[aggregateType] || [];
-    const oldWeights = form.getValues('weights');
-    const newWeights = newSieves.map((_, i) => (isEditMode && aggregateType === existingTest?.type) ? { value: existingTest?.weights[i] ?? null } : { value: null });
+    const newWeights = newSieves.map((_, i) => {
+      // If in edit mode AND the type hasn't changed, use existing weights
+      if (isEditMode && aggregateType === existingTest?.type) {
+        return { value: existingTest?.weights[i] ?? null };
+      }
+      // Otherwise, for new forms or changed types, start with empty values
+      return { value: null };
+    });
     replace(newWeights);
     setAnalysisResults(null);
   }, [aggregateType, replace, isEditMode, existingTest]);
+
 
   React.useEffect(() => {
     if (isEditMode && existingTest.status === 'completed') {
