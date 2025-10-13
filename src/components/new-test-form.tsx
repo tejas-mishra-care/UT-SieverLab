@@ -66,15 +66,13 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     } : null
   );
 
-  const defaultType: AggregateType = existingTest?.type || "Fine";
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: existingTest?.name || "",
-      type: defaultType,
-      weights: (SIEVE_SIZES[defaultType] || []).map(
-        (_, index) => ({ value: existingTest?.weights[index] ?? null })
+      type: existingTest?.type || "Fine",
+      weights: SIEVE_SIZES[existingTest?.type || "Fine"].map(
+        (_, index) => ({ value: existingTest?.weights?.[index] ?? null })
       ),
     },
   });
@@ -86,19 +84,27 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   const aggregateType = form.watch("type") as AggregateType;
 
+  // This effect correctly resets and repopulates the form fields
+  // when switching aggregate types.
   React.useEffect(() => {
     const newSieves = SIEVE_SIZES[aggregateType] || [];
-    const newWeights = newSieves.map((_, i) => {
-      // If in edit mode AND the type hasn't changed, use existing weights
-      if (isEditMode && aggregateType === existingTest?.type) {
-        return { value: existingTest?.weights[i] ?? null };
-      }
-      // Otherwise, for new forms or changed types, start with empty values
-      return { value: null };
-    });
+    const newWeights = newSieves.map(() => ({ value: null }));
     replace(newWeights);
     setAnalysisResults(null);
-  }, [aggregateType, replace, isEditMode, existingTest]);
+  }, [aggregateType, replace]);
+  
+  // This effect ensures the form is correctly populated when editing an existing test.
+  React.useEffect(() => {
+    if (existingTest) {
+      form.reset({
+        name: existingTest.name,
+        type: existingTest.type,
+        weights: SIEVE_SIZES[existingTest.type].map((_, index) => ({
+          value: existingTest.weights?.[index] ?? null,
+        })),
+      });
+    }
+  }, [existingTest, form]);
 
 
   React.useEffect(() => {
