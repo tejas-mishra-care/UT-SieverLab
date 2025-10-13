@@ -17,9 +17,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 import React, { use } from "react";
-import { useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
+import { useDoc, useFirestore, useUser } from "@/firebase";
 import { doc, deleteDoc } from "firebase/firestore";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -35,12 +35,39 @@ function TestView({ id }: { id: string }) {
 
   const printRef = React.useRef<HTMLDivElement>(null);
 
-  const testDocRef = useMemoFirebase(() => {
-    if (!id || !firestore) return null;
-    return doc(firestore, "tests", id);
+  // State for the document reference, created only when firestore and id are available.
+  const [testDocRef, setTestDocRef] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    // This effect ensures we only create the document reference when both
+    // firestore and the id from the URL are available, preventing a race condition.
+    if (firestore && id) {
+      setTestDocRef(doc(firestore, "tests", id));
+    }
   }, [firestore, id]);
 
   const { data: test, isLoading: isTestLoading } = useDoc<SieveAnalysisTest>(testDocRef);
+
+  React.useEffect(() => {
+    // This effect handles authorization and "not found" logic after the data has been fetched.
+    const isDataLoaded = !isUserLoading && !isTestLoading;
+    if (isDataLoaded && testDocRef) {
+      if (!test) {
+        // If the document doesn't exist after loading is complete, show a 404 page.
+        notFound();
+        return;
+      }
+      if (user && test.userId !== user.uid) {
+        // If the test doesn't belong to the current user, deny access and redirect.
+        toast({
+          variant: "destructive",
+          title: "Access Denied",
+          description: "You do not have permission to view this test.",
+        });
+        router.push("/dashboard");
+      }
+    }
+  }, [isUserLoading, isTestLoading, test, user, testDocRef, router, toast]);
 
   const handleDelete = async () => {
     if (!test || !testDocRef) return;
@@ -76,22 +103,14 @@ function TestView({ id }: { id: string }) {
 
       const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-
+      
       const imgProps = pdf.getImageProperties(data);
       const imgWidth = pdfWidth - 20; // 10mm margin on each side
       const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
-
-      let height = imgHeight;
-      let position = 10; // 10mm top margin
-
-       if (imgHeight > pdfHeight - 20) {
-        height = pdfHeight - 20;
-       }
-
-
-      pdf.addImage(data, "PNG", 10, position, imgWidth, height);
+      
+      pdf.addImage(data, "PNG", 10, 10, imgWidth, imgHeight);
       pdf.save(`SieveLab Report - ${test.name}.pdf`);
+
     } catch (e) {
       toast({
         variant: "destructive",
@@ -104,24 +123,10 @@ function TestView({ id }: { id: string }) {
     }
   };
 
-  React.useEffect(() => {
-    const isDataLoaded = !isUserLoading && !isTestLoading;
-    if (isDataLoaded && !test) {
-      notFound();
-    }
-    if (isDataLoaded && test && user && test.userId !== user.uid) {
-      toast({
-        variant: "destructive",
-        title: "Access Denied",
-        description: "You do not have permission to view this test.",
-      });
-      router.push("/dashboard");
-    }
-  }, [isUserLoading, isTestLoading, test, user, router, toast]);
+  // Combined loading state. Show spinner until all dependencies are ready and data is fetched.
+  const isLoading = isUserLoading || isTestLoading || !testDocRef || !test;
 
-  const isLoading = isUserLoading || isTestLoading || !testDocRef;
-
-  if (isLoading || !test) {
+  if (isLoading) {
     return (
       <div className="flex h-full min-h-[500px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />

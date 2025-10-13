@@ -86,7 +86,11 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   React.useEffect(() => {
     const newSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
-    if (!existingTest || existingTest.type !== aggregateType) {
+    // Do not reset form if we have an existing test and the type matches
+    if (existingTest && existingTest.type === aggregateType) {
+        return;
+    }
+     if (!existingTest || existingTest.type !== aggregateType) {
         replace(newSieves.map(() => ({ value: null })));
         setAnalysisResults(null);
     }
@@ -170,22 +174,28 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     try {
         if (existingTest) {
           const testDocRef = doc(firestore, 'tests', existingTest.id);
+          // Use await to ensure the operation completes before navigation
           await setDoc(testDocRef, { ...testData, id: existingTest.id }, { merge: true });
           toast({
             title: "Test Updated Successfully",
             description: `"${testData.name}" has been updated.`,
         });
+        // Wait for router push to complete to ensure the UI updates after the data has been saved
         router.push(`/dashboard/test/${existingTest.id}`);
+        router.refresh(); // Force refresh to get latest data
         } else {
             const testCollRef = collection(firestore, 'tests');
             const docRef = doc(testCollRef); // Create a new doc with a generated ID
+            // Use await to ensure the operation completes before navigation
             await setDoc(docRef, { ...testData, id: docRef.id });
             
             toast({
                 title: "Test Saved Successfully",
                 description: `"${testData.name}" has been saved to your dashboard.`,
             });
+            // Wait for router push to complete to ensure the UI updates after the data has been saved
             router.push(`/dashboard/test/${docRef.id}`);
+            router.refresh();
         }
     } catch (error) {
         console.error("Firestore save error:", error);
@@ -235,7 +245,6 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
                         <RadioGroup
                           onValueChange={(value) => {
                             field.onChange(value);
-                            // Clear results when type changes
                             setAnalysisResults(null); 
                           }}
                           defaultValue={field.value}
@@ -266,7 +275,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
               <CardHeader>
                 <CardTitle>Step 2: Enter Weights</CardTitle>
                 <CardDescription>
-                  Enter the weight (in grams) retained on each sieve. Leave blank if not used.
+                  Enter the weight (in grams) retained on each sieve. Leave blank or enter 0 if not used.
                 </CardDescription>
               </CardHeader>
               <CardContent>

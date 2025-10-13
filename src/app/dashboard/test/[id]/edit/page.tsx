@@ -2,12 +2,12 @@
 "use client";
 
 import { NewTestForm } from "@/components/new-test-form";
-import { useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
+import { useDoc, useFirestore, useUser } from "@/firebase";
 import type { SieveAnalysisTest } from "@/lib/definitions";
 import { Loader2 } from "lucide-react";
 import { doc } from "firebase/firestore";
 import { notFound, useRouter } from "next/navigation";
-import React, { use } from "react";
+import React, { use, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 function EditTest({ id }: { id: string }) {
@@ -16,31 +16,42 @@ function EditTest({ id }: { id: string }) {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
 
-  const testDocRef = useMemoFirebase(() => {
-    if (!id || !firestore) return null;
-    return doc(firestore, "tests", id);
+  const [testDocRef, setTestDocRef] = React.useState<any>(null);
+
+  useEffect(() => {
+    // Wait until firestore and id are available to create the doc ref.
+    if (firestore && id) {
+      setTestDocRef(doc(firestore, "tests", id));
+    }
   }, [firestore, id]);
 
   const { data: test, isLoading: isTestLoading } = useDoc<SieveAnalysisTest>(testDocRef);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    // This effect handles authorization and not found cases after data loading is complete.
     const isDataLoaded = !isUserLoading && !isTestLoading;
-     if (isDataLoaded && !test) {
-      notFound();
-    }
-    if (isDataLoaded && test && user && test.userId !== user.uid) {
-      toast({
-        variant: "destructive",
-        title: "Access Denied",
-        description: "You do not have permission to edit this test.",
-      });
-      router.push("/dashboard");
+    if (isDataLoaded) {
+      if (!test) {
+        // If the document doesn't exist after loading, show 404.
+        notFound();
+        return;
+      }
+      if (user && test.userId !== user.uid) {
+        // If the test doesn't belong to the current user, deny access.
+        toast({
+          variant: "destructive",
+          title: "Access Denied",
+          description: "You do not have permission to edit this test.",
+        });
+        router.push("/dashboard");
+      }
     }
   }, [isUserLoading, isTestLoading, test, user, router, toast]);
 
-  const isLoading = isUserLoading || isTestLoading || !testDocRef;
+  // Combined loading state. Show spinner until all dependencies are ready.
+  const isLoading = isUserLoading || isTestLoading || !testDocRef || !test;
 
-  if (isLoading || !test) {
+  if (isLoading) {
     return (
       <div className="flex h-full min-h-[500px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -56,6 +67,7 @@ function EditTest({ id }: { id: string }) {
           Modify your test details and recalculate the results.
         </p>
       </div>
+      {/* Pass the fully loaded test object to the form */}
       <NewTestForm existingTest={test} />
     </div>
   );
