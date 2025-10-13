@@ -20,8 +20,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import React from "react";
-import { useFirestore, useUser, useDoc } from "@/firebase";
-import { doc, deleteDoc } from "firebase/firestore";
+import { useFirestore, useUser } from "@/firebase";
+import { doc, deleteDoc }from "firebase/firestore";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import Link from "next/link";
@@ -78,7 +78,6 @@ function TestView({ id }: { id: string }) {
         description: `Test "${test.name}" has been deleted.`,
       });
       router.push("/dashboard");
-      router.refresh();
     } catch (e: any) {
       toast({
         variant: "destructive",
@@ -94,16 +93,15 @@ function TestView({ id }: { id: string }) {
     setIsDownloading(true);
     try {
       const element = printRef.current;
-      // Temporarily make background white for PDF generation
       const originalBg = element.style.backgroundColor;
       element.style.backgroundColor = 'white';
 
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
+        logging: false,
       });
-
-      // Restore original background color
+      
       element.style.backgroundColor = originalBg;
 
       const data = canvas.toDataURL("image/png");
@@ -115,14 +113,27 @@ function TestView({ id }: { id: string }) {
       const imgWidth = pdfWidth - 20; // 10mm margin on each side
       const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
       
+      let position = 0;
+      let heightLeft = imgHeight;
+      const pageHeight = pdf.internal.pageSize.getHeight() - 20;
+
       pdf.addImage(data, "PNG", 10, 10, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(data, 'PNG', 10, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      
       pdf.save(`SieveLab Report - ${test.name}.pdf`);
 
-    } catch (e) {
+    } catch (e: any) {
       toast({
         variant: "destructive",
         title: "Download Failed",
-        description: "Could not generate PDF. Please try again.",
+        description: "Could not generate PDF. " + e.message,
       });
       console.error(e);
     } finally {
