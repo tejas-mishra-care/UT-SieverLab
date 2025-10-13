@@ -18,15 +18,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import React, { use } from "react";
+import React from "react";
 import { useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { doc, deleteDoc } from "firebase/firestore";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import Link from "next/link";
 
-export default function TestViewPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+function TestView({ id }: { id: string }) {
   const router = useRouter();
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -37,8 +36,8 @@ export default function TestViewPage({ params }: { params: Promise<{ id: string 
   const printRef = React.useRef<HTMLDivElement>(null);
 
   const testDocRef = useMemoFirebase(() => {
-      if (!id || !firestore) return null; 
-      return doc(firestore, "tests", id);
+    if (!id || !firestore) return null;
+    return doc(firestore, "tests", id);
   }, [firestore, id]);
 
   const { data: test, isLoading: isTestLoading } = useDoc<SieveAnalysisTest>(testDocRef);
@@ -47,95 +46,97 @@ export default function TestViewPage({ params }: { params: Promise<{ id: string 
     if (!test || !testDocRef) return;
     setIsDeleting(true);
     try {
-        await deleteDoc(testDocRef);
-        toast({title: "Test Deleted", description: `Test "${test.name}" has been deleted.`});
-        router.push("/dashboard");
-    } catch(e: any) {
-        toast({ variant: "destructive", title: "Error", description: "Could not delete test. " + e.message });
-        setIsDeleting(false);
+      await deleteDoc(testDocRef);
+      toast({
+        title: "Test Deleted",
+        description: `Test "${test.name}" has been deleted.`,
+      });
+      router.push("/dashboard");
+    } catch (e: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not delete test. " + e.message,
+      });
+      setIsDeleting(false);
     }
-  }
+  };
 
   const handleDownload = async () => {
     if (!printRef.current || !test) return;
     setIsDownloading(true);
     try {
-        const element = printRef.current;
-        const canvas = await html2canvas(element, {
-            scale: 2,
-        });
-        const data = canvas.toDataURL('image/png');
+      const element = printRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: null,
+      });
+      const data = canvas.toDataURL("image/png");
 
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        
-        const imgWidth = canvas.width;
-        const imgHeight = canvas.height;
-        const ratio = imgWidth / imgHeight;
-        
-        let newImgWidth = pdfWidth - 20;
-        let newImgHeight = newImgWidth / ratio;
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
 
-        if (newImgHeight > pdfHeight - 20) {
-            newImgHeight = pdfHeight - 20;
-            newImgWidth = newImgHeight * ratio;
-        }
+      const imgProps = pdf.getImageProperties(data);
+      const imgWidth = pdfWidth - 20; // 10mm margin on each side
+      const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
 
-        const x = (pdfWidth - newImgWidth) / 2;
-        const y = 10;
+      let height = imgHeight;
+      let position = 10; // 10mm top margin
 
-        pdf.addImage(data, 'PNG', x, y, newImgWidth, newImgHeight);
-        pdf.save(`SieveLab Report - ${test.name}.pdf`);
+       if (imgHeight > pdfHeight - 20) {
+        height = pdfHeight - 20;
+       }
+
+
+      pdf.addImage(data, "PNG", 10, position, imgWidth, height);
+      pdf.save(`SieveLab Report - ${test.name}.pdf`);
     } catch (e) {
-        toast({
-            variant: "destructive",
-            title: "Download Failed",
-            description: "Could not generate PDF. Please try again."
-        });
-        console.error(e);
+      toast({
+        variant: "destructive",
+        title: "Download Failed",
+        description: "Could not generate PDF. Please try again.",
+      });
+      console.error(e);
     } finally {
-        setIsDownloading(false);
+      setIsDownloading(false);
     }
   };
 
-
   React.useEffect(() => {
     const isDataLoaded = !isUserLoading && !isTestLoading;
+    if (isDataLoaded && test === null) {
+      notFound();
+    }
     if (isDataLoaded && test && user && test.userId !== user.uid) {
-      toast({ variant: "destructive", title: "Access Denied", description: "You do not have permission to view this test." });
+      toast({
+        variant: "destructive",
+        title: "Access Denied",
+        description: "You do not have permission to view this test.",
+      });
       router.push("/dashboard");
     }
   }, [isUserLoading, isTestLoading, test, user, router, toast]);
 
   const isLoading = isUserLoading || isTestLoading;
 
-  if (isLoading) {
+  if (isLoading || !test) {
     return (
       <div className="flex h-full min-h-[500px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
-  
-  if (!isLoading && !test) {
-    notFound();
-  }
-
-
-  if (!test) {
-    return null;
-  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h2 className="font-headline text-3xl font-bold">
-            {test.name}
-          </h2>
+          <h2 className="font-headline text-3xl font-bold">{test.name}</h2>
           <p className="text-muted-foreground">
-            Test ID: {test.id.slice(-6)} &bull; Completed on {new Date(test.timestamp).toLocaleDateString()}
+            Test ID: {test.id.slice(-6)} &bull; Completed on{" "}
+            {new Date(test.timestamp).toLocaleDateString()}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -146,53 +147,67 @@ export default function TestViewPage({ params }: { params: Promise<{ id: string 
             </Link>
           </Button>
           <Button variant="outline" onClick={handleDownload} disabled={isDownloading}>
-              {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-              Download Report
+            {isDownloading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Download Report
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-                <Button variant="destructive" disabled={isDeleting}>
-                    {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                    Delete
-                </Button>
+              <Button variant="destructive" disabled={isDeleting}>
+                {isDeleting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-4 w-4" />
+                )}
+                Delete
+              </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
-                <AlertDialogHeader>
+              <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete this test
-                    and remove its data from our servers.
+                  This action cannot be undone. This will permanently delete this test
+                  and remove its data from our servers.
                 </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
-                    {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Continue
+                  {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Continue
                 </AlertDialogAction>
-                </AlertDialogFooter>
+              </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
         </div>
       </div>
 
       <div ref={printRef} className="bg-background rounded-lg p-6">
-         <div className="mb-6 border-b pb-4">
-            <h1 className="font-headline text-2xl font-bold">{test.name}</h1>
-            <p className="text-sm text-muted-foreground">
-                Sieve Analysis Report &bull; {new Date(test.timestamp).toLocaleDateString()}
-            </p>
+        <div className="mb-6 border-b pb-4">
+          <h1 className="font-headline text-2xl font-bold">{test.name}</h1>
+          <p className="text-sm text-muted-foreground">
+            Sieve Analysis Report &bull;{" "}
+            {new Date(test.timestamp).toLocaleDateString()}
+          </p>
         </div>
         <SieveResultsDisplay
-            sieves={test.sieves}
-            percentPassing={test.percentPassing}
-            percentRetained={test.percentRetained}
-            cumulativeRetained={test.cumulativeRetained}
-            finenessModulus={test.finenessModulus}
-            classification={test.classification}
-            type={test.type}
+          sieves={test.sieves}
+          percentPassing={test.percentPassing}
+          percentRetained={test.percentRetained}
+          cumulativeRetained={test.cumulativeRetained}
+          finenessModulus={test.finenessModulus}
+          classification={test.classification}
+          type={test.type}
         />
       </div>
     </div>
   );
+}
+
+export default function TestViewPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = React.use(params);
+  return <TestView id={id} />;
 }
