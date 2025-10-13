@@ -20,7 +20,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import React from "react";
-import { useFirestore, useUser } from "@/firebase";
+import { useFirestore, useUser, useDoc } from "@/firebase";
 import { doc, deleteDoc }from "firebase/firestore";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
