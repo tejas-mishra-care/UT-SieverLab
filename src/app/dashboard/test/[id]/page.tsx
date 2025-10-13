@@ -3,7 +3,7 @@
 import { notFound, useRouter } from "next/navigation";
 import { SieveResultsDisplay } from "@/components/sieve-results-display";
 import { Button } from "@/components/ui/button";
-import { Download, Trash2 } from "lucide-react";
+import { Download, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import type { SieveAnalysisTest } from "@/lib/definitions";
 import { useToast } from "@/hooks/use-toast";
@@ -18,37 +18,56 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { mockTests } from "@/lib/mock-data";
 import React from "react";
+import { useDoc, useFirestore, useUser } from "@/firebase";
+import { doc } from "firebase/firestore";
+import { useMemoFirebase } from "@/firebase/provider";
+import { deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 export default function TestViewPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const { user } = useUser();
 
-  const [test, setTest] = React.useState<SieveAnalysisTest | undefined>(undefined);
-  
-  React.useEffect(() => {
-    const foundTest = mockTests.find(t => t.id === params.id);
-    if(foundTest) {
-      setTest(foundTest);
-    } else {
-      notFound();
-    }
-  }, [params.id]);
+  const testDocRef = useMemoFirebase(() => {
+      if (!params.id) return null;
+      return doc(firestore, "tests", params.id);
+  }, [firestore, params.id]);
 
+  const { data: test, isLoading } = useDoc<SieveAnalysisTest>(testDocRef);
 
   const handleDelete = async () => {
-    if (!test) return;
+    if (!test || !testDocRef) return;
+    deleteDocumentNonBlocking(testDocRef);
     toast({title: "Test Deleted", description: `Test #${test.id.slice(-6)} has been deleted.`});
     router.push("/dashboard");
   }
 
-  if (!test) {
+  // Security check after loading
+  React.useEffect(() => {
+    if (!isLoading && test && user && test.userId !== user.uid) {
+      toast({ variant: "destructive", title: "Access Denied", description: "You do not have permission to view this test." });
+      router.push("/dashboard");
+    }
+  }, [isLoading, test, user, router, toast]);
+
+  if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        {/* You can add a loader here */}
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
+  }
+  
+  if (!isLoading && !test) {
+    notFound();
+  }
+
+
+  if (!test) {
+    // This will be caught by the notFound() call above, but it keeps typescript happy
+    return null;
   }
 
   return (

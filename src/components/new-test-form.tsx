@@ -29,6 +29,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, WandSparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useFirestore, useUser } from "@/firebase";
+import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { collection } from "firebase/firestore";
 
 const formSchema = z.object({
   type: z.enum(["Fine", "Coarse"], {
@@ -40,6 +43,8 @@ const formSchema = z.object({
 export function NewTestForm() {
   const { toast } = useToast();
   const router = useRouter();
+  const firestore = useFirestore();
+  const { user } = useUser();
 
   const [step, setStep] = React.useState(1);
   const [isLoading, setIsLoading] = React.useState(false);
@@ -100,23 +105,46 @@ export function NewTestForm() {
   }
 
   async function handleSave() {
-    if (!analysisResults) return;
+    if (!analysisResults || !user) {
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "You must be logged in to save a test.",
+        });
+        return;
+    };
     setIsSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate saving
     
-    // In a real app, you would save this to a database
-    console.log("Saving test...", {
+    const currentSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
+
+    const newTest = {
+      userId: user.uid,
       type: aggregateType,
+      timestamp: Date.now(),
+      sieves: currentSieves,
+      weights: form.getValues('weights').map(w => w.value),
       results: analysisResults,
-      weights: form.getValues('weights').map(w => w.value)
-    });
+    };
     
-    setIsSaving(false);
-    toast({
-        title: "Test Saved Successfully",
-        description: "Your sieve analysis has been saved to your dashboard.",
-    });
-    router.push('/dashboard');
+    try {
+        const testsCollection = collection(firestore, 'tests');
+        await addDocumentNonBlocking(testsCollection, newTest);
+        
+        toast({
+            title: "Test Saved Successfully",
+            description: "Your sieve analysis has been saved to your dashboard.",
+        });
+        router.push('/dashboard');
+    } catch (error) {
+        console.error("Firestore save error:", error);
+        toast({
+            variant: "destructive",
+            title: "An Error Occurred",
+            description: "Could not save the test. Please try again.",
+        });
+    } finally {
+        setIsSaving(false);
+    }
   }
 
   const currentSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
@@ -234,7 +262,7 @@ export function NewTestForm() {
             <Button variant="outline" onClick={() => setStep(1)}>
               Back to Inputs
             </Button>
-            <Button onClick={handleSave} disabled={isSaving}>
+            <Button onClick={handleSave} disabled={isSaving || !user}>
               {isSaving ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (

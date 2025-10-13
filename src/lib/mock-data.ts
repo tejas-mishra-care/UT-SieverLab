@@ -1,3 +1,3 @@
-import { SieveAnalysisTest } from "./definitions";
+import type { SieveAnalysisTest } from "./definitions";
 
 export const mockTests: SieveAnalysisTest[] = [];
