@@ -19,8 +19,9 @@ import { HardHat, LayoutDashboard, Loader2, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";
-import { addDoc, collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import type { SieveAnalysisTest } from "@/lib/definitions";
+import { collection } from "firebase/firestore";
 
 export default function DashboardLayout({
   children,
@@ -42,7 +43,7 @@ export default function DashboardLayout({
     
     // Create a new draft test document in Firestore
     const newTestRef = doc(collection(firestore, "tests"));
-    const newTestData: Partial<SieveAnalysisTest> = {
+    const newTestData: SieveAnalysisTest = {
       id: newTestRef.id,
       userId: user.uid,
       name: "Untitled Test",
@@ -82,7 +83,7 @@ export default function DashboardLayout({
                     <HardHat className="h-5 w-5" />
                 </div>
                 <h1 className="font-headline text-xl font-bold text-sidebar-foreground">
-                    UltraTech SieveLab
+                    SieveLab
                 </h1>
             </div>
           </div>

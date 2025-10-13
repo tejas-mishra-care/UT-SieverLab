@@ -10,7 +10,7 @@ export default function SignupPage() {
             <HardHat className="h-8 w-8 text-primary-foreground" />
           </div>
           <h1 className="font-headline text-4xl font-bold tracking-tight text-foreground">
-            Join UltraTech SieveLab
+            Join SieveLab
           </h1>
           <p className="mt-2 text-muted-foreground">
             Start analyzing your aggregate data today.

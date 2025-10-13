@@ -10,7 +10,7 @@ export default function LoginPage() {
             <HardHat className="h-8 w-8 text-primary-foreground" />
           </div>
           <h1 className="font-headline text-4xl font-bold tracking-tight text-foreground">
-            UltraTech SieveLab
+            SieveLab
           </h1>
           <p className="mt-2 text-muted-foreground">
             Analyze your aggregate data with precision.
