@@ -2,7 +2,7 @@
 "use client";
 
 import { NewTestForm } from "@/components/new-test-form";
-import { useDoc, useFirestore, useUser } from "@/firebase";
+import { useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import type { SieveAnalysisTest } from "@/lib/definitions";
 import { Loader2 } from "lucide-react";
 import { doc } from "firebase/firestore";
@@ -16,27 +16,20 @@ function EditTest({ id }: { id: string }) {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
 
-  const [testDocRef, setTestDocRef] = React.useState<any>(null);
-
-  useEffect(() => {
-    // Wait until firestore and id are available to create the doc ref.
+  const testDocRef = useMemoFirebase(() => {
     if (firestore && id) {
-      setTestDocRef(doc(firestore, "tests", id));
+      return doc(firestore, "tests", id);
     }
+    return null;
   }, [firestore, id]);
 
   const { data: test, isLoading: isTestLoading } = useDoc<SieveAnalysisTest>(testDocRef);
 
   useEffect(() => {
-    // This effect handles authorization and not found cases after data loading is complete.
-    const isDataLoaded = !isUserLoading && !isTestLoading;
-    if (isDataLoaded) {
-      if (!test) {
-        // If the document doesn't exist after loading, show 404.
-        notFound();
-        return;
-      }
-      if (user && test.userId !== user.uid) {
+    // This effect handles authorization after data loading is complete.
+    // It runs only when the loading states or data changes.
+    if (!isTestLoading && !isUserLoading && user && test) {
+      if (test.userId !== user.uid) {
         // If the test doesn't belong to the current user, deny access.
         toast({
           variant: "destructive",
@@ -46,10 +39,16 @@ function EditTest({ id }: { id: string }) {
         router.push("/dashboard");
       }
     }
-  }, [isUserLoading, isTestLoading, test, user, router, toast]);
+  }, [isTestLoading, isUserLoading, test, user, router, toast]);
 
-  // Combined loading state. Show spinner until all dependencies are ready.
-  const isLoading = isUserLoading || isTestLoading || !testDocRef || !test;
+  // Combined loading state. Show spinner until all initial data fetching is attempted.
+  const isLoading = isUserLoading || isTestLoading || !testDocRef;
+  
+  // After loading, if the test is still not found, then it's a 404.
+  // This prevents the race condition where we check for `test` before `useDoc` has had a chance to fetch it.
+  if (!isLoading && !test) {
+    notFound();
+  }
 
   if (isLoading) {
     return (
@@ -59,6 +58,7 @@ function EditTest({ id }: { id: string }) {
     );
   }
 
+  // We can only reach this point if isLoading is false and test is not null.
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
@@ -68,7 +68,7 @@ function EditTest({ id }: { id: string }) {
         </p>
       </div>
       {/* Pass the fully loaded test object to the form */}
-      <NewTestForm existingTest={test} />
+      <NewTestForm existingTest={test!} />
     </div>
   );
 }

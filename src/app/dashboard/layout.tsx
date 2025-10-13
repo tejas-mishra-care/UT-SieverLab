@@ -19,7 +19,7 @@ import { HardHat, LayoutDashboard, Loader2, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import type { SieveAnalysisTest } from "@/lib/definitions";
 import { collection } from "firebase/firestore";
 
@@ -58,6 +58,7 @@ export default function DashboardLayout({
       finenessModulus: null,
       classification: null,
     };
+    // Ensure the document is created before navigating
     await setDoc(newTestRef, newTestData);
 
     // Redirect to the edit page for the new draft
