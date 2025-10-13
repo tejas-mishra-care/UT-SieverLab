@@ -17,22 +17,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { AnalysisResults, AggregateType } from "@/lib/definitions";
+import type { AggregateType, AnalysisResults } from "@/lib/definitions";
 
-interface SieveResultsDisplayProps {
+interface SieveResultsDisplayProps extends AnalysisResults {
   sieves: number[];
-  results: AnalysisResults;
   type: AggregateType;
 }
 
 export function SieveResultsDisplay({
   sieves,
-  results,
   type,
+  percentRetained,
+  cumulativeRetained,
+  percentPassing,
+  finenessModulus,
+  classification,
 }: SieveResultsDisplayProps) {
   const chartData = sieves.map((sieve, index) => ({
     sieveSize: sieve,
-    percentPassing: results.percentPassing[index],
+    percentPassing: percentPassing[index],
   }));
 
   return (
@@ -52,7 +55,7 @@ export function SieveResultsDisplay({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {results.classification || "N/A"}
+              {classification || "N/A"}
             </div>
           </CardContent>
         </Card>
@@ -62,7 +65,7 @@ export function SieveResultsDisplay({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {results.finenessModulus?.toFixed(2) || "N/A"}
+              {finenessModulus?.toFixed(2) || "N/A"}
             </div>
           </CardContent>
         </Card>
@@ -104,13 +107,13 @@ export function SieveResultsDisplay({
                     <TableRow key={sieve}>
                         <TableCell className="font-medium">{sieve}</TableCell>
                         <TableCell className="text-right">
-                        {results.percentRetained[index].toFixed(2)}
+                        {percentRetained[index].toFixed(2)}
                         </TableCell>
                         <TableCell className="text-right">
-                        {results.cumulativeRetained[index].toFixed(2)}
+                        {cumulativeRetained[index].toFixed(2)}
                         </TableCell>
                         <TableCell className="text-right font-semibold">
-                        {results.percentPassing[index].toFixed(2)}
+                        {percentPassing[index].toFixed(2)}
                         </TableCell>
                     </TableRow>
                     ))}

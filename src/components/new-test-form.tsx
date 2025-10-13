@@ -55,8 +55,16 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   const [step, setStep] = React.useState(1);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
+  
+  // Combine all results into a single state
   const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(
-    existingTest?.results || null
+    existingTest ? {
+      percentRetained: existingTest.percentRetained,
+      cumulativeRetained: existingTest.cumulativeRetained,
+      percentPassing: existingTest.percentPassing,
+      finenessModulus: existingTest.finenessModulus,
+      classification: existingTest.classification,
+    } : null
   );
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -79,15 +87,9 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   React.useEffect(() => {
     const newSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
-    const currentWeights = form.getValues('weights');
-    
-    if (currentWeights.length !== newSieves.length) {
-      if (!existingTest || existingTest.type !== aggregateType) {
+    if (!existingTest || existingTest.type !== aggregateType) {
         replace(newSieves.map(() => ({ value: null })));
         setAnalysisResults(null);
-      } else {
-        replace(existingTest.weights.map(w => ({ value: w })));
-      }
     }
   }, [aggregateType, replace, existingTest, form]);
 
@@ -106,7 +108,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
       const currentSieves = values.type === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
       const weights = values.weights.map((w) => w.value || 0);
 
-      const calculated = calculateSieveAnalysis(weights, currentSieves, values.type);
+      const calculated = calculateSieveAnalysis(weights);
       
       let classification: string;
       if (values.type === 'Fine') {
@@ -115,7 +117,14 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         classification = classifyCoarseAggregate(calculated.percentPassing, currentSieves);
       }
       
-      const finalResults: AnalysisResults = { ...calculated, classification };
+      const fm = values.type === "Fine" ? (calculated.cumulativeRetained.reduce((a, b) => a + b, 0) / 100) : null;
+      
+      const finalResults: AnalysisResults = { 
+        ...calculated, 
+        classification,
+        finenessModulus: fm
+      };
+      
       setAnalysisResults(finalResults);
       
       setStep(2);
@@ -136,13 +145,14 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         toast({
             variant: "destructive",
             title: "Error",
-            description: "You must be logged in to save a test.",
+            description: "Cannot save. You must be logged in and have analysis results.",
         });
         return;
     };
     setIsSaving(true);
     
     const currentSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
+    const weights = form.getValues('weights').map(w => w.value || 0);
 
     const testData: Omit<SieveAnalysisTest, 'id'> = {
       userId: user.uid,
@@ -150,14 +160,18 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
       type: aggregateType,
       timestamp: existingTest?.timestamp || Date.now(),
       sieves: currentSieves,
-      weights: form.getValues('weights').map(w => w.value || 0),
-      results: analysisResults,
+      weights: weights,
+      percentRetained: analysisResults.percentRetained,
+      cumulativeRetained: analysisResults.cumulativeRetained,
+      percentPassing: analysisResults.percentPassing,
+      finenessModulus: analysisResults.finenessModulus,
+      classification: analysisResults.classification,
     };
     
     try {
         if (existingTest) {
           const testDocRef = doc(firestore, 'tests', existingTest.id);
-          await setDoc(testDocRef, testData, { merge: true });
+          await setDoc(testDocRef, { ...testData, id: existingTest.id }, { merge: true });
           toast({
             title: "Test Updated Successfully",
             description: `"${testData.name}" has been updated.`,
@@ -218,7 +232,11 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
                        <FormLabel>Aggregate Type</FormLabel>
                       <FormControl>
                         <RadioGroup
-                          onValueChange={field.onChange}
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            // Clear results when type changes
+                            setAnalysisResults(null); 
+                          }}
                           defaultValue={field.value}
                           className="flex flex-col space-y-1"
                         >
@@ -311,8 +329,8 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         <div className="space-y-6">
            <SieveResultsDisplay 
               sieves={currentSieves}
-              results={analysisResults}
               type={aggregateType}
+              {...analysisResults}
             />
           <div className="flex flex-col-reverse gap-4 sm:flex-row sm:justify-between">
             <div>

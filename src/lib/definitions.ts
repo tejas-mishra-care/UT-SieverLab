@@ -14,6 +14,7 @@ export interface AnalysisResults {
   classification: string | null;
 }
 
+// This is the shape of the data stored in Firestore
 export interface SieveAnalysisTest {
   id: string;
   userId: string;
@@ -22,6 +23,11 @@ export interface SieveAnalysisTest {
   timestamp: number;
   sieves: number[];
   weights: number[];
-  results: AnalysisResults;
+  // Analysis results are stored at the top level for easier querying
+  percentRetained: number[];
+  cumulativeRetained: number[];
+  percentPassing: number[];
+  finenessModulus: number | null;
+  classification: string | null;
   reportUrl?: string;
 }

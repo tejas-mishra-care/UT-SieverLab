@@ -1,4 +1,5 @@
-import type { AggregateType, AnalysisResults } from "./definitions";
+
+import type { AggregateType } from "./definitions";
 
 // IS 383: 2016
 export const SIEVE_SIZES = {
@@ -47,24 +48,19 @@ const ZONING_LIMITS: Record<string, Record<number, { min: number; max: number }>
 /**
  * Calculates sieve analysis results.
  * @param weights - Array of weights retained on each sieve.
- * @param sieves - Array of sieve sizes corresponding to weights.
- * @param type - Aggregate type ('Fine' or 'Coarse').
  * @returns Calculated analysis results.
  */
 export function calculateSieveAnalysis(
-  weights: number[],
-  sieves: number[],
-  type: AggregateType
-): Omit<AnalysisResults, "classification"> {
+  weights: number[]
+): Omit<AnalysisResults, "classification" | "finenessModulus"> {
   const totalWeight = weights.reduce((sum, w) => sum + w, 0);
 
   if (totalWeight === 0) {
-    const zeros = Array(sieves.length).fill(0);
+    const zeros = Array(weights.length).fill(0);
     return {
       percentRetained: zeros,
       cumulativeRetained: zeros,
-      percentPassing: Array(sieves.length).fill(100),
-      finenessModulus: null,
+      percentPassing: Array(weights.length).fill(100),
     };
   }
 
@@ -79,23 +75,10 @@ export function calculateSieveAnalysis(
 
   const percentPassing = cumulativeRetained.map((cr) => 100 - cr);
 
-  let finenessModulus: number | null = null;
-  if (type === "Fine") {
-    const sumCumulativeForFM = sieves.reduce((sum, sieve, index) => {
-      if (STANDARD_SIEVES_FM.includes(sieve)) {
-        return sum + cumulativeRetained[index];
-      }
-      return sum;
-    }, 0);
-    // Pan is not included, so we add 100 for it
-    finenessModulus = (sumCumulativeForFM + 100) / 100;
-  }
-
   return {
     percentRetained,
     cumulativeRetained,
     percentPassing,
-    finenessModulus,
   };
 }
 
@@ -143,7 +126,10 @@ export function classifyCoarseAggregate(
   sieves: number[]
 ): string {
     // This is a simplified classification. A real app would compare against IS 383 Table 7.
-    const passing_10mm = percentPassing[sieves.indexOf(10)];
+    const passing_10mm_index = sieves.indexOf(10);
+    if (passing_10mm_index === -1) return "Custom/Gap-Graded";
+
+    const passing_10mm = percentPassing[passing_10mm_index];
     if (passing_10mm < 30) {
         return "Graded Aggregate (e.g., 20mm Nominal)";
     }

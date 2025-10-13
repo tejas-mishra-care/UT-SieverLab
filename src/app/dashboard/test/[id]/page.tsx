@@ -178,10 +178,15 @@ export default function TestViewPage({ params }: { params: { id: string } }) {
       <div ref={printRef} className="bg-background rounded-lg p-4">
         <SieveResultsDisplay
             sieves={test.sieves}
-            results={test.results}
+            percentPassing={test.percentPassing}
+            percentRetained={test.percentRetained}
+            cumulativeRetained={test.cumulativeRetained}
+            finenessModulus={test.finenessModulus}
+            classification={test.classification}
             type={test.type}
         />
       </div>
     </div>
   );
 }
+

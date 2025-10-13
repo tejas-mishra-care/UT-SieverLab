@@ -32,16 +32,16 @@ export function TestCard({ test }: TestCardProps) {
           <div className="flex items-center gap-3 text-muted-foreground">
             <Beaker className="h-4 w-4 text-primary" />
             <span className="font-medium text-foreground">
-              {test.results.classification || "N/A"}
+              {test.classification || "N/A"}
             </span>
           </div>
-          {test.results.finenessModulus != null && (
+          {test.finenessModulus != null && (
             <div className="flex items-center gap-3 text-muted-foreground">
               <SlidersHorizontal className="h-4 w-4 text-primary" />
               <span>
                 Fineness Modulus:{" "}
                 <span className="font-bold text-foreground">
-                  {test.results.finenessModulus.toFixed(2)}
+                  {test.finenessModulus.toFixed(2)}
                 </span>
               </span>
             </div>
