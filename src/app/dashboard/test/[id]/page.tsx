@@ -4,7 +4,7 @@
 import { notFound, useRouter } from "next/navigation";
 import { SieveResultsDisplay } from "@/components/sieve-results-display";
 import { Button } from "@/components/ui/button";
-import { Download, Trash2, Loader2 } from "lucide-react";
+import { Download, Trash2, Loader2, Pencil } from "lucide-react";
 import type { SieveAnalysisTest } from "@/lib/definitions";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -24,6 +24,7 @@ import { doc, deleteDoc } from "firebase/firestore";
 import { useMemoFirebase } from "@/firebase/provider";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import Link from "next/link";
 
 export default function TestViewPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -138,6 +139,12 @@ export default function TestViewPage({ params }: { params: { id: string } }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/dashboard/test/${test.id}/edit`}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Link>
+          </Button>
           <Button variant="outline" onClick={handleDownload} disabled={isDownloading}>
               {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
               Download Report

@@ -31,7 +31,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, WandSparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser } from "@/firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, doc, setDoc } from "firebase/firestore";
+import Link from "next/link";
 
 const formSchema = z.object({
   name: z.string().min(1, "Test name is required."),
@@ -41,7 +42,11 @@ const formSchema = z.object({
   weights: z.array(z.object({ value: z.number().min(0, "Weight cannot be negative").nullable() })),
 });
 
-export function NewTestForm() {
+interface NewTestFormProps {
+  existingTest?: SieveAnalysisTest;
+}
+
+export function NewTestForm({ existingTest }: NewTestFormProps) {
   const { toast } = useToast();
   const router = useRouter();
   const firestore = useFirestore();
@@ -50,14 +55,18 @@ export function NewTestForm() {
   const [step, setStep] = React.useState(1);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
-  const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(null);
+  const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(
+    existingTest?.results || null
+  );
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
-      type: "Fine",
-      weights: SIEVE_SIZES.FINE.map(() => ({ value: null })),
+      name: existingTest?.name || "",
+      type: existingTest?.type || "Fine",
+      weights: (existingTest?.weights || SIEVE_SIZES.FINE.map(() => null)).map(
+        (w) => ({ value: w })
+      ),
     },
   });
 
@@ -69,10 +78,20 @@ export function NewTestForm() {
   const aggregateType = form.watch("type") as AggregateType;
 
   React.useEffect(() => {
-    const newSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
-    replace(newSieves.map(() => ({ value: null })));
-    setAnalysisResults(null);
-  }, [aggregateType, replace]);
+    // Only reset if it's a new test form
+    if (!existingTest) {
+      const newSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
+      replace(newSieves.map(() => ({ value: null })));
+      setAnalysisResults(null);
+    }
+  }, [aggregateType, replace, existingTest]);
+
+  React.useEffect(() => {
+    if (existingTest) {
+       setStep(2);
+    }
+  }, [existingTest])
+
 
   async function handleCalculate(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
@@ -120,25 +139,35 @@ export function NewTestForm() {
     
     const currentSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
 
-    const newTest: Omit<SieveAnalysisTest, 'id'> = {
+    const testData: Omit<SieveAnalysisTest, 'id'> = {
       userId: user.uid,
       name: form.getValues("name"),
       type: aggregateType,
-      timestamp: Date.now(),
+      timestamp: existingTest?.timestamp || Date.now(),
       sieves: currentSieves,
       weights: form.getValues('weights').map(w => w.value || 0),
       results: analysisResults,
     };
     
     try {
-        const testsCollection = collection(firestore, 'tests');
-        const docRef = await addDoc(testsCollection, newTest);
-        
-        toast({
-            title: "Test Saved Successfully",
-            description: `"${newTest.name}" has been saved to your dashboard.`,
+        if (existingTest) {
+          const testDocRef = doc(firestore, 'tests', existingTest.id);
+          await setDoc(testDocRef, testData);
+          toast({
+            title: "Test Updated Successfully",
+            description: `"${testData.name}" has been updated.`,
         });
-        router.push(`/dashboard/test/${docRef.id}`);
+        router.push(`/dashboard/test/${existingTest.id}`);
+        } else {
+            const testsCollection = collection(firestore, 'tests');
+            const docRef = await addDoc(testsCollection, testData);
+            
+            toast({
+                title: "Test Saved Successfully",
+                description: `"${testData.name}" has been saved to your dashboard.`,
+            });
+            router.push(`/dashboard/test/${docRef.id}`);
+        }
     } catch (error) {
         console.error("Firestore save error:", error);
         toast({
@@ -146,9 +175,8 @@ export function NewTestForm() {
             title: "An Error Occurred",
             description: "Could not save the test. Please try again.",
         });
-    } finally {
         setIsSaving(false);
-    }
+    } 
   }
 
   const currentSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
@@ -244,7 +272,7 @@ export function NewTestForm() {
                                         {...field}
                                         value={field.value ?? ""}
                                         onChange={event => field.onChange(event.target.value === '' ? null : parseFloat(event.target.value))}
-                                        className="max-w-sm shadow-sm"
+                                        className="max-w-sm"
                                     />
                                     </FormControl>
                                     <FormMessage />
@@ -282,16 +310,24 @@ export function NewTestForm() {
               type={aggregateType}
             />
           <div className="flex flex-col-reverse gap-4 sm:flex-row sm:justify-between">
-            <Button variant="outline" onClick={() => { setStep(1); }}>
-              Back to Inputs
-            </Button>
+            <div>
+                 <Button variant="outline" onClick={() => { setStep(1); }}>
+                    Back to Inputs
+                </Button>
+                {existingTest && (
+                    <Button variant="ghost" asChild className="ml-2">
+                        <Link href={`/dashboard/test/${existingTest.id}`}>Cancel</Link>
+                    </Button>
+                )}
+            </div>
+
             <Button onClick={handleSave} disabled={isSaving || !user}>
               {isSaving ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              Save Test
+              {existingTest ? 'Save Changes' : 'Save Test'}
             </Button>
           </div>
         </div>
