@@ -11,7 +11,8 @@ import { notFound, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-export default function EditTestPage({ params: { id } }: { params: { id: string } }) {
+export default function EditTestPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const router = useRouter();
   const { toast } = useToast();
   const firestore = useFirestore();
