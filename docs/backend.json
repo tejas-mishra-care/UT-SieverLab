@@ -1,0 +1,165 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the Sieve Analysis App.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Date and time the user account was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "createdAt"
+      ]
+    },
+    "Test": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Test",
+      "type": "object",
+      "description": "Represents a single sieve analysis test.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the test."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Test)"
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of aggregate: 'Fine' or 'Coarse'."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Date and time the test was performed.",
+          "format": "date-time"
+        },
+        "sieves": {
+          "type": "array",
+          "description": "List of sieve sizes used in the test.",
+          "items": {
+            "type": "number"
+          }
+        },
+        "weights": {
+          "type": "array",
+          "description": "List of weights retained on each sieve.",
+          "items": {
+            "type": "number"
+          }
+        },
+        "percentRetained": {
+          "type": "array",
+          "description": "List of calculated percentage retained values.",
+          "items": {
+            "type": "number"
+          }
+        },
+        "cumulativeRetained": {
+          "type": "array",
+          "description": "List of calculated cumulative percentage retained values.",
+          "items": {
+            "type": "number"
+          }
+        },
+        "percentPassing": {
+          "type": "array",
+          "description": "List of calculated percentage passing values.",
+          "items": {
+            "type": "number"
+          }
+        },
+        "finenessModulus": {
+          "type": "number",
+          "description": "Calculated fineness modulus value."
+        },
+        "classification": {
+          "type": "string",
+          "description": "Classification zone (I/II/III/IV) or coarse grading."
+        },
+        "reportUrl": {
+          "type": "string",
+          "description": "URL of the uploaded PDF report (optional).",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "type",
+        "timestamp",
+        "sieves",
+        "weights",
+        "percentRetained",
+        "cumulativeRetained",
+        "percentPassing",
+        "finenessModulus",
+        "classification"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles. Document ID is the Firebase Auth UID.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Auth UID of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tests/{testId}",
+        "definition": {
+          "entityName": "Test",
+          "schema": {
+            "$ref": "#/backend/entities/Test"
+          },
+          "description": "Stores sieve analysis test data. Includes the userId for ownership and authorization.",
+          "params": [
+            {
+              "name": "testId",
+              "description": "The unique ID of the test."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to follow best practices for security and scalability. User data is stored in a `users` collection with documents keyed by `userId`, which matches the Firebase Auth UID.  Tests are stored in a `tests` collection. Each test document contains a `userId` field, establishing ownership and enabling secure data access. The structure uses path-based ownership (`/users/{userId}/tests/{testId}`) and standardizes the authorization field (`userId`). This design avoids hierarchical authorization dependencies, ensuring that rules do not rely on `get()` calls, allowing atomic operations and clear security rules. Segregation of data into separate collections (`users` and `tests`) simplifies rules by ensuring all documents in each collection share the same security requirements. This approach also supports the required QAPs by allowing secure list operations based on the `userId`."
+  }
+}

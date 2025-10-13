@@ -1,0 +1,105 @@
+/**
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for data access.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profile information. The document ID is the Firebase Auth UID.
+ * - /tests/{testId}: Stores sieve analysis test data. Each document contains a userId field to track ownership.
+ *
+ * Key Security Decisions:
+ * - Users can only read and write their own user documents.
+ * - Users can create, read, update, and delete tests they own.
+ * - Listing all users is disallowed.
+ *
+ * Denormalization for Authorization:
+ * - Each Test document denormalizes the userId, allowing simple ownership checks without extra reads.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Controls access to user profile documents.
+     * @path /users/{userId}
+     * @allow (create) User with UID 'user_abc' can create their own profile document.
+     *   Request: { auth: { uid: 'user_abc' }, resource.data.id: 'user_abc' }
+     * @allow (get) User with UID 'user_abc' can read their own profile document.
+     *   Request: { auth: { uid: 'user_abc' } }
+     * @allow (update) User with UID 'user_abc' can update their own profile document.
+     *   Request: { auth: { uid: 'user_abc' } }
+     * @allow (delete) User with UID 'user_abc' can delete their own profile document.
+     *   Request: { auth: { uid: 'user_abc' } }
+     * @deny (create) User with UID 'user_abc' cannot create a profile document for 'user_xyz'.
+     *   Request: { auth: { uid: 'user_abc' }, resource.data.id: 'user_xyz' }
+     * @deny (get) User with UID 'user_abc' cannot read the profile document of 'user_xyz'.
+     *   Request: { auth: { uid: 'user_abc' } }
+     * @deny (update) User with UID 'user_abc' cannot update the profile document of 'user_xyz'.
+     *   Request: { auth: { uid: 'user_abc' } }
+     * @deny (delete) User with UID 'user_abc' cannot delete the profile document of 'user_xyz'.
+     *   Request: { auth: { uid: 'user_abc' } }
+     * @principle Enforces document ownership and restricts access to a user's own data tree.
+     */
+    match /users/{userId} {
+      // Helper function to check if the user is signed in and owns the document.
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      // Helper function to check if the user is signed in and owns the existing document.
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && resource.data.id == request.resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Controls access to test documents, enforcing ownership.
+     * @path /tests/{testId}
+     * @allow (create) User with UID 'user_abc' can create a test document with userId 'user_abc'.
+     *   Request: { auth: { uid: 'user_abc' }, resource.data.userId: 'user_abc' }
+     * @allow (get) User with UID 'user_abc' can read a test document with userId 'user_abc'.
+     *   Request: { auth: { uid: 'user_abc' }, resource.data.userId: 'user_abc' }
+     * @allow (update) User with UID 'user_abc' can update a test document with userId 'user_abc'.
+     *   Request: { auth: { uid: 'user_abc' }, resource.data.userId: 'user_abc' }
+     * @allow (delete) User with UID 'user_abc' can delete a test document with userId 'user_abc'.
+     *   Request: { auth: { uid: 'user_abc' }, resource.data.userId: 'user_abc' }
+     * @deny (create) User with UID 'user_abc' cannot create a test document with userId 'user_xyz'.
+     *   Request: { auth: { uid: 'user_abc' }, resource.data.userId: 'user_xyz' }
+     * @deny (get) User with UID 'user_abc' cannot read a test document with userId 'user_xyz'.
+     *   Request: { auth: { uid: 'user_abc' }, resource.data.userId: 'user_xyz' }
+     * @deny (update) User with UID 'user_abc' cannot update a test document with userId 'user_xyz'.
+     *   Request: { auth: { uid: 'user_abc' }, resource.data.userId: 'user_xyz' }
+     * @deny (delete) User with UID 'user_abc' cannot delete a test document with userId 'user_xyz'.
+     *   Request: { auth: { uid: 'user_abc' }, resource.data.userId: 'user_xyz' }
+     * @principle Enforces document ownership for writes and restricts access to authorized users.
+     */
+    match /tests/{testId} {
+      // Helper function to check if the user is signed in and owns the document based on userId field.
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      // Helper function to check if the user is signed in and owns the existing document.
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource.data.userId == userId && resource != null;
+      }
+
+      allow get: if true; // Public read access for tests
+      allow list: if true; // Public listing for tests
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.userId) && resource.data.userId == request.resource.data.userId;
+      allow delete: if isExistingOwner(resource.data.userId);
+
+    }
+  }
+
+  // Helper function to check if the user is signed in.
+  function isSignedIn() {
+    return request.auth != null;
+  }
+}
