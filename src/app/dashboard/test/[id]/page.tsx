@@ -40,7 +40,6 @@ export default function TestViewPage({ params }: { params: { id: string } }) {
       <SieveResultsDisplay
         sieves={test.sieves}
         results={test.results}
-        recommendation={test.recommendation}
         type={test.type}
       />
     </div>

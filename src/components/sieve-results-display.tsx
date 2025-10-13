@@ -22,14 +22,12 @@ import { BrainCircuit, FlaskConical } from "lucide-react";
 interface SieveResultsDisplayProps {
   sieves: number[];
   results: AnalysisResults;
-  recommendation?: string;
   type: AggregateType;
 }
 
 export function SieveResultsDisplay({
   sieves,
   results,
-  recommendation,
   type,
 }: SieveResultsDisplayProps) {
   const chartData = sieves.map((sieve, index) => ({
@@ -69,20 +67,6 @@ export function SieveResultsDisplay({
           </CardContent>
         </Card>
       </div>
-
-      {recommendation && (
-        <Card className="bg-secondary">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-headline">
-              <BrainCircuit className="h-6 w-6 text-primary" />
-              AI Material Recommendation
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-secondary-foreground">{recommendation}</p>
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>

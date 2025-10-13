@@ -11,7 +11,6 @@ import {
   SIEVE_SIZES,
 } from "@/lib/sieve-analysis";
 import type { AggregateType, AnalysisResults } from "@/lib/definitions";
-import { recommendMaterials } from "@/ai/flows/material-recommendations";
 import { SieveResultsDisplay } from "./sieve-results-display";
 
 import { Button } from "@/components/ui/button";
@@ -46,7 +45,6 @@ export function NewTestForm() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(null);
-  const [recommendation, setRecommendation] = React.useState<string | undefined>(undefined);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -71,7 +69,6 @@ export function NewTestForm() {
   async function handleCalculate(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     setAnalysisResults(null);
-    setRecommendation(undefined);
     try {
       const currentSieves = values.type === "Fine" ? SIEVE_SIZES.Fine : SIEVE_SIZES.Coarse;
       const weights = values.weights.map((w) => w.value);
@@ -87,21 +84,10 @@ export function NewTestForm() {
       
       const finalResults = { ...calculated, classification };
       setAnalysisResults(finalResults);
-
-      const aiInput = {
-        aggregateType: values.type,
-        finenessModulus: finalResults.finenessModulus || 0,
-        classification: finalResults.classification,
-        sieveSizes: currentSieves,
-        percentPassing: finalResults.percentPassing,
-      };
-
-      const aiResponse = await recommendMaterials(aiInput);
-      setRecommendation(aiResponse.recommendations);
       
       setStep(2);
     } catch (error) {
-      console.error("Calculation or AI error:", error);
+      console.error("Calculation error:", error);
       toast({
         variant: "destructive",
         title: "An Error Occurred",
@@ -233,7 +219,6 @@ export function NewTestForm() {
            <SieveResultsDisplay 
               sieves={currentSieves}
               results={analysisResults}
-              recommendation={recommendation}
               type={aggregateType}
             />
           <div className="flex flex-col-reverse gap-4 sm:flex-row sm:justify-between">

@@ -22,5 +22,4 @@ export interface SieveAnalysisTest {
   weights: number[];
   results: AnalysisResults;
   reportUrl?: string;
-  recommendation?: string;
 }

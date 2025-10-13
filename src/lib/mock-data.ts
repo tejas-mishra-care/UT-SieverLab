@@ -16,8 +16,6 @@ export const mockTests: SieveAnalysisTest[] = [
       classification: "Zone III",
     },
     reportUrl: "/placeholder.pdf",
-    recommendation:
-      "This fine aggregate falls under Zone III as per IS 383. It is suitable for general purpose concrete work, including reinforced concrete. Its fineness modulus of 2.88 indicates a medium sand, which provides good workability and strength. Ensure proper mix design adjustments for water content.",
   },
   {
     id: "test-2",
@@ -34,8 +32,6 @@ export const mockTests: SieveAnalysisTest[] = [
       classification: "Graded Aggregate (20mm Nominal)",
     },
     reportUrl: "/placeholder.pdf",
-    recommendation:
-      "This coarse aggregate is a well-graded material with a nominal size of 20mm, conforming to IS 383 standards for graded aggregates. It is ideal for use in most reinforced concrete structures, pavements, and foundations where high strength and durability are required.",
   },
   {
     id: "test-3",
