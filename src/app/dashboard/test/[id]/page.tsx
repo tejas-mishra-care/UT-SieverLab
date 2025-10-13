@@ -103,27 +103,27 @@ function TestView({ id }: { id: string }) {
       
       element.style.backgroundColor = originalBg;
 
-      const data = canvas.toDataURL("image/png");
+      const imgData = canvas.toDataURL("image/png");
 
       const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      const imgProps = pdf.getImageProperties(data);
+      const imgProps = pdf.getImageProperties(imgData);
       const imgWidth = pdfWidth - 20; // 10mm margin on each side
       const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
       
       let position = 0;
       let heightLeft = imgHeight;
-      const pageHeight = pdf.internal.pageSize.getHeight() - 20;
 
-      pdf.addImage(data, "PNG", 10, 10, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
+      pdf.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
 
       while (heightLeft > 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
-        pdf.addImage(data, 'PNG', 10, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+        pdf.addImage(imgData, 'PNG', 10, position + 10, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
       }
       
       pdf.save(`SieveLab Report - ${test.name}.pdf`);

@@ -98,11 +98,11 @@ export default function ProfilePage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSaving} autoComplete="name" />
+              <Input id="name" name="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSaving} autoComplete="name" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={user?.email || ""} disabled autoComplete="email" />
+              <Input id="email" name="email" type="email" value={user?.email || ""} disabled autoComplete="email" />
             </div>
           </div>
           <div className="flex justify-between items-center flex-wrap gap-4">

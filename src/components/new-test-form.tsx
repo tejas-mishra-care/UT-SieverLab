@@ -30,7 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, WandSparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser } from "@/firebase";
-import { doc, setDoc, collection, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, collection } from "firebase/firestore";
 import { SieveInputsDisplay } from "./sieve-inputs-display";
 
 const formSchema = z.object({
@@ -61,13 +61,21 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   const [isSaving, setIsSaving] = React.useState(false);
   const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(null);
 
+  const defaultValues = React.useMemo(() => {
+    const type = existingTest?.type || 'Fine';
+    const sieves = getSievesForType(type);
+    return {
+      name: existingTest?.name || '',
+      type: type,
+      weights: sieves.map((_, index) => ({
+        value: existingTest?.weights?.[index] ?? null,
+      })),
+    };
+  }, [existingTest]);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: '',
-      type: 'Fine',
-      weights: getSievesForType('Fine').map(() => ({ value: null })),
-    }
+    defaultValues: defaultValues
   });
 
   const { fields, replace } = useFieldArray({
@@ -79,15 +87,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   React.useEffect(() => {
     if (existingTest) {
-      const type = existingTest.type;
-      const sieves = getSievesForType(type);
-      form.reset({
-        name: existingTest.name,
-        type: type,
-        weights: sieves.map((_, index) => ({
-          value: existingTest.weights?.[index] ?? null,
-        })),
-      });
+      form.reset(defaultValues);
 
       if (existingTest.status === 'completed') {
         setAnalysisResults({
@@ -100,7 +100,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         setStep(2);
       }
     }
-  }, [existingTest, form]);
+  }, [existingTest, form, defaultValues]);
 
   React.useEffect(() => {
     const newSieves = getSievesForType(aggregateType);
@@ -202,7 +202,6 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         description: `"${testData.name}" has been successfully saved.`,
       });
       router.push(`/dashboard/test/${testData.id}`);
-      router.refresh();
     } catch (error) {
       console.error("Firestore save error:", error);
       toast({
@@ -256,15 +255,15 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
                         >
                           <FormItem className="flex items-center space-x-3 space-y-0">
                             <FormControl>
-                              <RadioGroupItem value="Fine" />
+                              <RadioGroupItem value="Fine" id="typeFine" />
                             </FormControl>
-                            <FormLabel className="font-normal">Fine Aggregate</FormLabel>
+                            <FormLabel htmlFor="typeFine" className="font-normal">Fine Aggregate</FormLabel>
                           </FormItem>
                           <FormItem className="flex items-center space-x-3 space-y-0">
                             <FormControl>
-                              <RadioGroupItem value="Coarse" />
+                              <RadioGroupItem value="Coarse" id="typeCoarse" />
                             </FormControl>
-                            <FormLabel className="font-normal">Coarse Aggregate</FormLabel>
+                            <FormLabel htmlFor="typeCoarse" className="font-normal">Coarse Aggregate</FormLabel>
                           </FormItem>
                         </RadioGroup>
                       </FormControl>
