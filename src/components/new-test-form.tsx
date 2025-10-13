@@ -60,13 +60,23 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   const [isSaving, setIsSaving] = React.useState(false);
   const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(null);
 
+  const defaultValues = React.useMemo(() => {
+    const type = existingTest?.type || 'Fine';
+    const upperCaseType = type.toUpperCase() as keyof typeof SIEVE_SIZES;
+    const sieves = SIEVE_SIZES[upperCaseType] || [];
+    
+    return {
+      name: existingTest?.name || "",
+      type: type,
+      weights: sieves.map((_, index) => ({
+        value: existingTest?.weights?.[index] ?? null,
+      })),
+    };
+  }, [existingTest]);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      type: "Fine",
-      weights: SIEVE_SIZES.FINE.map(() => ({ value: null })),
-    }
+    defaultValues: defaultValues,
   });
 
   const { fields, replace } = useFieldArray({
@@ -76,17 +86,11 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   const aggregateType = form.watch("type") as AggregateType;
 
+  // Sync form state when existingTest data arrives
   React.useEffect(() => {
     if (existingTest) {
-      const relevantSieves = SIEVE_SIZES[existingTest.type.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
-      form.reset({
-        name: existingTest.name,
-        type: existingTest.type,
-        weights: relevantSieves.map((_, index) => ({
-          value: existingTest.weights?.[index] ?? null,
-        })),
-      });
-      if (existingTest.status === 'completed') {
+      form.reset(defaultValues);
+       if (existingTest.status === 'completed') {
         setAnalysisResults({
           percentRetained: existingTest.percentRetained,
           cumulativeRetained: existingTest.cumulativeRetained,
@@ -97,16 +101,18 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         setStep(2);
       }
     }
-  }, [existingTest, form]);
+  }, [existingTest, form, defaultValues]);
+  
 
+  // Update weights array when aggregate type changes
   React.useEffect(() => {
-    const relevantSieves = SIEVE_SIZES[aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
-    const currentWeights = form.getValues('weights');
-    if (currentWeights.length !== relevantSieves.length) {
-        const newWeights = relevantSieves.map(() => ({ value: null }));
-        replace(newWeights);
-    }
-  }, [aggregateType, replace, form]);
+    const upperCaseType = aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES;
+    const relevantSieves = SIEVE_SIZES[upperCaseType] || [];
+    const newWeights = relevantSieves.map(() => ({ value: null }));
+    replace(newWeights);
+    setAnalysisResults(null); // Clear results on type change
+  }, [aggregateType, replace]);
+
 
   async function handleCalculate(values: FormValues) {
     setIsCalculating(true);
@@ -244,7 +250,6 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
                         <RadioGroup
                           onValueChange={(value) => {
                             field.onChange(value as AggregateType);
-                            setAnalysisResults(null); // Clear results on type change
                           }}
                           value={field.value}
                           className="flex flex-col space-y-1"
@@ -343,7 +348,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
                 <h1 className="font-headline text-2xl font-bold">{form.getValues("name")}</h1>
                 <p className="text-sm text-muted-foreground">
                     Sieve Analysis Report &bull;{" "}
-                    {new Date(isEditMode ? existingTest.timestamp : Date.now()).toLocaleDateString()}
+                    {new Date(isEditMode && existingTest ? existingTest.timestamp : Date.now()).toLocaleDateString()}
                 </p>
             </div>
             <SieveInputsDisplay sieves={currentSieves} weights={form.getValues('weights').map(w => w.value || 0)} />
@@ -372,5 +377,3 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     </Form>
   );
 }
-
-    
