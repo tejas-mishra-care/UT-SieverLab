@@ -102,7 +102,6 @@ export default function TestViewPage({ params }: { params: { id: string } }) {
   };
 
 
-  // Security check after loading
   React.useEffect(() => {
     if (!isLoading && test && user && test.userId !== user.uid) {
       toast({ variant: "destructive", title: "Access Denied", description: "You do not have permission to view this test." });
@@ -124,7 +123,6 @@ export default function TestViewPage({ params }: { params: { id: string } }) {
 
 
   if (!test) {
-    // This will be caught by the notFound() call above, but it keeps typescript happy
     return null;
   }
 

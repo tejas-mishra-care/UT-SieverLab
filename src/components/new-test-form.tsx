@@ -81,13 +81,11 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     const newSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
     const currentWeights = form.getValues('weights');
     
-    // Only update if the number of sieves changes (i.e. type change)
     if (currentWeights.length !== newSieves.length) {
       if (!existingTest || existingTest.type !== aggregateType) {
         replace(newSieves.map(() => ({ value: null })));
         setAnalysisResults(null);
       } else {
-        // If it's an existing test and type matches, restore its weights
         replace(existingTest.weights.map(w => ({ value: w })));
       }
     }
@@ -103,7 +101,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   async function handleCalculate(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     setAnalysisResults(null);
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate calculation
+    await new Promise(resolve => setTimeout(resolve, 500)); 
     try {
       const currentSieves = values.type === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
       const weights = values.weights.map((w) => w.value || 0);
@@ -166,9 +164,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         });
         router.push(`/dashboard/test/${existingTest.id}`);
         } else {
-            const testsCollection = collection(firestore, 'tests');
-            const newDoc = { ...testData, id: ''};
-            const docRef = await addDoc(testsCollection, newDoc);
+            const docRef = await addDoc(collection(firestore, 'tests'), testData);
             await setDoc(docRef, { id: docRef.id }, { merge: true });
             
             toast({
@@ -251,7 +247,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
               <CardHeader>
                 <CardTitle>Step 2: Enter Weights</CardTitle>
                 <CardDescription>
-                  Enter the weight (in grams) retained on each sieve. Leave blank or enter 0 if not used.
+                  Enter the weight (in grams) retained on each sieve. Leave blank if not used.
                 </CardDescription>
               </CardHeader>
               <CardContent>
