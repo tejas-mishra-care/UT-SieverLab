@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -37,7 +38,7 @@ const formSchema = z.object({
   type: z.enum(["Fine", "Coarse"], {
     required_error: "You need to select an aggregate type.",
   }),
-  weights: z.array(z.object({ value: z.number().min(0, "Weight cannot be negative") })),
+  weights: z.array(z.object({ value: z.number().min(0, "Weight cannot be negative").nullable() })),
 });
 
 export function NewTestForm() {
@@ -55,7 +56,7 @@ export function NewTestForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       type: "Fine",
-      weights: SIEVE_SIZES.FINE.map(() => ({ value: 0 })),
+      weights: SIEVE_SIZES.FINE.map(() => ({ value: null })),
     },
   });
 
@@ -68,7 +69,7 @@ export function NewTestForm() {
 
   React.useEffect(() => {
     const newSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
-    replace(newSieves.map(() => ({ value: 0 })));
+    replace(newSieves.map(() => ({ value: null })));
   }, [aggregateType, replace]);
 
   async function handleCalculate(values: z.infer<typeof formSchema>) {
@@ -77,7 +78,7 @@ export function NewTestForm() {
     await new Promise(resolve => setTimeout(resolve, 500)); // Simulate calculation
     try {
       const currentSieves = values.type === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
-      const weights = values.weights.map((w) => w.value);
+      const weights = values.weights.map((w) => w.value || 0);
 
       const calculated = calculateSieveAnalysis(weights, currentSieves, values.type);
       
@@ -122,7 +123,7 @@ export function NewTestForm() {
       type: aggregateType,
       timestamp: Date.now(),
       sieves: currentSieves,
-      weights: form.getValues('weights').map(w => w.value),
+      weights: form.getValues('weights').map(w => w.value || 0),
       results: analysisResults,
     };
     
@@ -221,8 +222,10 @@ export function NewTestForm() {
                                   <Input
                                     type="number"
                                     step="0.1"
+                                    placeholder="Enter weight"
                                     {...field}
-                                    onChange={event => field.onChange(event.target.value === '' ? 0 : parseFloat(event.target.value))}
+                                    value={field.value ?? ""}
+                                    onChange={event => field.onChange(event.target.value === '' ? null : parseFloat(event.target.value))}
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -276,3 +279,5 @@ export function NewTestForm() {
     </Form>
   );
 }
+
+    
