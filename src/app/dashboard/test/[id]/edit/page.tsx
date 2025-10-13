@@ -8,10 +8,11 @@ import type { SieveAnalysisTest } from "@/lib/definitions";
 import { Loader2 } from "lucide-react";
 import { doc } from "firebase/firestore";
 import { notFound, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import React, { useEffect, use } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-export default function EditTestPage({ params: { id } }: { params: { id: string } }) {
+export default function EditTestPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const { toast } = useToast();
   const firestore = useFirestore();

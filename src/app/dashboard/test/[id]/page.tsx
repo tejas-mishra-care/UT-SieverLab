@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import React from "react";
+import React, { use } from "react";
 import { useDoc, useFirestore, useUser } from "@/firebase";
 import { doc, deleteDoc } from "firebase/firestore";
 import { useMemoFirebase } from "@/firebase/provider";
@@ -26,7 +26,8 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import Link from "next/link";
 
-export default function TestViewPage({ params: { id } }: { params: { id: string } }) {
+export default function TestViewPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const { toast } = useToast();
   const firestore = useFirestore();
