@@ -13,7 +13,6 @@ import {
 } from "@/lib/sieve-analysis";
 import type { AggregateType, AnalysisResults, SieveAnalysisTest } from "@/lib/definitions";
 import { SieveResultsDisplay } from "./sieve-results-display";
-
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -31,8 +30,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, WandSparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser } from "@/firebase";
-import { collection, addDoc, doc, setDoc } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import Link from "next/link";
+import { useDebouncedCallback } from "use-debounce";
 
 const formSchema = z.object({
   name: z.string().min(1, "Test name is required."),
@@ -43,7 +43,7 @@ const formSchema = z.object({
 });
 
 interface NewTestFormProps {
-  existingTest?: SieveAnalysisTest;
+  existingTest: SieveAnalysisTest; // Changed to be required
 }
 
 export function NewTestForm({ existingTest }: NewTestFormProps) {
@@ -52,12 +52,13 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   const firestore = useFirestore();
   const { user } = useUser();
 
-  const [step, setStep] = React.useState(1);
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [step, setStep] = React.useState(existingTest.status === 'completed' ? 2 : 1);
+  const [isCalculating, setIsCalculating] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
-  
+  const [saveStatus, setSaveStatus] = React.useState<'saved' | 'saving' | 'unsaved'>('saved');
+
   const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(
-    existingTest ? {
+    existingTest.status === 'completed' ? {
       percentRetained: existingTest.percentRetained,
       cumulativeRetained: existingTest.cumulativeRetained,
       percentPassing: existingTest.percentPassing,
@@ -69,10 +70,10 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: existingTest?.name || "",
-      type: existingTest?.type || "Fine",
-      weights: (existingTest?.weights.length ? existingTest.weights : SIEVE_SIZES.FINE.map(() => null)).map(
-        (w) => ({ value: w })
+      name: existingTest.name,
+      type: existingTest.type,
+      weights: (SIEVE_SIZES[existingTest.type] || SIEVE_SIZES.FINE).map(
+        (_, index) => ({ value: existingTest.weights[index] ?? null })
       ),
     },
   });
@@ -83,28 +84,50 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   });
 
   const aggregateType = form.watch("type") as AggregateType;
+  const formValues = form.watch();
+
+  const debouncedSave = useDebouncedCallback(async (data: SieveAnalysisTest) => {
+    if (!firestore || !user) return;
+    setSaveStatus('saving');
+    const testDocRef = doc(firestore, 'tests', existingTest.id);
+    try {
+      await setDoc(testDocRef, data, { merge: true });
+      setSaveStatus('saved');
+    } catch (error) {
+      console.error("Autosave error:", error);
+      toast({ variant: 'destructive', title: 'Autosave Failed' });
+      setSaveStatus('unsaved');
+    }
+  }, 2000); // 2-second debounce
+
+  React.useEffect(() => {
+    setSaveStatus('unsaved');
+    const currentSieves = SIEVE_SIZES[formValues.type as AggregateType] || [];
+    const weights = formValues.weights.map(w => w.value ?? 0);
+    const updatedData: Partial<SieveAnalysisTest> = {
+      name: formValues.name,
+      type: formValues.type as AggregateType,
+      weights: weights,
+      sieves: currentSieves,
+    };
+    debouncedSave(updatedData as SieveAnalysisTest);
+  }, [formValues, debouncedSave]);
+
 
   React.useEffect(() => {
     const newSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
-    // Do not reset form if we have an existing test and the type matches
-    if (existingTest && existingTest.type === aggregateType) {
-        return;
-    }
-     if (!existingTest || existingTest.type !== aggregateType) {
-        replace(newSieves.map(() => ({ value: null })));
-        setAnalysisResults(null);
-    }
-  }, [aggregateType, replace, existingTest]);
-
-  React.useEffect(() => {
-    if (existingTest) {
-       setStep(2);
-    }
-  }, [existingTest])
+    replace(newSieves.map(() => ({ value: null })));
+    setAnalysisResults(null);
+    form.reset({
+        name: form.getValues('name'),
+        type: aggregateType,
+        weights: newSieves.map(() => ({ value: null }))
+    });
+  }, [aggregateType, replace]);
 
 
   async function handleCalculate(values: z.infer<typeof formSchema>) {
-    setIsLoading(true);
+    setIsCalculating(true);
     setAnalysisResults(null);
     await new Promise(resolve => setTimeout(resolve, 500)); 
     try {
@@ -139,11 +162,11 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         description: "Could not perform analysis. Please check your inputs and try again.",
       });
     } finally {
-      setIsLoading(false);
+      setIsCalculating(false);
     }
   }
 
-  async function handleSave() {
+  async function handleCompleteTest() {
     if (!analysisResults || !user || !firestore) {
         toast({
             variant: "destructive",
@@ -153,15 +176,15 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         return;
     };
     setIsSaving(true);
+    setSaveStatus('saving');
     
     const currentSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
     const weights = form.getValues('weights').map(w => w.value || 0);
 
-    const testData: Omit<SieveAnalysisTest, 'id'> = {
-      userId: user.uid,
+    const testData: SieveAnalysisTest = {
+      ...existingTest,
       name: form.getValues("name"),
       type: aggregateType,
-      timestamp: existingTest?.timestamp || Date.now(),
       sieves: currentSieves,
       weights: weights,
       percentRetained: analysisResults.percentRetained,
@@ -169,47 +192,45 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
       percentPassing: analysisResults.percentPassing,
       finenessModulus: analysisResults.finenessModulus,
       classification: analysisResults.classification,
+      status: 'completed',
+      timestamp: existingTest.timestamp || Date.now() // Keep original timestamp
     };
     
     try {
-        if (existingTest) {
-          const testDocRef = doc(firestore, 'tests', existingTest.id);
-          // Use await to ensure the operation completes before navigation
-          await setDoc(testDocRef, { ...testData, id: existingTest.id }, { merge: true });
-          toast({
-            title: "Test Updated Successfully",
-            description: `"${testData.name}" has been updated.`,
-        });
-        // Wait for router push to complete to ensure the UI updates after the data has been saved
-        router.push(`/dashboard/test/${existingTest.id}`);
-        router.refresh(); // Force refresh to get latest data
-        } else {
-            const testCollRef = collection(firestore, 'tests');
-            const docRef = doc(testCollRef); // Create a new doc with a generated ID
-            // Use await to ensure the operation completes before navigation
-            await setDoc(docRef, { ...testData, id: docRef.id });
-            
-            toast({
-                title: "Test Saved Successfully",
-                description: `"${testData.name}" has been saved to your dashboard.`,
-            });
-            // Wait for router push to complete to ensure the UI updates after the data has been saved
-            router.push(`/dashboard/test/${docRef.id}`);
-            router.refresh();
-        }
+      const testDocRef = doc(firestore, 'tests', existingTest.id);
+      await setDoc(testDocRef, testData, { merge: true });
+      setSaveStatus('saved');
+      toast({
+        title: "Test Completed",
+        description: `"${testData.name}" has been saved.`,
+      });
+      router.push(`/dashboard/test/${existingTest.id}`);
+      router.refresh(); 
     } catch (error) {
-        console.error("Firestore save error:", error);
-        toast({
-            variant: "destructive",
-            title: "An Error Occurred",
-            description: "Could not save the test. Please try again.",
-        });
+      setSaveStatus('unsaved');
+      console.error("Firestore save error:", error);
+      toast({
+        variant: "destructive",
+        title: "An Error Occurred",
+        description: "Could not save the test. Please try again.",
+      });
     } finally {
-        setIsSaving(false);
+      setIsSaving(false);
     }
   }
 
   const currentSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
+  
+  const getSaveStatusMessage = () => {
+    switch (saveStatus) {
+      case 'saving':
+        return <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Saving...</>;
+      case 'saved':
+        return <>All changes saved</>;
+      case 'unsaved':
+        return <>Unsaved changes</>;
+    }
+  };
 
   return (
     <Form {...form}>
@@ -245,7 +266,6 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
                         <RadioGroup
                           onValueChange={(value) => {
                             field.onChange(value);
-                            setAnalysisResults(null); 
                           }}
                           defaultValue={field.value}
                           className="flex flex-col space-y-1"
@@ -321,9 +341,10 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
               </CardContent>
             </Card>
 
-            <div className="flex justify-end">
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground flex items-center">{getSaveStatusMessage()}</span>
+              <Button type="submit" disabled={isCalculating}>
+                {isCalculating ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <WandSparkles className="mr-2 h-4 w-4" />
@@ -343,24 +364,17 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
               {...analysisResults}
             />
           <div className="flex flex-col-reverse gap-4 sm:flex-row sm:justify-between">
-            <div>
-                 <Button variant="outline" onClick={() => { setStep(1); }}>
-                    Back to Inputs
-                </Button>
-                {existingTest && (
-                    <Button variant="ghost" asChild className="ml-2">
-                        <Link href={`/dashboard/test/${existingTest.id}`}>Cancel</Link>
-                    </Button>
-                )}
-            </div>
+            <Button variant="outline" onClick={() => { setStep(1); }}>
+                Back to Inputs
+            </Button>
 
-            <Button onClick={handleSave} disabled={isSaving || !user}>
+            <Button onClick={handleCompleteTest} disabled={isSaving || !user}>
               {isSaving ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              {existingTest ? 'Save Changes' : 'Save Test'}
+              {existingTest.status === 'completed' ? 'Save Changes' : 'Complete and Save Test'}
             </Button>
           </div>
         </div>

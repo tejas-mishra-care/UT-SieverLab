@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Header } from "@/components/header";
@@ -13,11 +14,13 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { useUser } from "@/firebase";
+import { useUser, useFirestore } from "@/firebase";
 import { HardHat, LayoutDashboard, Loader2, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";
+import { addDoc, collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import type { SieveAnalysisTest } from "@/lib/definitions";
 
 export default function DashboardLayout({
   children,
@@ -26,12 +29,39 @@ export default function DashboardLayout({
 }) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const firestore = useFirestore();
 
   useEffect(() => {
     if (!isUserLoading && !user) {
       router.push("/");
     }
   }, [user, isUserLoading, router]);
+
+  const handleNewTest = async () => {
+    if (!user || !firestore) return;
+    
+    // Create a new draft test document in Firestore
+    const newTestRef = doc(collection(firestore, "tests"));
+    const newTestData: Partial<SieveAnalysisTest> = {
+      id: newTestRef.id,
+      userId: user.uid,
+      name: "Untitled Test",
+      type: "Fine",
+      timestamp: Date.now(),
+      status: 'draft',
+      sieves: [],
+      weights: [],
+      percentRetained: [],
+      cumulativeRetained: [],
+      percentPassing: [],
+      finenessModulus: null,
+      classification: null,
+    };
+    await setDoc(newTestRef, newTestData);
+
+    // Redirect to the edit page for the new draft
+    router.push(`/dashboard/test/${newTestRef.id}/edit`);
+  };
 
   if (isUserLoading || !user) {
     return (
@@ -69,11 +99,9 @@ export default function DashboardLayout({
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="New Test">
-                  <Link href="/dashboard/new-test">
+                <SidebarMenuButton onClick={handleNewTest} tooltip="New Test">
                     <PlusCircle />
                     <span>New Test</span>
-                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

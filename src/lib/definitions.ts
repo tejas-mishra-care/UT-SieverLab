@@ -30,4 +30,5 @@ export interface SieveAnalysisTest {
   finenessModulus: number | null;
   classification: string | null;
   reportUrl?: string;
+  status: 'draft' | 'completed';
 }

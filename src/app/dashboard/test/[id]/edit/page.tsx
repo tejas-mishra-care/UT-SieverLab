@@ -64,7 +64,7 @@ function EditTest({ id }: { id: string }) {
       <div>
         <h2 className="font-headline text-3xl font-bold">Edit Sieve Analysis</h2>
         <p className="text-muted-foreground">
-          Modify your test details and recalculate the results.
+          Modify your test details and recalculate the results. Your progress is saved automatically.
         </p>
       </div>
       {/* Pass the fully loaded test object to the form */}

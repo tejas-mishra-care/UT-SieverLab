@@ -7,11 +7,14 @@ import { PlusCircle, Loader2 } from "lucide-react";
 import { TestCard } from "@/components/test-card";
 import type { SieveAnalysisTest } from "@/lib/definitions";
 import { useCollection, useUser, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, where } from "firebase/firestore";
+import { collection, query, where, addDoc, doc, setDoc } from "firebase/firestore";
+import { useRouter } from "next/navigation";
+import {_} from 'lodash';
 
 export default function DashboardPage() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const router = useRouter();
 
   const testsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -19,6 +22,31 @@ export default function DashboardPage() {
   }, [firestore, user]);
 
   const { data: tests, isLoading } = useCollection<SieveAnalysisTest>(testsQuery);
+
+  const handleNewTest = async () => {
+    if (!user || !firestore) return;
+    
+    const newTestRef = doc(collection(firestore, "tests"));
+    const newTestData: Partial<SieveAnalysisTest> = {
+      id: newTestRef.id,
+      userId: user.uid,
+      name: "Untitled Test",
+      type: "Fine",
+      timestamp: Date.now(),
+      status: 'draft',
+      sieves: [],
+      weights: [],
+      percentRetained: [],
+      cumulativeRetained: [],
+      percentPassing: [],
+      finenessModulus: null,
+      classification: null,
+    };
+    await setDoc(newTestRef, newTestData);
+    router.push(`/dashboard/test/${newTestRef.id}/edit`);
+  };
+
+  const sortedTests = _.orderBy(tests, ['timestamp'], ['desc']);
 
   return (
     <div className="space-y-6">
@@ -29,11 +57,9 @@ export default function DashboardPage() {
             Here are the latest sieve analysis tests you have saved.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/new-test">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            New Test
-          </Link>
+        <Button onClick={handleNewTest}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          New Test
         </Button>
       </div>
 
@@ -44,9 +70,9 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {!isLoading && tests && tests.length > 0 && (
+      {!isLoading && sortedTests && sortedTests.length > 0 && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {tests.map((test) => (
+          {sortedTests.map((test) => (
             <TestCard key={test.id} test={test} />
           ))}
         </div>
@@ -58,11 +84,9 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground mb-4">
             You have not created any tests yet.
           </p>
-          <Button asChild>
-            <Link href="/dashboard/new-test">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Create Your First Test
-            </Link>
+          <Button onClick={handleNewTest}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Create Your First Test
           </Button>
         </div>
       )}
