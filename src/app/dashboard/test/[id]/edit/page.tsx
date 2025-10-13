@@ -7,7 +7,7 @@ import type { SieveAnalysisTest } from "@/lib/definitions";
 import { Loader2 } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { notFound, useRouter } from "next/navigation";
-import React, { use, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 function EditTest({ id }: { id: string }) {
@@ -20,14 +20,16 @@ function EditTest({ id }: { id: string }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // This effect handles authorization after data loading is complete.
-    // It runs only when the loading states or data changes.
     if (!firestore || isUserLoading) {
-      return; // Wait until firebase is ready and user auth state is known
+      return; 
+    }
+    
+    if (!user) {
+        router.push('/');
+        return;
     }
 
     const fetchTest = async () => {
-      setIsLoading(true);
       const testDocRef = doc(firestore, "tests", id);
       const testSnap = await getDoc(testDocRef);
 
@@ -39,7 +41,6 @@ function EditTest({ id }: { id: string }) {
       const testData = testSnap.data() as SieveAnalysisTest;
 
       if (testData.userId !== user?.uid) {
-        // If the test doesn't belong to the current user, deny access.
         toast({
           variant: "destructive",
           title: "Access Denied",
@@ -57,7 +58,7 @@ function EditTest({ id }: { id: string }) {
 
   }, [firestore, isUserLoading, user, id, router, toast]);
 
-  if (isLoading) {
+  if (isLoading || isUserLoading) {
     return (
       <div className="flex h-full min-h-[500px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -66,11 +67,11 @@ function EditTest({ id }: { id: string }) {
   }
   
   if (!test) {
-    // This will be caught by the notFound in the effect, but as a safeguard:
-    return notFound();
+    // This can happen if the test doesn't exist or user doesn't have permission.
+    // The hooks above handle the redirect/notFound, but this is a safeguard.
+    return null;
   }
 
-  // We can only reach this point if isLoading is false and test is not null.
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
@@ -79,14 +80,13 @@ function EditTest({ id }: { id: string }) {
           Modify your test details and recalculate the results. Your progress is saved automatically.
         </p>
       </div>
-      {/* Pass the fully loaded test object to the form */}
-      <NewTestForm existingTest={test!} />
+      <NewTestForm existingTest={test} />
     </div>
   );
 }
 
 
-export default function EditTestPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  return <EditTest id={id} />;
+export default function EditTestPage({ params }: { params: { id: string } }) {
+  // `params` are guaranteed to be available in pages, no need for `use`.
+  return <EditTest id={params.id} />;
 }

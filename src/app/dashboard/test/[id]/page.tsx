@@ -1,7 +1,7 @@
 
 "use client";
 
-import { use, Suspense, useState, useEffect } from 'react';
+import { use, Suspense, useState, useEffect, useRef } from 'react';
 import { notFound, useRouter } from "next/navigation";
 import { SieveResultsDisplay } from "@/components/sieve-results-display";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import { doc, deleteDoc, getDoc } from "firebase/firestore";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import Link from "next/link";
+import { SieveInputsDisplay } from '@/components/sieve-inputs-display';
 
 function TestView({ id }: { id: string }) {
   const router = useRouter();
@@ -37,11 +38,16 @@ function TestView({ id }: { id: string }) {
   const [test, setTest] = useState<SieveAnalysisTest | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const printRef = React.useRef<HTMLDivElement>(null);
+  const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!firestore || isUserLoading) {
-      return; // Wait for Firebase and user
+      return; 
+    }
+
+    if (!user) {
+        router.push('/');
+        return;
     }
 
     const fetchTest = async () => {
@@ -56,7 +62,7 @@ function TestView({ id }: { id: string }) {
       
       const testData = testSnap.data() as SieveAnalysisTest;
 
-      if (testData.userId !== user?.uid) {
+      if (testData.userId !== user.uid) {
         toast({
           variant: "destructive",
           title: "Access Denied",
@@ -129,7 +135,7 @@ function TestView({ id }: { id: string }) {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isUserLoading) {
     return (
       <div className="flex h-full min-h-[500px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -141,14 +147,17 @@ function TestView({ id }: { id: string }) {
     return notFound();
   }
 
+  const isDraft = test.status === 'draft';
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h2 className="font-headline text-3xl font-bold">{test.name}</h2>
           <p className="text-muted-foreground">
-            Test ID: {test.id.slice(-6)} &bull; Completed on{" "}
-            {new Date(test.timestamp).toLocaleDateString()}
+            {isDraft ? 'Draft' : 
+            `Test ID: ${test.id.slice(-6)} • Completed on ${new Date(test.timestamp).toLocaleDateString()}`
+            }
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -158,14 +167,16 @@ function TestView({ id }: { id: string }) {
               Edit
             </Link>
           </Button>
-          <Button variant="outline" onClick={handleDownload} disabled={isDownloading}>
-            {isDownloading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="mr-2 h-4 w-4" />
-            )}
-            Download Report
-          </Button>
+          {!isDraft && (
+            <Button variant="outline" onClick={handleDownload} disabled={isDownloading}>
+              {isDownloading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Download Report
+            </Button>
+          )}
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" disabled={isDeleting}>
@@ -205,26 +216,46 @@ function TestView({ id }: { id: string }) {
             {new Date(test.timestamp).toLocaleDateString()}
           </p>
         </div>
-        <SieveResultsDisplay
-          sieves={test.sieves}
-          percentPassing={test.percentPassing}
-          percentRetained={test.percentRetained}
-          cumulativeRetained={test.cumulativeRetained}
-          finenessModulus={test.finenessModulus}
-          classification={test.classification}
-          type={test.type}
-        />
+        
+        {isDraft ? (
+             <div className="flex min-h-[200px] flex-col items-center justify-center rounded-lg border border-dashed text-center">
+                <h3 className="text-xl font-bold tracking-tight">This is a draft.</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                    Complete the test to see the results.
+                </p>
+                <Button asChild>
+                    <Link href={`/dashboard/test/${test.id}/edit`}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Continue Editing
+                    </Link>
+                </Button>
+            </div>
+        ) : (
+          <div className="space-y-6">
+            <SieveInputsDisplay sieves={test.sieves} weights={test.weights} />
+            <SieveResultsDisplay
+              sieves={test.sieves}
+              percentPassing={test.percentPassing}
+              percentRetained={test.percentRetained}
+              cumulativeRetained={test.cumulativeRetained}
+              finenessModulus={test.finenessModulus}
+              classification={test.classification}
+              type={test.type}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 // This is the main page component, now simplified.
-export default function TestViewPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function TestViewPage({ params }: { params: { id: string } }) {
+  // `params` are guaranteed to be available in pages, no need for `use`.
   return (
     <Suspense fallback={<div className="flex h-full min-h-[500px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
-      <TestView id={id} />
+      <TestView id={params.id} />
     </Suspense>
   );
 }
+

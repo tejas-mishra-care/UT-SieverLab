@@ -36,7 +36,7 @@ export function SieveResultsDisplay({
   const chartData = sieves.map((sieve, index) => ({
     sieveSize: sieve,
     percentPassing: percentPassing[index],
-  }));
+  })).filter(d => d.percentPassing !== undefined); // Ensure no undefined values go to chart
 
   return (
     <div className="space-y-6">
@@ -86,9 +86,9 @@ export function SieveResultsDisplay({
 
         <Card>
             <CardHeader>
-            <CardTitle>Raw Data</CardTitle>
+            <CardTitle>Analysis Results</CardTitle>
             <CardDescription>
-                Detailed results from the sieve analysis.
+                Detailed calculated results from the sieve analysis.
             </CardDescription>
             </CardHeader>
             <CardContent>
@@ -107,13 +107,13 @@ export function SieveResultsDisplay({
                     <TableRow key={sieve}>
                         <TableCell className="font-medium">{sieve}</TableCell>
                         <TableCell className="text-right">
-                        {percentRetained[index].toFixed(2)}
+                        {percentRetained?.[index]?.toFixed(2) ?? '0.00'}
                         </TableCell>
                         <TableCell className="text-right">
-                        {cumulativeRetained[index].toFixed(2)}
+                        {cumulativeRetained?.[index]?.toFixed(2) ?? '0.00'}
                         </TableCell>
                         <TableCell className="text-right font-semibold">
-                        {percentPassing[index].toFixed(2)}
+                        {percentPassing?.[index]?.toFixed(2) ?? '0.00'}
                         </TableCell>
                     </TableRow>
                     ))}
