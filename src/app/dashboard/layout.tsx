@@ -16,26 +16,8 @@ import {
 import { useUser } from "@/firebase";
 import { HardHat, LayoutDashboard, Loader2, PlusCircle } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";
-
-// This component will handle the redirection logic.
-function RedirectManager() {
-  const router = useRouter();
-  const pathname = usePathname();
-
-  useEffect(() => {
-    // Only redirect if the user is not already on the main dashboard page.
-    if (pathname !== '/dashboard') {
-      router.replace('/dashboard');
-    }
-    // We only want this to run once when the component mounts.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return null; // This component does not render anything.
-}
-
 
 export default function DashboardLayout({
   children,
@@ -61,7 +43,6 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider>
-      <RedirectManager />
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2">

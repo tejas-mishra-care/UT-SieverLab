@@ -37,7 +37,6 @@ export default function TestViewPage({ params }: { params: Promise<{ id: string 
   const printRef = React.useRef<HTMLDivElement>(null);
 
   const testDocRef = useMemoFirebase(() => {
-      // Wait for both ID and Firestore to be available before creating the reference.
       if (!id || !firestore) return null; 
       return doc(firestore, "tests", id);
   }, [firestore, id]);
@@ -63,7 +62,7 @@ export default function TestViewPage({ params }: { params: Promise<{ id: string 
     try {
         const element = printRef.current;
         const canvas = await html2canvas(element, {
-            scale: 2, // Higher scale for better quality
+            scale: 2,
         });
         const data = canvas.toDataURL('image/png');
 
@@ -75,7 +74,7 @@ export default function TestViewPage({ params }: { params: Promise<{ id: string 
         const imgHeight = canvas.height;
         const ratio = imgWidth / imgHeight;
         
-        let newImgWidth = pdfWidth - 20; // with 10mm margin
+        let newImgWidth = pdfWidth - 20;
         let newImgHeight = newImgWidth / ratio;
 
         if (newImgHeight > pdfHeight - 20) {
@@ -84,7 +83,7 @@ export default function TestViewPage({ params }: { params: Promise<{ id: string 
         }
 
         const x = (pdfWidth - newImgWidth) / 2;
-        const y = 10; // 10mm top margin
+        const y = 10;
 
         pdf.addImage(data, 'PNG', x, y, newImgWidth, newImgHeight);
         pdf.save(`SieveLab Report - ${test.name}.pdf`);
@@ -119,7 +118,6 @@ export default function TestViewPage({ params }: { params: Promise<{ id: string 
     );
   }
   
-  // After loading, if the test is still not found (and the ref was valid), then show 404.
   if (!isLoading && !test) {
     notFound();
   }
@@ -178,7 +176,13 @@ export default function TestViewPage({ params }: { params: Promise<{ id: string 
         </div>
       </div>
 
-      <div ref={printRef} className="bg-background rounded-lg p-4">
+      <div ref={printRef} className="bg-background rounded-lg p-6">
+         <div className="mb-6 border-b pb-4">
+            <h1 className="font-headline text-2xl font-bold">{test.name}</h1>
+            <p className="text-sm text-muted-foreground">
+                Sieve Analysis Report &bull; {new Date(test.timestamp).toLocaleDateString()}
+            </p>
+        </div>
         <SieveResultsDisplay
             sieves={test.sieves}
             percentPassing={test.percentPassing}
