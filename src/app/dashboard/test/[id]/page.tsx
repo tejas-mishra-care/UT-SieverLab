@@ -19,9 +19,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import React, { use } from "react";
-import { useDoc, useFirestore, useUser } from "@/firebase";
+import { useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { doc, deleteDoc } from "firebase/firestore";
-import { useMemoFirebase } from "@/firebase/provider";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import Link from "next/link";
@@ -31,18 +30,18 @@ export default function TestViewPage({ params }: { params: Promise<{ id: string 
   const router = useRouter();
   const { toast } = useToast();
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [isDownloading, setIsDownloading] = React.useState(false);
 
   const printRef = React.useRef<HTMLDivElement>(null);
 
   const testDocRef = useMemoFirebase(() => {
-      if (!id || !firestore) return null;
+      if (!id || !firestore) return null; // Wait for both ID and Firestore
       return doc(firestore, "tests", id);
   }, [firestore, id]);
 
-  const { data: test, isLoading } = useDoc<SieveAnalysisTest>(testDocRef);
+  const { data: test, isLoading: isTestLoading } = useDoc<SieveAnalysisTest>(testDocRef);
 
   const handleDelete = async () => {
     if (!test || !testDocRef) return;
@@ -102,11 +101,14 @@ export default function TestViewPage({ params }: { params: Promise<{ id: string 
 
 
   React.useEffect(() => {
-    if (!isLoading && test && user && test.userId !== user.uid) {
+    const isDataLoaded = !isUserLoading && !isTestLoading;
+    if (isDataLoaded && test && user && test.userId !== user.uid) {
       toast({ variant: "destructive", title: "Access Denied", description: "You do not have permission to view this test." });
       router.push("/dashboard");
     }
-  }, [isLoading, test, user, router, toast]);
+  }, [isUserLoading, isTestLoading, test, user, router, toast]);
+
+  const isLoading = isUserLoading || isTestLoading;
 
   if (isLoading) {
     return (
