@@ -40,6 +40,8 @@ const formSchema = z.object({
   weights: z.array(z.object({ value: z.number().min(0, "Weight cannot be negative").nullable() })),
 });
 
+type FormValues = z.infer<typeof formSchema>;
+
 interface NewTestFormProps {
   existingTest?: SieveAnalysisTest;
 }
@@ -51,11 +53,10 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   const { user } = useUser();
 
   const isEditMode = !!existingTest;
-  
+
   const [step, setStep] = React.useState(isEditMode && existingTest?.status === 'completed' ? 2 : 1);
   const [isCalculating, setIsCalculating] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
-
   const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(
     isEditMode && existingTest?.status === 'completed' ? {
       percentRetained: existingTest.percentRetained,
@@ -66,15 +67,10 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     } : null
   );
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      type: "Fine",
-      weights: (SIEVE_SIZES.FINE || []).map(() => ({ value: null })),
-    },
   });
-  
+
   const { fields, replace } = useFieldArray({
     control: form.control,
     name: "weights",
@@ -82,38 +78,44 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   const aggregateType = form.watch("type") as AggregateType;
 
-  // Effect to reset weights when aggregate type changes
   React.useEffect(() => {
-    const newSieves = SIEVE_SIZES[aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
-    const newWeights = newSieves.map(() => ({ value: null }));
-    replace(newWeights);
-    setAnalysisResults(null);
-  }, [aggregateType, replace]);
+    const relevantSieves = SIEVE_SIZES[aggregateType?.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
+    const currentWeights = form.getValues('weights');
+    if (currentWeights.length !== relevantSieves.length) {
+      const newWeights = relevantSieves.map(() => ({ value: null }));
+      replace(newWeights);
+    }
+  }, [aggregateType, replace, form]);
 
-  // Effect to populate form when editing an existing test
   React.useEffect(() => {
     if (existingTest) {
-      const currentSieves = SIEVE_SIZES[existingTest.type.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
+      const relevantSieves = SIEVE_SIZES[existingTest.type.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
       form.reset({
         name: existingTest.name,
         type: existingTest.type,
-        weights: currentSieves.map((_, index) => ({
+        weights: relevantSieves.map((_, index) => ({
           value: existingTest.weights?.[index] ?? null,
         })),
       });
+    } else {
+        const defaultSieves = SIEVE_SIZES.FINE || [];
+        form.reset({
+            name: '',
+            type: 'Fine',
+            weights: defaultSieves.map(() => ({ value: null })),
+        });
     }
   }, [existingTest, form]);
 
-
-  async function handleCalculate(values: z.infer<typeof formSchema>) {
+  async function handleCalculate(values: FormValues) {
     setIsCalculating(true);
     setAnalysisResults(null);
-    await new Promise(resolve => setTimeout(resolve, 500)); 
+    await new Promise(resolve => setTimeout(resolve, 500));
     try {
       const currentSieves = SIEVE_SIZES[values.type.toUpperCase() as keyof typeof SIEVE_SIZES];
       const weights = values.weights.map((w) => w.value || 0);
 
-      if (weights.reduce((a,b) => a+b, 0) <= 0) {
+      if (weights.reduce((a, b) => a + b, 0) <= 0) {
         toast({
           variant: "destructive",
           title: "Invalid Input",
@@ -124,22 +126,22 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
       }
 
       const calculated = calculateSieveAnalysis(weights);
-      
+
       let classification: string;
       if (values.type === 'Fine') {
         classification = classifyFineAggregate(calculated.percentPassing, currentSieves);
       } else {
         classification = classifyCoarseAggregate(calculated.percentPassing, currentSieves);
       }
-      
+
       const fm = values.type === "Fine" ? (calculated.cumulativeRetained.reduce((a, b) => a + b, 0) / 100) : null;
-      
-      const finalResults: AnalysisResults = { 
-        ...calculated, 
+
+      const finalResults: AnalysisResults = {
+        ...calculated,
         classification,
         finenessModulus: fm
       };
-      
+
       setAnalysisResults(finalResults);
       setStep(2);
     } catch (error) {
@@ -156,15 +158,15 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   async function handleSave() {
     if (!analysisResults || !user || !firestore) {
-        toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Cannot save. You must be logged in and have analysis results.",
-        });
-        return;
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Cannot save. You must be logged in and have analysis results.",
+      });
+      return;
     };
     setIsSaving(true);
-    
+
     const currentSieves = SIEVE_SIZES[aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES];
     const weights = form.getValues('weights').map(w => w.value || 0);
 
@@ -173,7 +175,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
       userId: user.uid,
       name: form.getValues("name"),
       type: aggregateType,
-      timestamp: existingTest?.timestamp || Date.now(),
+      timestamp: isEditMode ? existingTest.timestamp : Date.now(),
       status: 'completed',
       sieves: currentSieves,
       weights: weights,
@@ -183,17 +185,17 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
       finenessModulus: analysisResults.finenessModulus,
       classification: analysisResults.classification,
     };
-    
+
     try {
       const testDocRef = doc(firestore, 'tests', testData.id);
-      await setDoc(testDocRef, testData);
-      
+      await setDoc(testDocRef, testData, { merge: true });
+
       toast({
         title: isEditMode ? "Test Updated" : "Test Saved",
         description: `"${testData.name}" has been successfully saved.`,
       });
       router.push(`/dashboard/test/${testData.id}`);
-      router.refresh(); 
+      router.refresh();
     } catch (error) {
       console.error("Firestore save error:", error);
       toast({
@@ -206,20 +208,20 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     }
   }
 
-  const currentSieves = SIEVE_SIZES[aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
-  
+  const currentSieves = SIEVE_SIZES[aggregateType?.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleCalculate)}>
         {step === 1 && (
           <div className="space-y-6">
-             <Card>
+            <Card>
               <CardHeader>
                 <CardTitle>Step 1: Test Details</CardTitle>
                 <CardDescription>Enter a name for your test and select the aggregate type.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 pt-6">
-                 <FormField
+                <FormField
                   control={form.control}
                   name="name"
                   render={({ field }) => (
@@ -237,11 +239,14 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
                   name="type"
                   render={({ field }) => (
                     <FormItem className="space-y-3">
-                       <FormLabel>Aggregate Type</FormLabel>
+                      <FormLabel>Aggregate Type</FormLabel>
                       <FormControl>
                         <RadioGroup
-                          onValueChange={(value) => field.onChange(value as AggregateType)}
-                          defaultValue={field.value}
+                          onValueChange={(value) => {
+                            field.onChange(value as AggregateType);
+                            setAnalysisResults(null); // Clear results on type change
+                          }}
+                          value={field.value}
                           className="flex flex-col space-y-1"
                         >
                           <FormItem className="flex items-center space-x-3 space-y-0">
@@ -274,43 +279,43 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
-                    <Table>
+                  <Table>
                     <TableHeader>
-                        <TableRow>
+                      <TableRow>
                         <TableHead className="w-[150px]">Sieve Size (mm)</TableHead>
                         <TableHead>Weight Retained (g)</TableHead>
-                        </TableRow>
+                      </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {fields.map((field, index) => (
+                      {fields.map((field, index) => (
                         <TableRow key={field.id}>
-                            <TableCell className="font-medium">{currentSieves[index]}</TableCell>
-                            <TableCell>
+                          <TableCell className="font-medium">{currentSieves[index]}</TableCell>
+                          <TableCell>
                             <FormField
-                                control={form.control}
-                                name={`weights.${index}.value`}
-                                render={({ field }) => (
+                              control={form.control}
+                              name={`weights.${index}.value`}
+                              render={({ field }) => (
                                 <FormItem>
-                                    <FormControl>
+                                  <FormControl>
                                     <Input
-                                        type="number"
-                                        step="0.1"
-                                        placeholder="Enter weight"
-                                        {...field}
-                                        value={field.value ?? ""}
-                                        onChange={event => field.onChange(event.target.value === '' ? null : parseFloat(event.target.value))}
-                                        className="max-w-sm"
+                                      type="number"
+                                      step="0.1"
+                                      placeholder="Enter weight"
+                                      {...field}
+                                      value={field.value ?? ""}
+                                      onChange={event => field.onChange(event.target.value === '' ? null : parseFloat(event.target.value))}
+                                      className="max-w-sm"
                                     />
-                                    </FormControl>
-                                    <FormMessage />
+                                  </FormControl>
+                                  <FormMessage />
                                 </FormItem>
-                                )}
+                              )}
                             />
-                            </TableCell>
+                          </TableCell>
                         </TableRow>
-                        ))}
+                      ))}
                     </TableBody>
-                    </Table>
+                  </Table>
                 </div>
               </CardContent>
             </Card>
@@ -331,14 +336,14 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
       {step === 2 && analysisResults && (
         <div className="space-y-6">
-           <SieveResultsDisplay 
-              sieves={currentSieves}
-              type={aggregateType}
-              {...analysisResults}
-            />
+          <SieveResultsDisplay
+            sieves={currentSieves}
+            type={aggregateType}
+            {...analysisResults}
+          />
           <div className="flex flex-col-reverse gap-4 sm:flex-row sm:justify-between">
             <Button variant="outline" onClick={() => setStep(1)}>
-                Back to Inputs
+              Back to Inputs
             </Button>
 
             <Button onClick={handleSave} disabled={isSaving || !user}>

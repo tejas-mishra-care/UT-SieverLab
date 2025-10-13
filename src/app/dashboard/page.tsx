@@ -6,9 +6,10 @@ import { PlusCircle, Loader2 } from "lucide-react";
 import { TestCard } from "@/components/test-card";
 import type { SieveAnalysisTest } from "@/lib/definitions";
 import { useCollection, useUser, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc, setDoc } from "firebase/firestore";
+import { collection, query, where } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import _ from 'lodash';
+import Link from "next/link";
 
 export default function DashboardPage() {
   const { user } = useUser();
@@ -22,27 +23,8 @@ export default function DashboardPage() {
 
   const { data: tests, isLoading } = useCollection<SieveAnalysisTest>(testsQuery);
 
-  const handleNewTest = async () => {
-    if (!user || !firestore) return;
-    
-    const newTestRef = doc(collection(firestore, "tests"));
-    const newTestData: Partial<SieveAnalysisTest> = {
-      id: newTestRef.id,
-      userId: user.uid,
-      name: "Untitled Test",
-      type: "Fine",
-      timestamp: Date.now(),
-      status: 'draft',
-      sieves: [],
-      weights: [],
-      percentRetained: [],
-      cumulativeRetained: [],
-      percentPassing: [],
-      finenessModulus: null,
-      classification: null,
-    };
-    await setDoc(newTestRef, newTestData);
-    router.push(`/dashboard/test/${newTestRef.id}/edit`);
+  const handleNewTest = () => {
+    router.push(`/dashboard/new-test`);
   };
 
   const sortedTests = tests ? _.orderBy(tests, ['timestamp'], ['desc']) : [];
@@ -56,9 +38,11 @@ export default function DashboardPage() {
             Here are the latest sieve analysis tests you have saved.
           </p>
         </div>
-        <Button onClick={handleNewTest}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          New Test
+        <Button asChild>
+          <Link href="/dashboard/new-test">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            New Test
+          </Link>
         </Button>
       </div>
 

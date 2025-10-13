@@ -2,72 +2,54 @@
 "use client";
 
 import { NewTestForm } from "@/components/new-test-form";
-import { useFirestore, useUser } from "@/firebase";
+import { useFirestore, useUser, useDoc } from "@/firebase";
 import type { SieveAnalysisTest } from "@/lib/definitions";
 import { Loader2 } from "lucide-react";
-import { doc, getDoc } from "firebase/firestore";
+import { doc } from "firebase/firestore";
 import { notFound, useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-// The page component now correctly unwraps the params promise.
 function EditTestView({ id }: { id: string }) {
   const router = useRouter();
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
 
-  const [test, setTest] = useState<SieveAnalysisTest | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const testDocRef = useMemo(() => {
+    if (!firestore || !id) return null;
+    return doc(firestore, "tests", id);
+  }, [firestore, id]);
+
+  const { data: test, isLoading: isTestLoading, error } = useDoc<SieveAnalysisTest>(testDocRef);
 
   useEffect(() => {
-    if (isUserLoading || !firestore) return;
-
-    if (!user) {
-      router.push("/");
-      return;
-    }
-
-    const fetchTest = async () => {
-      const testDocRef = doc(firestore, "tests", id);
-      const testSnap = await getDoc(testDocRef);
-
-      if (!testSnap.exists()) {
-        notFound();
-        return;
-      }
-      
-      const testData = testSnap.data() as SieveAnalysisTest;
-
-      if (testData.userId !== user?.uid) {
+    if (!isUserLoading && !isTestLoading && user && test) {
+      if (test.userId !== user.uid) {
         toast({
           variant: "destructive",
           title: "Access Denied",
           description: "You do not have permission to edit this test.",
         });
         router.push("/dashboard");
-        return;
       }
+    }
+  }, [user, test, isUserLoading, isTestLoading, router, toast]);
+  
+  // After loading, if there's no data and no error, it means not found.
+  useEffect(() => {
+    if (!isTestLoading && !test) {
+        notFound();
+    }
+  }, [isTestLoading, test]);
 
-      setTest(testData);
-      setIsLoading(false);
-    };
 
-    fetchTest();
-  }, [firestore, isUserLoading, user, id, router, toast]);
-
-  if (isLoading || isUserLoading) {
+  if (isTestLoading || isUserLoading || !test) {
     return (
       <div className="flex h-full min-h-[500px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
-  }
-  
-  if (!test) {
-    // This case is hit if loading is done but test is still null (e.g., not found).
-    // The notFound() inside fetchTest should handle this, but this is a safeguard.
-    return null;
   }
 
   return (
@@ -84,11 +66,8 @@ function EditTestView({ id }: { id: string }) {
 }
 
 
-// This is the main page component. It is now a server component
-// that uses Suspense to handle the loading state.
 export default function EditTestPage({ params }: { params: { id: string } }) {
-  // `params` is a promise, so we use `React.use` to unwrap it.
-  const { id } = React.use(params);
+  const id = React.use(params).id;
   
   return (
     <React.Suspense fallback={<div className="flex h-full min-h-[500px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>

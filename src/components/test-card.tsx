@@ -11,8 +11,8 @@ type TestCardProps = {
 };
 
 export function TestCard({ test }: TestCardProps) {
-  const isDraft = test.status === 'draft';
-  const linkHref = isDraft ? `/dashboard/test/${test.id}/edit` : `/dashboard/test/${test.id}`;
+  // Always link to the view page. Editing is done from the view page.
+  const linkHref = `/dashboard/test/${test.id}`;
 
   return (
     <Link href={linkHref} className="block">
@@ -23,7 +23,7 @@ export function TestCard({ test }: TestCardProps) {
               {test.name}
             </CardTitle>
             <div className="flex items-center gap-2">
-              {isDraft && <Badge variant="destructive">Draft</Badge>}
+              {test.status === 'draft' && <Badge variant="destructive">Draft</Badge>}
               <Badge variant={test.type === "Fine" ? "secondary" : "default"} className="capitalize flex-shrink-0">
                 {test.type}
               </Badge>
@@ -35,7 +35,7 @@ export function TestCard({ test }: TestCardProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
-          {isDraft ? (
+          {test.status === 'draft' ? (
             <div className="flex items-center gap-3 text-muted-foreground">
                 <Edit className="h-4 w-4 text-primary" />
                 <span className="font-medium text-foreground">
