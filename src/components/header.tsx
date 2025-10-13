@@ -1,5 +1,4 @@
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { UserNav } from "@/components/user-nav";
 
 export function Header() {
   return (
@@ -8,7 +7,6 @@ export function Header() {
         <SidebarTrigger className="flex md:hidden" />
         <h1 className="font-headline text-xl font-semibold">Dashboard</h1>
       </div>
-      <UserNav />
     </header>
   );
 }

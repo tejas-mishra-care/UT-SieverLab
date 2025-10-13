@@ -13,10 +13,8 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { useUser } from "@/firebase";
-import { HardHat, LayoutDashboard, Loader2, PlusCircle, User } from "lucide-react";
+import { HardHat, LayoutDashboard, PlusCircle } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import React from "react";
 
 export default function DashboardLayout({
@@ -24,23 +22,6 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isUserLoading } = useUser();
-  const router = useRouter();
-
-  React.useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.replace("/");
-    }
-  }, [isUserLoading, user, router]);
-
-  if (isUserLoading || !user) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-
   return (
     <SidebarProvider>
       <Sidebar>
@@ -73,14 +54,6 @@ export default function DashboardLayout({
                   <Link href="/dashboard/new-test">
                     <PlusCircle />
                     <span>New Test</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Profile">
-                   <Link href="/dashboard/profile">
-                    <User />
-                    <span>Profile</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

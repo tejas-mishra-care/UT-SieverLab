@@ -2,36 +2,13 @@
 
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { PlusCircle, Loader2 } from "lucide-react";
+import { PlusCircle } from "lucide-react";
 import { TestCard } from "@/components/test-card";
-import { useUser, useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, where, orderBy } from "firebase/firestore";
+import { mockTests } from "@/lib/mock-data";
 import type { SieveAnalysisTest } from "@/lib/definitions";
 
 export default function DashboardPage() {
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
-
-  const testsQuery = useMemoFirebase(() => {
-    if (!user) return null;
-    return query(
-      collection(firestore, "tests"),
-      where("userId", "==", user.uid),
-      orderBy("timestamp", "desc")
-    );
-  }, [firestore, user]);
-
-  const { data: tests, isLoading: testsLoading } = useCollection<SieveAnalysisTest>(testsQuery);
-
-  const isLoading = isUserLoading || testsLoading;
-
-  if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
+  const tests: SieveAnalysisTest[] = mockTests;
 
   return (
     <div className="space-y-6">

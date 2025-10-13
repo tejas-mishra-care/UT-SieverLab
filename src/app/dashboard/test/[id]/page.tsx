@@ -3,10 +3,8 @@
 import { notFound, useRouter } from "next/navigation";
 import { SieveResultsDisplay } from "@/components/sieve-results-display";
 import { Button } from "@/components/ui/button";
-import { Download, Trash2, Loader2 } from "lucide-react";
+import { Download, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
-import { doc, deleteDoc } from "firebase/firestore";
 import type { SieveAnalysisTest } from "@/lib/definitions";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -20,49 +18,37 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { mockTests } from "@/lib/mock-data";
+import React from "react";
 
 export default function TestViewPage({ params }: { params: { id: string } }) {
-  const { user } = useUser();
-  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
 
-  const testRef = useMemoFirebase(() => {
-    if (!params.id) return null;
-    return doc(firestore, "tests", params.id);
-  }, [firestore, params.id]);
+  const [test, setTest] = React.useState<SieveAnalysisTest | undefined>(undefined);
+  
+  React.useEffect(() => {
+    const foundTest = mockTests.find(t => t.id === params.id);
+    if(foundTest) {
+      setTest(foundTest);
+    } else {
+      notFound();
+    }
+  }, [params.id]);
 
-  const { data: test, isLoading } = useDoc<SieveAnalysisTest>(testRef);
 
   const handleDelete = async () => {
-    if (!test || !user || user.uid !== test.userId) {
-        toast({variant: "destructive", title: "Error", description: "You don't have permission to delete this test."})
-        return;
-    };
-    try {
-        await deleteDoc(doc(firestore, "tests", test.id));
-        toast({title: "Test Deleted", description: `Test #${test.id.slice(-6)} has been deleted.`});
-        router.push("/dashboard");
-    } catch(error: any) {
-        toast({variant: "destructive", title: "Error deleting test", description: error.message})
-    }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    if (!test) return;
+    toast({title: "Test Deleted", description: `Test #${test.id.slice(-6)} has been deleted.`});
+    router.push("/dashboard");
   }
 
   if (!test) {
-    notFound();
-  }
-  
-  if (user && test.userId !== user.uid) {
-    // Or a more specific "access denied" page
-    notFound();
+    return (
+      <div className="flex h-full items-center justify-center">
+        {/* You can add a loader here */}
+      </div>
+    );
   }
 
   return (
