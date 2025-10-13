@@ -30,7 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, WandSparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser } from "@/firebase";
-import { doc, setDoc, collection, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, collection } from "firebase/firestore";
 import { SieveInputsDisplay } from "./sieve-inputs-display";
 
 const formSchema = z.object({
@@ -55,18 +55,10 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   const isEditMode = !!existingTest;
 
-  const [step, setStep] = React.useState(isEditMode ? 2 : 1);
+  const [step, setStep] = React.useState(1);
   const [isCalculating, setIsCalculating] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
-  const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(
-    isEditMode ? {
-      percentRetained: existingTest.percentRetained,
-      cumulativeRetained: existingTest.cumulativeRetained,
-      percentPassing: existingTest.percentPassing,
-      finenessModulus: existingTest.finenessModulus,
-      classification: existingTest.classification,
-    } : null
-  );
+  const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -84,14 +76,6 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   const aggregateType = form.watch("type") as AggregateType;
 
-  // Effect to update fields when aggregate type changes
-  React.useEffect(() => {
-    const relevantSieves = SIEVE_SIZES[aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
-    const newWeights = relevantSieves.map(() => ({ value: null }));
-    replace(newWeights);
-  }, [aggregateType, replace]);
-
-  // Effect to populate form when editing an existing test
   React.useEffect(() => {
     if (existingTest) {
       const relevantSieves = SIEVE_SIZES[existingTest.type.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
@@ -115,6 +99,14 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     }
   }, [existingTest, form]);
 
+  React.useEffect(() => {
+    const relevantSieves = SIEVE_SIZES[aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
+    const currentWeights = form.getValues('weights');
+    if (currentWeights.length !== relevantSieves.length) {
+        const newWeights = relevantSieves.map(() => ({ value: null }));
+        replace(newWeights);
+    }
+  }, [aggregateType, replace, form]);
 
   async function handleCalculate(values: FormValues) {
     setIsCalculating(true);
@@ -204,7 +196,6 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         description: `"${testData.name}" has been successfully saved.`,
       });
       router.push(`/dashboard/test/${testData.id}`);
-      router.refresh();
     } catch (error) {
       console.error("Firestore save error:", error);
       toast({
