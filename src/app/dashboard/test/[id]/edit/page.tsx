@@ -2,7 +2,7 @@
 "use client";
 
 import { NewTestForm } from "@/components/new-test-form";
-import { useFirestore, useUser, useDoc } from "@/firebase";
+import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase";
 import type { SieveAnalysisTest } from "@/lib/definitions";
 import { Loader2 } from "lucide-react";
 import { doc } from "firebase/firestore";
@@ -16,7 +16,7 @@ function EditTestView({ id }: { id: string }) {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
 
-  const testDocRef = useMemo(() => {
+  const testDocRef = useMemoFirebase(() => {
     if (!firestore || !id) return null;
     return doc(firestore, "tests", id);
   }, [firestore, id]);
@@ -36,21 +36,31 @@ function EditTestView({ id }: { id: string }) {
     }
   }, [user, test, isUserLoading, isTestLoading, router, toast]);
   
-  // After loading, if there's no data and no error, it means not found.
   useEffect(() => {
-    if (!isTestLoading && !test) {
+    if (!isTestLoading && !test && !error) {
         notFound();
     }
-  }, [isTestLoading, test]);
+  }, [isTestLoading, test, error]);
 
 
-  if (isTestLoading || isUserLoading || !test) {
+  if (isTestLoading || isUserLoading) {
     return (
       <div className="flex h-full min-h-[500px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
+
+  if(!test) {
+    // This can happen if the doc doesn't exist or there was an error.
+    // The useEffect hooks above will handle redirection or notFound.
+     return (
+      <div className="flex h-full min-h-[500px] items-center justify-center">
+        <p>Test not found or you do not have permission to view it.</p>
+      </div>
+    );
+  }
+
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -75,3 +85,5 @@ export default function EditTestPage({ params }: { params: { id: string } }) {
     </React.Suspense>
   );
 }
+
+    

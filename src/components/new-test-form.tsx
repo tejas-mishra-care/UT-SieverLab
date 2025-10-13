@@ -60,23 +60,15 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   const [isSaving, setIsSaving] = React.useState(false);
   const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(null);
 
-  const defaultValues = React.useMemo(() => {
-    const type = existingTest?.type || 'Fine';
-    const upperCaseType = type.toUpperCase() as keyof typeof SIEVE_SIZES;
-    const sieves = SIEVE_SIZES[upperCaseType] || [];
-    
-    return {
-      name: existingTest?.name || "",
-      type: type,
-      weights: sieves.map((_, index) => ({
-        value: existingTest?.weights?.[index] ?? null,
-      })),
-    };
-  }, [existingTest]);
+  const getSievesForType = (type: AggregateType) => SIEVE_SIZES[type.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: defaultValues,
+    defaultValues: {
+        name: '',
+        type: 'Fine',
+        weights: getSievesForType('Fine').map(() => ({ value: null })),
+    }
   });
 
   const { fields, replace } = useFieldArray({
@@ -86,11 +78,19 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   const aggregateType = form.watch("type") as AggregateType;
 
-  // Sync form state when existingTest data arrives
+  // Effect to reset form and populate with existingTest data when it becomes available
   React.useEffect(() => {
     if (existingTest) {
-      form.reset(defaultValues);
-       if (existingTest.status === 'completed') {
+      const sieves = getSievesForType(existingTest.type);
+      form.reset({
+        name: existingTest.name,
+        type: existingTest.type,
+        weights: sieves.map((_, index) => ({
+          value: existingTest.weights?.[index] ?? null,
+        })),
+      });
+
+      if (existingTest.status === 'completed') {
         setAnalysisResults({
           percentRetained: existingTest.percentRetained,
           cumulativeRetained: existingTest.cumulativeRetained,
@@ -101,17 +101,24 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         setStep(2);
       }
     }
-  }, [existingTest, form, defaultValues]);
+  }, [existingTest, form]);
   
 
   // Update weights array when aggregate type changes
   React.useEffect(() => {
-    const upperCaseType = aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES;
-    const relevantSieves = SIEVE_SIZES[upperCaseType] || [];
-    const newWeights = relevantSieves.map(() => ({ value: null }));
-    replace(newWeights);
-    setAnalysisResults(null); // Clear results on type change
-  }, [aggregateType, replace]);
+    const newSieves = getSievesForType(aggregateType);
+    const currentWeights = form.getValues('weights');
+    
+    // Only replace if the number of sieves is different to avoid unnecessary re-renders
+    if (newSieves.length !== currentWeights.length) {
+        const newWeights = newSieves.map(() => ({ value: null }));
+        replace(newWeights);
+    }
+
+    setAnalysisResults(null);
+    if(step === 2) setStep(1);
+
+  }, [aggregateType, replace, form, step]);
 
 
   async function handleCalculate(values: FormValues) {
@@ -119,7 +126,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     setAnalysisResults(null);
     await new Promise(resolve => setTimeout(resolve, 500));
     try {
-      const currentSieves = SIEVE_SIZES[values.type.toUpperCase() as keyof typeof SIEVE_SIZES];
+      const currentSieves = getSievesForType(values.type);
       const weights = values.weights.map((w) => w.value || 0);
 
       if (weights.reduce((a, b) => a + b, 0) <= 0) {
@@ -174,7 +181,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     };
     setIsSaving(true);
 
-    const currentSieves = SIEVE_SIZES[aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES];
+    const currentSieves = getSievesForType(aggregateType);
     const weights = form.getValues('weights').map(w => w.value || 0);
 
     const testData: SieveAnalysisTest = {
@@ -209,12 +216,11 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         title: "An Error Occurred",
         description: "Could not save the test. Please try again.",
       });
-    } finally {
       setIsSaving(false);
     }
   }
 
-  const currentSieves = SIEVE_SIZES[aggregateType?.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
+  const currentSieves = getSievesForType(aggregateType);
 
   return (
     <Form {...form}>
@@ -377,3 +383,5 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     </Form>
   );
 }
+
+    

@@ -20,7 +20,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import React from "react";
-import { useFirestore, useUser, useDoc } from "@/firebase";
+import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase";
 import { doc, deleteDoc }from "firebase/firestore";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -37,7 +37,7 @@ function TestView({ id }: { id: string }) {
   
   const printRef = useRef<HTMLDivElement>(null);
 
-  const testDocRef = useMemo(() => {
+  const testDocRef = useMemoFirebase(() => {
     if (!firestore || !id) return null;
     return doc(firestore, 'tests', id);
   }, [firestore, id]);
@@ -68,11 +68,10 @@ function TestView({ id }: { id: string }) {
   }, [isTestLoading, test]);
 
   const handleDelete = async () => {
-    if (!test || !firestore) return;
+    if (!test || !firestore || !testDocRef) return;
     setIsDeleting(true);
-    const docRef = doc(firestore, 'tests', id);
     try {
-      await deleteDoc(docRef);
+      await deleteDoc(testDocRef);
       toast({
         title: "Test Deleted",
         description: `Test "${test.name}" has been deleted.`,
@@ -210,9 +209,9 @@ function TestView({ id }: { id: string }) {
         </div>
       </div>
 
-      <div className="bg-background rounded-lg">
+      <div className="rounded-lg bg-background">
         {isDraft ? (
-             <div className="flex min-h-[200px] flex-col items-center justify-center rounded-lg border border-dashed text-center p-6">
+             <div className="flex min-h-[200px] flex-col items-center justify-center rounded-lg border border-dashed p-6 text-center">
                 <h3 className="text-xl font-bold tracking-tight">This is a draft.</h3>
                 <p className="text-sm text-muted-foreground mb-4">
                     Complete the test to see the results.
@@ -225,24 +224,26 @@ function TestView({ id }: { id: string }) {
                 </Button>
             </div>
         ) : (
-          <div ref={printRef} className="space-y-6 bg-background rounded-lg p-6">
-             <div className="mb-6 border-b pb-4">
-              <h1 className="font-headline text-2xl font-bold">{test.name}</h1>
-              <p className="text-sm text-muted-foreground">
-                Sieve Analysis Report &bull;{" "}
-                {new Date(test.timestamp).toLocaleDateString()}
-              </p>
+          <div className="space-y-6">
+            <div ref={printRef} className="space-y-6 rounded-lg bg-background p-6">
+              <div className="mb-6 border-b pb-4">
+                <h1 className="font-headline text-2xl font-bold">{test.name}</h1>
+                <p className="text-sm text-muted-foreground">
+                  Sieve Analysis Report &bull;{" "}
+                  {new Date(test.timestamp).toLocaleDateString()}
+                </p>
+              </div>
+              <SieveInputsDisplay sieves={test.sieves} weights={test.weights} />
+              <SieveResultsDisplay
+                sieves={test.sieves}
+                percentPassing={test.percentPassing}
+                percentRetained={test.percentRetained}
+                cumulativeRetained={test.cumulativeRetained}
+                finenessModulus={test.finenessModulus}
+                classification={test.classification}
+                type={test.type}
+              />
             </div>
-            <SieveInputsDisplay sieves={test.sieves} weights={test.weights} />
-            <SieveResultsDisplay
-              sieves={test.sieves}
-              percentPassing={test.percentPassing}
-              percentRetained={test.percentRetained}
-              cumulativeRetained={test.cumulativeRetained}
-              finenessModulus={test.finenessModulus}
-              classification={test.classification}
-              type={test.type}
-            />
           </div>
         )}
       </div>
@@ -259,3 +260,5 @@ export default function TestViewPage({ params }: { params: { id: string } }) {
     </Suspense>
   );
 }
+
+    
