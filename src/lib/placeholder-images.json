@@ -1,3 +1,10 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "sievelab-logo",
+      "description": "The official logo for the SieveLab application.",
+      "imageUrl": "https://picsum.photos/seed/sievelab/128/128",
+      "imageHint": "lab construction"
+    }
+  ]
 }
