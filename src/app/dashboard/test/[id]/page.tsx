@@ -37,7 +37,8 @@ export default function TestViewPage({ params }: { params: Promise<{ id: string 
   const printRef = React.useRef<HTMLDivElement>(null);
 
   const testDocRef = useMemoFirebase(() => {
-      if (!id || !firestore) return null; // Wait for both ID and Firestore
+      // Wait for both ID and Firestore to be available before creating the reference.
+      if (!id || !firestore) return null; 
       return doc(firestore, "tests", id);
   }, [firestore, id]);
 
@@ -118,6 +119,7 @@ export default function TestViewPage({ params }: { params: Promise<{ id: string 
     );
   }
   
+  // After loading, if the test is still not found (and the ref was valid), then show 404.
   if (!isLoading && !test) {
     notFound();
   }
