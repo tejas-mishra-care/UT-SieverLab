@@ -1,6 +1,7 @@
 
 "use client";
 
+import { use, Suspense } from 'react';
 import { notFound, useRouter } from "next/navigation";
 import { SieveResultsDisplay } from "@/components/sieve-results-display";
 import { Button } from "@/components/ui/button";
@@ -18,8 +19,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import React, { use } from "react";
-import { useDoc, useFirestore, useUser } from "@/firebase";
+import React from "react";
+import { useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { doc, deleteDoc } from "firebase/firestore";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -35,30 +36,23 @@ function TestView({ id }: { id: string }) {
 
   const printRef = React.useRef<HTMLDivElement>(null);
 
-  // State for the document reference, created only when firestore and id are available.
-  const [testDocRef, setTestDocRef] = React.useState<any>(null);
-
-  React.useEffect(() => {
-    // This effect ensures we only create the document reference when both
-    // firestore and the id from the URL are available, preventing a race condition.
+  const testDocRef = useMemoFirebase(() => {
     if (firestore && id) {
-      setTestDocRef(doc(firestore, "tests", id));
+      return doc(firestore, "tests", id);
     }
+    return null;
   }, [firestore, id]);
 
   const { data: test, isLoading: isTestLoading } = useDoc<SieveAnalysisTest>(testDocRef);
 
   React.useEffect(() => {
-    // This effect handles authorization and "not found" logic after the data has been fetched.
     const isDataLoaded = !isUserLoading && !isTestLoading;
-    if (isDataLoaded && testDocRef) {
+    if (isDataLoaded && testDocRef) { // Ensure doc ref was created
       if (!test) {
-        // If the document doesn't exist after loading is complete, show a 404 page.
         notFound();
         return;
       }
       if (user && test.userId !== user.uid) {
-        // If the test doesn't belong to the current user, deny access and redirect.
         toast({
           variant: "destructive",
           title: "Access Denied",
@@ -123,8 +117,7 @@ function TestView({ id }: { id: string }) {
     }
   };
 
-  // Combined loading state. Show spinner until all dependencies are ready and data is fetched.
-  const isLoading = isUserLoading || isTestLoading || !testDocRef || !test;
+  const isLoading = isUserLoading || isTestLoading || !test;
 
   if (isLoading) {
     return (
@@ -212,7 +205,12 @@ function TestView({ id }: { id: string }) {
   );
 }
 
+// This is the main page component, now simplified.
 export default function TestViewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  return <TestView id={id} />;
+  return (
+    <Suspense fallback={<div className="flex h-full min-h-[500px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+      <TestView id={id} />
+    </Suspense>
+  );
 }
