@@ -34,6 +34,7 @@ import { useFirestore, useUser } from "@/firebase";
 import { collection, addDoc } from "firebase/firestore";
 
 const formSchema = z.object({
+  name: z.string().min(1, "Test name is required."),
   type: z.enum(["Fine", "Coarse"], {
     required_error: "You need to select an aggregate type.",
   }),
@@ -54,6 +55,7 @@ export function NewTestForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      name: "",
       type: "Fine",
       weights: SIEVE_SIZES.FINE.map(() => ({ value: null })),
     },
@@ -120,6 +122,7 @@ export function NewTestForm() {
 
     const newTest: Omit<SieveAnalysisTest, 'id'> = {
       userId: user.uid,
+      name: form.getValues("name"),
       type: aggregateType,
       timestamp: Date.now(),
       sieves: currentSieves,
@@ -129,13 +132,13 @@ export function NewTestForm() {
     
     try {
         const testsCollection = collection(firestore, 'tests');
-        await addDoc(testsCollection, newTest);
+        const docRef = await addDoc(testsCollection, newTest);
         
         toast({
             title: "Test Saved Successfully",
-            description: "Your sieve analysis has been saved to your dashboard.",
+            description: `"${newTest.name}" has been saved to your dashboard.`,
         });
-        router.push('/dashboard');
+        router.push(`/dashboard/test/${docRef.id}`);
     } catch (error) {
         console.error("Firestore save error:", error);
         toast({
@@ -155,17 +158,31 @@ export function NewTestForm() {
       <form onSubmit={form.handleSubmit(handleCalculate)}>
         {step === 1 && (
           <div className="space-y-6">
-            <Card>
+             <Card>
               <CardHeader>
-                <CardTitle>Step 1: Aggregate Type</CardTitle>
-                <CardDescription>Select the type of aggregate you are testing.</CardDescription>
+                <CardTitle>Step 1: Test Details</CardTitle>
+                <CardDescription>Enter a name for your test and select the aggregate type.</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                 <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Test Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., 'Sample from Site A'" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={form.control}
                   name="type"
                   render={({ field }) => (
                     <FormItem className="space-y-3">
+                       <FormLabel>Aggregate Type</FormLabel>
                       <FormControl>
                         <RadioGroup
                           onValueChange={field.onChange}
@@ -197,46 +214,49 @@ export function NewTestForm() {
               <CardHeader>
                 <CardTitle>Step 2: Enter Weights</CardTitle>
                 <CardDescription>
-                  Enter the weight (in grams) retained on each sieve.
+                  Enter the weight (in grams) retained on each sieve. Leave blank if not used.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Sieve Size (mm)</TableHead>
-                      <TableHead>Weight Retained (g)</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {fields.map((field, index) => (
-                      <TableRow key={field.id}>
-                        <TableCell className="font-medium">{currentSieves[index]}</TableCell>
-                        <TableCell>
-                          <FormField
-                            control={form.control}
-                            name={`weights.${index}.value`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    step="0.1"
-                                    placeholder="Enter weight"
-                                    {...field}
-                                    value={field.value ?? ""}
-                                    onChange={event => field.onChange(event.target.value === '' ? null : parseFloat(event.target.value))}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <div className="overflow-x-auto">
+                    <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead className="w-[150px]">Sieve Size (mm)</TableHead>
+                        <TableHead>Weight Retained (g)</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {fields.map((field, index) => (
+                        <TableRow key={field.id}>
+                            <TableCell className="font-medium">{currentSieves[index]}</TableCell>
+                            <TableCell>
+                            <FormField
+                                control={form.control}
+                                name={`weights.${index}.value`}
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormControl>
+                                    <Input
+                                        type="number"
+                                        step="0.1"
+                                        placeholder="Enter weight"
+                                        {...field}
+                                        value={field.value ?? ""}
+                                        onChange={event => field.onChange(event.target.value === '' ? null : parseFloat(event.target.value))}
+                                        className="max-w-sm shadow-sm"
+                                    />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            </TableCell>
+                        </TableRow>
+                        ))}
+                    </TableBody>
+                    </Table>
+                </div>
               </CardContent>
             </Card>
 

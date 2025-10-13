@@ -40,7 +40,7 @@ export default function TestViewPage({ params }: { params: { id: string } }) {
   const handleDelete = async () => {
     if (!test || !testDocRef) return;
     await deleteDoc(testDocRef);
-    toast({title: "Test Deleted", description: `Test #${test.id.slice(-6)} has been deleted.`});
+    toast({title: "Test Deleted", description: `Test "${test.name}" has been deleted.`});
     router.push("/dashboard");
   }
 
@@ -75,10 +75,10 @@ export default function TestViewPage({ params }: { params: { id: string } }) {
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h2 className="font-headline text-3xl font-bold">
-            Test Details <span className="text-primary">#{test.id.slice(-6)}</span>
+            {test.name}
           </h2>
           <p className="text-muted-foreground">
-            Completed on {new Date(test.timestamp).toLocaleDateString()}
+            Test #{test.id.slice(-6)} &bull; Completed on {new Date(test.timestamp).toLocaleDateString()}
           </p>
         </div>
         <div className="flex gap-2">

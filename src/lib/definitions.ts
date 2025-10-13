@@ -17,6 +17,7 @@ export interface AnalysisResults {
 export interface SieveAnalysisTest {
   id: string;
   userId: string;
+  name: string;
   type: AggregateType;
   timestamp: number;
   sieves: number[];

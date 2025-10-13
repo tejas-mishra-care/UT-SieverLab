@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { SieveAnalysisTest } from "@/lib/definitions";
-import { FileText, Beaker, Calendar, SlidersHorizontal } from "lucide-react";
+import { Beaker, Calendar, SlidersHorizontal } from "lucide-react";
 import { format } from "date-fns";
 
 type TestCardProps = {
@@ -13,14 +13,14 @@ type TestCardProps = {
 export function TestCard({ test }: TestCardProps) {
   return (
     <Link href={`/dashboard/test/${test.id}`} className="block">
-      <Card className="h-full transition-all hover:shadow-md hover:-translate-y-1">
+      <Card className="h-full transition-all hover:shadow-lg hover:-translate-y-0.5">
         <CardHeader>
-          <div className="flex items-start justify-between">
-            <CardTitle className="font-headline text-lg">
-              Test #{test.id.slice(-6)}
+          <div className="flex items-start justify-between gap-2">
+            <CardTitle className="font-headline text-lg truncate" title={test.name}>
+              {test.name}
             </CardTitle>
-            <Badge variant={test.type === "Fine" ? "secondary" : "default"} className="capitalize">
-              {test.type} Aggregate
+            <Badge variant={test.type === "Fine" ? "secondary" : "default"} className="capitalize flex-shrink-0">
+              {test.type}
             </Badge>
           </div>
           <CardDescription className="flex items-center gap-2 pt-2 text-xs">
@@ -35,7 +35,7 @@ export function TestCard({ test }: TestCardProps) {
               {test.results.classification || "N/A"}
             </span>
           </div>
-          {test.results.finenessModulus && (
+          {test.results.finenessModulus != null && (
             <div className="flex items-center gap-3 text-muted-foreground">
               <SlidersHorizontal className="h-4 w-4 text-primary" />
               <span>

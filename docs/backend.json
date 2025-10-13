@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -45,6 +46,10 @@
         "userId": {
           "type": "string",
           "description": "Reference to User. (Relationship: User 1:N Test)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Custom name for the test provided by the user."
         },
         "type": {
           "type": "string",
@@ -107,6 +112,7 @@
       "required": [
         "id",
         "userId",
+        "name",
         "type",
         "timestamp",
         "sieves",
