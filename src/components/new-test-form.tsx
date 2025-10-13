@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -51,8 +50,8 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   const { user } = useUser();
 
   const isEditMode = !!existingTest;
-
-  const [step, setStep] = React.useState(1);
+  
+  const [step, setStep] = React.useState(isEditMode && existingTest.status === 'completed' ? 2 : 1);
   const [isCalculating, setIsCalculating] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -71,12 +70,12 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     defaultValues: {
       name: existingTest?.name || "",
       type: existingTest?.type || "Fine",
-      weights: SIEVE_SIZES[existingTest?.type || "Fine"].map(
+      weights: SIEVE_SIZES[(existingTest?.type || "Fine").toUpperCase() as keyof typeof SIEVE_SIZES].map(
         (_, index) => ({ value: existingTest?.weights?.[index] ?? null })
       ),
     },
   });
-
+  
   const { fields, replace } = useFieldArray({
     control: form.control,
     name: "weights",
@@ -84,42 +83,25 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   const aggregateType = form.watch("type") as AggregateType;
 
-  // This effect correctly resets and repopulates the form fields
-  // when switching aggregate types.
   React.useEffect(() => {
-    const newSieves = SIEVE_SIZES[aggregateType] || [];
-    const newWeights = newSieves.map(() => ({ value: null }));
+    const newSieves = SIEVE_SIZES[aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
+    const newWeights = newSieves.map((_, index) => {
+        // If we are in edit mode and the type is the same, keep the old weight
+        if (isEditMode && existingTest.type === aggregateType) {
+            return { value: existingTest.weights?.[index] ?? null };
+        }
+        return { value: null };
+    });
     replace(newWeights);
     setAnalysisResults(null);
-  }, [aggregateType, replace]);
-  
-  // This effect ensures the form is correctly populated when editing an existing test.
-  React.useEffect(() => {
-    if (existingTest) {
-      form.reset({
-        name: existingTest.name,
-        type: existingTest.type,
-        weights: SIEVE_SIZES[existingTest.type].map((_, index) => ({
-          value: existingTest.weights?.[index] ?? null,
-        })),
-      });
-    }
-  }, [existingTest, form]);
-
-
-  React.useEffect(() => {
-    if (isEditMode && existingTest.status === 'completed') {
-      setStep(2);
-    }
-  }, [isEditMode, existingTest]);
-
+  }, [aggregateType, replace, isEditMode, existingTest]);
 
   async function handleCalculate(values: z.infer<typeof formSchema>) {
     setIsCalculating(true);
     setAnalysisResults(null);
     await new Promise(resolve => setTimeout(resolve, 500)); 
     try {
-      const currentSieves = values.type === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
+      const currentSieves = SIEVE_SIZES[values.type.toUpperCase() as keyof typeof SIEVE_SIZES];
       const weights = values.weights.map((w) => w.value || 0);
 
       if (weights.reduce((a,b) => a+b, 0) <= 0) {
@@ -150,7 +132,6 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
       };
       
       setAnalysisResults(finalResults);
-      
       setStep(2);
     } catch (error) {
       console.error("Calculation error:", error);
@@ -175,13 +156,15 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     };
     setIsSaving(true);
     
-    const currentSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
+    const currentSieves = SIEVE_SIZES[aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES];
     const weights = form.getValues('weights').map(w => w.value || 0);
 
-    const baseTestData = {
+    const testData: Omit<SieveAnalysisTest, 'id'> = {
       userId: user.uid,
       name: form.getValues("name"),
       type: aggregateType,
+      timestamp: existingTest?.timestamp || Date.now(),
+      status: 'completed',
       sieves: currentSieves,
       weights: weights,
       percentRetained: analysisResults.percentRetained,
@@ -189,25 +172,16 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
       percentPassing: analysisResults.percentPassing,
       finenessModulus: analysisResults.finenessModulus,
       classification: analysisResults.classification,
-      status: 'completed' as const,
-      timestamp: existingTest?.timestamp || Date.now()
     };
     
     try {
-      let testId: string;
-      if (isEditMode) {
-        testId = existingTest.id;
-        const testDocRef = doc(firestore, 'tests', testId);
-        await setDoc(testDocRef, { ...baseTestData, id: testId }, { merge: true });
-      } else {
-        const newTestDoc = doc(collection(firestore, "tests"));
-        testId = newTestDoc.id;
-        await setDoc(newTestDoc, { ...baseTestData, id: testId });
-      }
+      const testId = isEditMode ? existingTest.id : doc(collection(firestore, "tests")).id;
+      const testDocRef = doc(firestore, 'tests', testId);
+      await setDoc(testDocRef, { ...testData, id: testId });
       
       toast({
         title: isEditMode ? "Test Updated" : "Test Saved",
-        description: `"${baseTestData.name}" has been successfully saved.`,
+        description: `"${testData.name}" has been successfully saved.`,
       });
       router.push(`/dashboard/test/${testId}`);
       router.refresh(); 
@@ -223,7 +197,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     }
   }
 
-  const currentSieves = aggregateType === "Fine" ? SIEVE_SIZES.FINE : SIEVE_SIZES.COARSE;
+  const currentSieves = SIEVE_SIZES[aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES];
   
   return (
     <Form {...form}>
@@ -372,5 +346,3 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     </Form>
   );
 }
-
-    
