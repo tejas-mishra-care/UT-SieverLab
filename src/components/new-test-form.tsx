@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -51,12 +52,12 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   const isEditMode = !!existingTest;
   
-  const [step, setStep] = React.useState(isEditMode && existingTest.status === 'completed' ? 2 : 1);
+  const [step, setStep] = React.useState(isEditMode && existingTest?.status === 'completed' ? 2 : 1);
   const [isCalculating, setIsCalculating] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
 
   const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(
-    isEditMode && existingTest.status === 'completed' ? {
+    isEditMode && existingTest?.status === 'completed' ? {
       percentRetained: existingTest.percentRetained,
       cumulativeRetained: existingTest.cumulativeRetained,
       percentPassing: existingTest.percentPassing,
@@ -68,11 +69,9 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: existingTest?.name || "",
-      type: existingTest?.type || "Fine",
-      weights: (SIEVE_SIZES[(existingTest?.type || "Fine").toUpperCase() as keyof typeof SIEVE_SIZES] || []).map(
-        (_, index) => ({ value: existingTest?.weights?.[index] ?? null })
-      ),
+      name: "",
+      type: "Fine",
+      weights: (SIEVE_SIZES.FINE || []).map(() => ({ value: null })),
     },
   });
   
@@ -83,14 +82,15 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   const aggregateType = form.watch("type") as AggregateType;
 
+  // Effect to reset weights when aggregate type changes
   React.useEffect(() => {
     const newSieves = SIEVE_SIZES[aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
     const newWeights = newSieves.map(() => ({ value: null }));
     replace(newWeights);
     setAnalysisResults(null);
-    form.setValue('weights', newWeights);
-  }, [aggregateType, replace, form]);
+  }, [aggregateType, replace]);
 
+  // Effect to populate form when editing an existing test
   React.useEffect(() => {
     if (existingTest) {
       const currentSieves = SIEVE_SIZES[existingTest.type.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
@@ -103,6 +103,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
       });
     }
   }, [existingTest, form]);
+
 
   async function handleCalculate(values: z.infer<typeof formSchema>) {
     setIsCalculating(true);
