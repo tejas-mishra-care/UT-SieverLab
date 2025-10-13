@@ -13,7 +13,7 @@ export default function DashboardPage() {
   const firestore = useFirestore();
 
   const testsQuery = useMemoFirebase(() => {
-    if (!user) return null;
+    if (!user || !firestore) return null;
     return query(collection(firestore, 'tests'), where('userId', '==', user.uid));
   }, [firestore, user]);
 
