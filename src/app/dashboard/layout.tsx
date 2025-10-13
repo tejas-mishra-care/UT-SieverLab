@@ -33,7 +33,7 @@ export default function DashboardLayout({
                     <HardHat className="h-5 w-5" />
                 </div>
                 <h1 className="font-headline text-xl font-bold text-sidebar-foreground">
-                    SieveLab
+                    UltraTech SieveLab
                 </h1>
             </div>
           </div>
