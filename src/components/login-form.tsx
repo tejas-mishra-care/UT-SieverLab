@@ -130,7 +130,7 @@ export function LoginForm() {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input placeholder="you@example.com" {...field} suppressHydrationWarning />
+                    <Input placeholder="you@example.com" {...field} suppressHydrationWarning autoComplete="email" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -143,7 +143,7 @@ export function LoginForm() {
                 <FormItem>
                   <FormLabel>Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} suppressHydrationWarning />
+                    <Input type="password" placeholder="••••••••" {...field} suppressHydrationWarning autoComplete="current-password" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

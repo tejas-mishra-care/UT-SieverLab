@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -43,7 +44,9 @@ export default function ProfilePage() {
     setIsSaving(true);
     try {
       await updateProfile(user, { displayName: name });
-      await setDoc(doc(firestore, 'users', user.uid), { name }, { merge: true });
+      if (firestore) {
+        await setDoc(doc(firestore, 'users', user.uid), { name }, { merge: true });
+      }
       toast({ title: "Profile Updated", description: "Your changes have been saved." });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
@@ -95,11 +98,11 @@ export default function ProfilePage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSaving} />
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSaving} autoComplete="name" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={user?.email || ""} disabled />
+              <Input id="email" type="email" value={user?.email || ""} disabled autoComplete="email" />
             </div>
           </div>
           <div className="flex justify-between items-center flex-wrap gap-4">

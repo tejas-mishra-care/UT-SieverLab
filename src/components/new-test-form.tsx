@@ -44,15 +44,16 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 interface NewTestFormProps {
-  existingTest?: SieveAnalysisTest;
+  existingTest?: SieveAnalysisTest | null;
 }
+
+const getSievesForType = (type: AggregateType) => SIEVE_SIZES[type.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
 
 export function NewTestForm({ existingTest }: NewTestFormProps) {
   const { toast } = useToast();
   const router = useRouter();
   const firestore = useFirestore();
   const { user } = useUser();
-
   const isEditMode = !!existingTest;
 
   const [step, setStep] = React.useState(1);
@@ -60,15 +61,18 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   const [isSaving, setIsSaving] = React.useState(false);
   const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(null);
 
-  const getSievesForType = (type: AggregateType) => SIEVE_SIZES[type.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
+  const defaultSieves = getSievesForType(existingTest?.type || 'Fine');
+  const defaultWeights = defaultSieves.map((_, index) => ({
+    value: existingTest?.weights?.[index] ?? null,
+  }));
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-        name: '',
-        type: 'Fine',
-        weights: getSievesForType('Fine').map(() => ({ value: null })),
-    }
+      name: existingTest?.name || '',
+      type: existingTest?.type || 'Fine',
+      weights: defaultWeights,
+    },
   });
 
   const { fields, replace } = useFieldArray({
@@ -78,7 +82,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   const aggregateType = form.watch("type") as AggregateType;
 
-  // Effect to reset form and populate with existingTest data when it becomes available
+  // Sync form with existingTest data when it loads
   React.useEffect(() => {
     if (existingTest) {
       const sieves = getSievesForType(existingTest.type);
@@ -101,24 +105,16 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         setStep(2);
       }
     }
-  }, [existingTest, form]);
+  }, [existingTest, form.reset]);
   
-
   // Update weights array when aggregate type changes
   React.useEffect(() => {
     const newSieves = getSievesForType(aggregateType);
-    const currentWeights = form.getValues('weights');
-    
-    // Only replace if the number of sieves is different to avoid unnecessary re-renders
-    if (newSieves.length !== currentWeights.length) {
-        const newWeights = newSieves.map(() => ({ value: null }));
-        replace(newWeights);
-    }
-
+    const newWeights = newSieves.map(() => ({ value: null }));
+    replace(newWeights);
     setAnalysisResults(null);
     if(step === 2) setStep(1);
-
-  }, [aggregateType, replace, form, step]);
+  }, [aggregateType, replace]);
 
 
   async function handleCalculate(values: FormValues) {
@@ -184,8 +180,10 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     const currentSieves = getSievesForType(aggregateType);
     const weights = form.getValues('weights').map(w => w.value || 0);
 
+    const testId = isEditMode ? existingTest.id : doc(collection(firestore, "tests")).id;
+
     const testData: SieveAnalysisTest = {
-      id: isEditMode ? existingTest.id : doc(collection(firestore, "tests")).id,
+      id: testId,
       userId: user.uid,
       name: form.getValues("name"),
       type: aggregateType,
@@ -240,7 +238,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
                     <FormItem>
                       <FormLabel>Test Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., 'Sample from Site A'" {...field} />
+                        <Input placeholder="e.g., 'Sample from Site A'" {...field} autoComplete="off" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -383,5 +381,3 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     </Form>
   );
 }
-
-    
