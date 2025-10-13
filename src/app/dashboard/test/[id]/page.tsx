@@ -1,3 +1,4 @@
+
 "use client";
 
 import { notFound, useRouter } from "next/navigation";
@@ -31,7 +32,7 @@ export default function TestViewPage({ params }: { params: { id: string } }) {
   const { user } = useUser();
 
   const testDocRef = useMemoFirebase(() => {
-      if (!params.id) return null;
+      if (!params.id || !firestore) return null;
       return doc(firestore, "tests", params.id);
   }, [firestore, params.id]);
 

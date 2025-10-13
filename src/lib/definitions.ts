@@ -1,3 +1,4 @@
+
 export type AggregateType = "Fine" | "Coarse";
 
 export interface SieveData {
