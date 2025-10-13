@@ -10,7 +10,6 @@ import { notFound, useRouter } from "next/navigation";
 import React, { use } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-
 function EditTest({ id }: { id: string }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -26,7 +25,7 @@ function EditTest({ id }: { id: string }) {
 
   React.useEffect(() => {
     const isDataLoaded = !isUserLoading && !isTestLoading;
-     if (isDataLoaded && test === null) {
+     if (isDataLoaded && !test) {
       notFound();
     }
     if (isDataLoaded && test && user && test.userId !== user.uid) {
@@ -39,7 +38,7 @@ function EditTest({ id }: { id: string }) {
     }
   }, [isUserLoading, isTestLoading, test, user, router, toast]);
 
-  const isLoading = isUserLoading || isTestLoading;
+  const isLoading = isUserLoading || isTestLoading || !testDocRef;
 
   if (isLoading || !test) {
     return (
@@ -57,7 +56,7 @@ function EditTest({ id }: { id: string }) {
           Modify your test details and recalculate the results.
         </p>
       </div>
-      {test && <NewTestForm existingTest={test} />}
+      <NewTestForm existingTest={test} />
     </div>
   );
 }

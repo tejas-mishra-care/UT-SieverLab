@@ -106,7 +106,7 @@ function TestView({ id }: { id: string }) {
 
   React.useEffect(() => {
     const isDataLoaded = !isUserLoading && !isTestLoading;
-    if (isDataLoaded && test === null) {
+    if (isDataLoaded && !test) {
       notFound();
     }
     if (isDataLoaded && test && user && test.userId !== user.uid) {
@@ -119,7 +119,7 @@ function TestView({ id }: { id: string }) {
     }
   }, [isUserLoading, isTestLoading, test, user, router, toast]);
 
-  const isLoading = isUserLoading || isTestLoading;
+  const isLoading = isUserLoading || isTestLoading || !testDocRef;
 
   if (isLoading || !test) {
     return (

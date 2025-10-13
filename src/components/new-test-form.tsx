@@ -177,8 +177,9 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         });
         router.push(`/dashboard/test/${existingTest.id}`);
         } else {
-            const docRef = await addDoc(collection(firestore, 'tests'), testData);
-            await setDoc(docRef, { id: docRef.id }, { merge: true });
+            const testCollRef = collection(firestore, 'tests');
+            const docRef = doc(testCollRef); // Create a new doc with a generated ID
+            await setDoc(docRef, { ...testData, id: docRef.id });
             
             toast({
                 title: "Test Saved Successfully",
