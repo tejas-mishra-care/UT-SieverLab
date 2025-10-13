@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -30,7 +30,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, WandSparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser } from "@/firebase";
-import { doc, setDoc, collection } from "firebase/firestore";
+import { doc, setDoc, collection, serverTimestamp } from "firebase/firestore";
+import { SieveInputsDisplay } from "./sieve-inputs-display";
 
 const formSchema = z.object({
   name: z.string().min(1, "Test name is required."),
@@ -54,11 +55,11 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   const isEditMode = !!existingTest;
 
-  const [step, setStep] = React.useState(isEditMode && existingTest?.status === 'completed' ? 2 : 1);
+  const [step, setStep] = React.useState(isEditMode ? 2 : 1);
   const [isCalculating, setIsCalculating] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(
-    isEditMode && existingTest?.status === 'completed' ? {
+    isEditMode ? {
       percentRetained: existingTest.percentRetained,
       cumulativeRetained: existingTest.cumulativeRetained,
       percentPassing: existingTest.percentPassing,
@@ -69,6 +70,11 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      type: "Fine",
+      weights: SIEVE_SIZES.FINE.map(() => ({ value: null })),
+    }
   });
 
   const { fields, replace } = useFieldArray({
@@ -78,15 +84,14 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
   const aggregateType = form.watch("type") as AggregateType;
 
+  // Effect to update fields when aggregate type changes
   React.useEffect(() => {
-    const relevantSieves = SIEVE_SIZES[aggregateType?.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
-    const currentWeights = form.getValues('weights');
-    if (currentWeights.length !== relevantSieves.length) {
-      const newWeights = relevantSieves.map(() => ({ value: null }));
-      replace(newWeights);
-    }
-  }, [aggregateType, replace, form]);
+    const relevantSieves = SIEVE_SIZES[aggregateType.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
+    const newWeights = relevantSieves.map(() => ({ value: null }));
+    replace(newWeights);
+  }, [aggregateType, replace]);
 
+  // Effect to populate form when editing an existing test
   React.useEffect(() => {
     if (existingTest) {
       const relevantSieves = SIEVE_SIZES[existingTest.type.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
@@ -97,15 +102,19 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
           value: existingTest.weights?.[index] ?? null,
         })),
       });
-    } else {
-        const defaultSieves = SIEVE_SIZES.FINE || [];
-        form.reset({
-            name: '',
-            type: 'Fine',
-            weights: defaultSieves.map(() => ({ value: null })),
+      if (existingTest.status === 'completed') {
+        setAnalysisResults({
+          percentRetained: existingTest.percentRetained,
+          cumulativeRetained: existingTest.cumulativeRetained,
+          percentPassing: existingTest.percentPassing,
+          finenessModulus: existingTest.finenessModulus,
+          classification: existingTest.classification,
         });
+        setStep(2);
+      }
     }
   }, [existingTest, form]);
+
 
   async function handleCalculate(values: FormValues) {
     setIsCalculating(true);
@@ -291,23 +300,25 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
                         <TableRow key={field.id}>
                           <TableCell className="font-medium">{currentSieves[index]}</TableCell>
                           <TableCell>
-                            <FormField
+                            <Controller
                               control={form.control}
                               name={`weights.${index}.value`}
-                              render={({ field }) => (
+                              render={({ field: controllerField, fieldState }) => (
                                 <FormItem>
                                   <FormControl>
                                     <Input
                                       type="number"
                                       step="0.1"
                                       placeholder="Enter weight"
-                                      {...field}
-                                      value={field.value ?? ""}
-                                      onChange={event => field.onChange(event.target.value === '' ? null : parseFloat(event.target.value))}
+                                      {...controllerField}
+                                      value={controllerField.value ?? ""}
+                                      onChange={event => controllerField.onChange(event.target.value === '' ? null : parseFloat(event.target.value))}
                                       className="max-w-sm"
                                     />
                                   </FormControl>
-                                  <FormMessage />
+                                  <FormMessage>
+                                    {fieldState.error?.message}
+                                  </FormMessage>
                                 </FormItem>
                               )}
                             />
@@ -336,11 +347,21 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
       {step === 2 && analysisResults && (
         <div className="space-y-6">
-          <SieveResultsDisplay
-            sieves={currentSieves}
-            type={aggregateType}
-            {...analysisResults}
-          />
+           <div ref={null}>
+            <div className="mb-6 border-b pb-4">
+                <h1 className="font-headline text-2xl font-bold">{form.getValues("name")}</h1>
+                <p className="text-sm text-muted-foreground">
+                    Sieve Analysis Report &bull;{" "}
+                    {new Date(isEditMode ? existingTest.timestamp : Date.now()).toLocaleDateString()}
+                </p>
+            </div>
+            <SieveInputsDisplay sieves={currentSieves} weights={form.getValues('weights').map(w => w.value || 0)} />
+            <SieveResultsDisplay
+                sieves={currentSieves}
+                type={aggregateType}
+                {...analysisResults}
+            />
+          </div>
           <div className="flex flex-col-reverse gap-4 sm:flex-row sm:justify-between">
             <Button variant="outline" onClick={() => setStep(1)}>
               Back to Inputs
@@ -360,3 +381,5 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     </Form>
   );
 }
+
+    
