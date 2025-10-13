@@ -26,7 +26,7 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import Link from "next/link";
 
-export default function TestViewPage({ params }: { params: { id: string } }) {
+export default function TestViewPage({ params: { id } }: { params: { id: string } }) {
   const router = useRouter();
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -38,9 +38,9 @@ export default function TestViewPage({ params }: { params: { id: string } }) {
 
 
   const testDocRef = useMemoFirebase(() => {
-      if (!params.id || !firestore) return null;
-      return doc(firestore, "tests", params.id);
-  }, [firestore, params.id]);
+      if (!id || !firestore) return null;
+      return doc(firestore, "tests", id);
+  }, [firestore, id]);
 
   const { data: test, isLoading } = useDoc<SieveAnalysisTest>(testDocRef);
 

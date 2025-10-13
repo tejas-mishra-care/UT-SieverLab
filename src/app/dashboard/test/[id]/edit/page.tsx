@@ -11,16 +11,16 @@ import { notFound, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-export default function EditTestPage({ params }: { params: { id: string } }) {
+export default function EditTestPage({ params: { id } }: { params: { id: string } }) {
   const router = useRouter();
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
 
   const testDocRef = useMemoFirebase(() => {
-    if (!params.id || !firestore) return null;
-    return doc(firestore, "tests", params.id);
-  }, [firestore, params.id]);
+    if (!id || !firestore) return null;
+    return doc(firestore, "tests", id);
+  }, [firestore, id]);
 
   const { data: test, isLoading } = useDoc<SieveAnalysisTest>(testDocRef);
 
