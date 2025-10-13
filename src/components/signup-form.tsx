@@ -27,10 +27,9 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, useUser } from "@/firebase";
-import { GoogleAuthProvider, signInWithPopup, updateProfile } from "firebase/auth";
+import { useAuth, useUser, useFirestore } from "@/firebase";
+import { GoogleAuthProvider, signInWithPopup, updateProfile, createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { useFirestore } from "@/firebase";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -64,7 +63,7 @@ export function SignupForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      const userCredential = await auth.createUserWithEmailAndPassword(values.email, values.password);
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const firebaseUser = userCredential.user;
       
       await updateProfile(firebaseUser, { displayName: values.name });

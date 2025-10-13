@@ -28,8 +28,7 @@ import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, useUser } from "@/firebase";
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { initiateEmailSignIn } from "@/firebase/non-blocking-login";
+import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }),
@@ -60,8 +59,8 @@ export function LoginForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      initiateEmailSignIn(auth, values.email, values.password);
-      // The onAuthStateChanged listener will handle redirection and toasts
+      await signInWithEmailAndPassword(auth, values.email, values.password);
+      // The onAuthStateChanged listener will handle redirection
     } catch (error: any) {
       toast({
         variant: "destructive",
