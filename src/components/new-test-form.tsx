@@ -27,11 +27,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Save, WandSparkles } from "lucide-react";
+import { Loader2, Save, WandSparkles, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser } from "@/firebase";
 import { doc, setDoc, collection } from "firebase/firestore";
 import { SieveInputsDisplay } from "./sieve-inputs-display";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 const formSchema = z.object({
   name: z.string().min(1, "Test name is required."),
@@ -59,7 +61,11 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
   const [step, setStep] = React.useState(1);
   const [isCalculating, setIsCalculating] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isDownloading, setIsDownloading] = React.useState(false);
   const [analysisResults, setAnalysisResults] = React.useState<AnalysisResults | null>(null);
+  
+  const printRef = React.useRef<HTMLDivElement>(null);
+
 
   const defaultValues = React.useMemo(() => {
     const type = existingTest?.type || 'Fine';
@@ -212,6 +218,59 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
       setIsSaving(false);
     }
   }
+  
+  const handleDownload = async () => {
+    if (!printRef.current || !form.getValues("name")) return;
+    setIsDownloading(true);
+    try {
+      const element = printRef.current;
+      const originalBg = element.style.backgroundColor;
+      element.style.backgroundColor = 'white';
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      
+      element.style.backgroundColor = originalBg;
+
+      const imgData = canvas.toDataURL("image/png");
+
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const imgProps = pdf.getImageProperties(imgData);
+      const imgWidth = pdfWidth - 20; // 10mm margin on each side
+      const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+      
+      let position = 0;
+      let heightLeft = imgHeight;
+
+      pdf.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 10, position + 10, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+      
+      pdf.save(`SieveLab Report - ${form.getValues("name")}.pdf`);
+
+    } catch (e: any) {
+      toast({
+        variant: "destructive",
+        title: "Download Failed",
+        description: "Could not generate PDF. " + e.message,
+      });
+      console.error(e);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const currentSieves = getSievesForType(aggregateType);
 
@@ -344,7 +403,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
 
       {step === 2 && analysisResults && (
         <div className="space-y-6">
-           <div ref={null}>
+           <div ref={printRef} className="space-y-6 rounded-lg bg-background p-6">
             <div className="mb-6 border-b pb-4">
                 <h1 className="font-headline text-2xl font-bold">{form.getValues("name")}</h1>
                 <p className="text-sm text-muted-foreground">
@@ -363,18 +422,30 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
             <Button variant="outline" onClick={() => setStep(1)}>
               Back to Inputs
             </Button>
-
-            <Button onClick={handleSave} disabled={isSaving || !user}>
-              {isSaving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              {isEditMode ? 'Update Test' : 'Save Test'}
-            </Button>
+            
+            <div className="flex flex-col-reverse gap-4 sm:flex-row">
+                <Button variant="outline" onClick={handleDownload} disabled={isDownloading}>
+                    {isDownloading ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                        <Download className="mr-2 h-4 w-4" />
+                    )}
+                    Download Report
+                </Button>
+                <Button onClick={handleSave} disabled={isSaving || !user}>
+                {isSaving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                )}
+                {isEditMode ? 'Update Test' : 'Save Test'}
+                </Button>
+            </div>
           </div>
         </div>
       )}
     </Form>
   );
 }
+
+    

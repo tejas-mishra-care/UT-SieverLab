@@ -1,11 +1,10 @@
 
 "use client";
 
-import { Suspense, useState, useEffect, useRef, use } from 'react';
+import { Suspense, useState, useEffect, use } from 'react';
 import { notFound, useRouter } from "next/navigation";
-import { SieveResultsDisplay } from "@/components/sieve-results-display";
 import { Button } from "@/components/ui/button";
-import { Download, Trash2, Loader2, Pencil } from "lucide-react";
+import { Trash2, Loader2, Pencil } from "lucide-react";
 import type { SieveAnalysisTest } from "@/lib/definitions";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -22,9 +21,8 @@ import {
 import React from "react";
 import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase";
 import { doc, deleteDoc }from "firebase/firestore";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import Link from "next/link";
+import { SieveResultsDisplay } from '@/components/sieve-results-display';
 import { SieveInputsDisplay } from '@/components/sieve-inputs-display';
 
 function TestView({ id }: { id: string }) {
@@ -33,10 +31,7 @@ function TestView({ id }: { id: string }) {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const [isDeleting, setIsDeleting] = React.useState(false);
-  const [isDownloading, setIsDownloading] = React.useState(false);
   
-  const printRef = useRef<HTMLDivElement>(null);
-
   const testDocRef = useMemoFirebase(() => {
     if (!firestore || !id) return null;
     return doc(firestore, 'tests', id);
@@ -87,59 +82,6 @@ function TestView({ id }: { id: string }) {
     }
   };
 
-  const handleDownload = async () => {
-    if (!printRef.current || !test) return;
-    setIsDownloading(true);
-    try {
-      const element = printRef.current;
-      const originalBg = element.style.backgroundColor;
-      element.style.backgroundColor = 'white';
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      });
-      
-      element.style.backgroundColor = originalBg;
-
-      const imgData = canvas.toDataURL("image/png");
-
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      
-      const imgProps = pdf.getImageProperties(imgData);
-      const imgWidth = pdfWidth - 20; // 10mm margin on each side
-      const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
-      
-      let position = 0;
-      let heightLeft = imgHeight;
-
-      pdf.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 10, position + 10, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
-      }
-      
-      pdf.save(`SieveLab Report - ${test.name}.pdf`);
-
-    } catch (e: any) {
-      toast({
-        variant: "destructive",
-        title: "Download Failed",
-        description: "Could not generate PDF. " + e.message,
-      });
-      console.error(e);
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
   if (isTestLoading || isUserLoading || !test) {
     return (
       <div className="flex h-full min-h-[500px] items-center justify-center">
@@ -168,16 +110,7 @@ function TestView({ id }: { id: string }) {
               Edit
             </Link>
           </Button>
-          {!isDraft && (
-            <Button variant="outline" onClick={handleDownload} disabled={isDownloading}>
-              {isDownloading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-4 w-4" />
-              )}
-              Download Report
-            </Button>
-          )}
+          
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" disabled={isDeleting}>
@@ -225,7 +158,7 @@ function TestView({ id }: { id: string }) {
             </div>
         ) : (
           <div className="space-y-6">
-            <div ref={printRef} className="space-y-6 rounded-lg bg-background p-6">
+            <div className="space-y-6 rounded-lg bg-background p-6">
               <div className="mb-6 border-b pb-4">
                 <h1 className="font-headline text-2xl font-bold">{test.name}</h1>
                 <p className="text-sm text-muted-foreground">
@@ -260,3 +193,5 @@ export default function TestViewPage({ params }: { params: { id: string } }) {
     </Suspense>
   );
 }
+
+    
