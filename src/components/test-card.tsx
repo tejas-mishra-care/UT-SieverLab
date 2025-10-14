@@ -11,7 +11,6 @@ type TestCardProps = {
 };
 
 export function TestCard({ test }: TestCardProps) {
-  // Always link to the view page. Editing is done from the view page.
   const linkHref = `/dashboard/tests/${test.id}`;
 
   return (
