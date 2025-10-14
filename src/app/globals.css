@@ -101,6 +101,9 @@ body {
   .pdf-render .card-content {
     @apply p-4 pt-0;
   }
+  .pdf-render .card {
+    page-break-inside: avoid;
+  }
   .pdf-render .text-2xl {
     @apply text-xl;
   }
