@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -84,5 +85,29 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .pdf-render h1 {
+    @apply text-xl;
+  }
+  .pdf-render h2, .pdf-render .card-title {
+    @apply text-lg;
+  }
+  .pdf-render p, .pdf-render .card-description {
+    @apply text-xs;
+  }
+  .pdf-render .card-content {
+    @apply p-4 pt-0;
+  }
+  .pdf-render .text-2xl {
+    @apply text-xl;
+  }
+  .pdf-render table {
+    @apply text-xs;
+  }
+  .pdf-render th, .pdf-render td {
+    @apply px-2 py-1;
   }
 }

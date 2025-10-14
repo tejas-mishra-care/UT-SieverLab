@@ -225,7 +225,10 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     try {
       const element = printRef.current;
       const originalBg = element.style.backgroundColor;
+      
+      // Prepare for printing
       element.style.backgroundColor = 'white';
+      element.classList.add('pdf-render');
 
       const canvas = await html2canvas(element, {
         scale: 2,
@@ -233,7 +236,10 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         logging: false,
       });
       
+      // Cleanup after printing
       element.style.backgroundColor = originalBg;
+      element.classList.remove('pdf-render');
+
 
       const imgData = canvas.toDataURL("image/png");
 
@@ -248,14 +254,16 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
       let position = 0;
       let heightLeft = imgHeight;
 
+      // Add first page
       pdf.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
+      heightLeft -= (pdfHeight - 20); // Adjust for margins
 
+      // Add subsequent pages if content overflows
       while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
+        position -= (pdfHeight - 20); // Move position up
         pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 10, position + 10, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
+        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+        heightLeft -= (pdfHeight - 20);
       }
       
       pdf.save(`SieveLab Report - ${form.getValues("name")}.pdf`);
@@ -447,5 +455,3 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
     </Form>
   );
 }
-
-    
