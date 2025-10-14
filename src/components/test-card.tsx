@@ -11,7 +11,7 @@ type TestCardProps = {
 };
 
 export function TestCard({ test }: TestCardProps) {
-  const linkHref = `/dashboard/tests/${test.id}`;
+  const linkHref = `/dashboard/test/${test.id}`;
 
   return (
     <Link href={linkHref} className="block">

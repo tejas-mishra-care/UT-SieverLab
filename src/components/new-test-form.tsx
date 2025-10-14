@@ -201,7 +201,7 @@ export function NewTestForm({ existingTest }: NewTestFormProps) {
         title: isEditMode ? "Test Updated" : "Test Saved",
         description: `"${testData.name}" has been successfully saved.`,
       });
-      router.push(`/dashboard/tests/${testData.id}`);
+      router.push(`/dashboard/test/${testData.id}`);
     } catch (error) {
       console.error("Firestore save error:", error);
       toast({
