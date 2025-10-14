@@ -163,7 +163,7 @@ function TestView({ id }: { id: string }) {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
-            <Link href={`/dashboard/test/${test.id}/edit`}>
+            <Link href={`/dashboard/tests/${test.id}/edit`}>
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </Link>
@@ -217,7 +217,7 @@ function TestView({ id }: { id: string }) {
                     Complete the test to see the results.
                 </p>
                 <Button asChild>
-                    <Link href={`/dashboard/test/${test.id}/edit`}>
+                    <Link href={`/dashboard/tests/${test.id}/edit`}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Continue Editing
                     </Link>
