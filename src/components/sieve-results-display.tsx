@@ -72,7 +72,7 @@ export function SieveResultsDisplay({
       </div>
 
       <div className="space-y-6 mt-4">
-        <Card>
+        <Card id="grading-curve-card">
             <CardHeader>
             <CardTitle>Grading Curve</CardTitle>
             <CardDescription>

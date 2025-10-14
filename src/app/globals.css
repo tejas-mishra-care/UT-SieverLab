@@ -104,6 +104,9 @@ body {
   .pdf-render .card {
     page-break-inside: avoid;
   }
+  .pdf-render #grading-curve-card {
+    break-before: page;
+  }
   .pdf-render .text-2xl {
     @apply text-xl;
   }
