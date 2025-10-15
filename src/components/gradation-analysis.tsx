@@ -87,40 +87,40 @@ export function GradationAnalysis() {
         });
     }
     
-    const findOptimalBlend = () => {
-        let bestBlend = -1;
-        let maxMinDistance = -1;
-
-        for (let i = 1; i <= 100; i++) {
-            const passingData = getCombinedPassing(i);
-            let isCompliant = true;
-            let minDistance = Infinity;
-
-            for (const d of passingData) {
-                if (d.combinedPassing < d.lowerLimit || d.combinedPassing > d.upperLimit) {
-                    isCompliant = false;
-                    break;
-                }
-                const distToLower = d.combinedPassing - d.lowerLimit;
-                const distToUpper = d.upperLimit - d.combinedPassing;
-                minDistance = Math.min(minDistance, distToLower, distToUpper);
-            }
-
-            if (isCompliant && minDistance > maxMinDistance) {
-                maxMinDistance = minDistance;
-                bestBlend = i;
-            }
-        }
-        return bestBlend;
-    };
-    
     useEffect(() => {
+        const findOptimalBlend = () => {
+            let bestBlend = -1;
+            let maxMinDistance = -1;
+
+            for (let i = 1; i <= 100; i++) {
+                const passingData = getCombinedPassing(i);
+                let isCompliant = true;
+                let minDistance = Infinity;
+
+                for (const d of passingData) {
+                    if (d.combinedPassing < d.lowerLimit || d.combinedPassing > d.upperLimit) {
+                        isCompliant = false;
+                        break;
+                    }
+                    const distToLower = d.combinedPassing - d.lowerLimit;
+                    const distToUpper = d.upperLimit - d.combinedPassing;
+                    minDistance = Math.min(minDistance, distToLower, distToUpper);
+                }
+
+                if (isCompliant && minDistance > maxMinDistance) {
+                    maxMinDistance = minDistance;
+                    bestBlend = i;
+                }
+            }
+            return bestBlend;
+        };
+
         const bestBlendPercentage = findOptimalBlend();
         if (bestBlendPercentage !== -1) {
             const optimalData = getCombinedPassing(bestBlendPercentage).map(d => ({
                 ...d,
                 recommendedPassing: d.combinedPassing
-            })).sort((a,b) => a.sieveSize - b.sieveSize);
+            }));
             setOptimalBlend({ percentage: bestBlendPercentage, data: optimalData });
         } else {
             setOptimalBlend({ percentage: null, data: [] });
@@ -139,8 +139,9 @@ export function GradationAnalysis() {
             };
         });
 
-        return mergedData.sort((a,b) => a.sieveSize - b.sieveSize);
-    }, [finePassing, coarsePassing, fineAggregatePercentage, optimalBlend.data]);
+        return mergedData;
+    }, [fineAggregatePercentage, optimalBlend.data, finePassing, coarsePassing]);
+
 
     const complianceStatus = useMemo(() => {
         return chartData.map(d => {
@@ -251,7 +252,7 @@ export function GradationAnalysis() {
                             />
                             <Button onClick={handleOptimizeClick} disabled={isOptimizing || optimalBlend.percentage === null} className="w-full">
                                 {isOptimizing ? <Loader2 className="mr-2 animate-spin" /> : <WandSparkles className="mr-2" />}
-                                {optimalBlend.percentage === null ? 'No Optimum Found' : 'Apply Optimal Blend'}
+                                {optimalBlend.percentage === null ? 'No Optimum Found' : `Apply Recommended Blend (${optimalBlend.percentage}%)`}
                             </Button>
                         </CardContent>
                     </Card>
@@ -328,5 +329,3 @@ export function GradationAnalysis() {
         </div>
     );
 }
-
-    
