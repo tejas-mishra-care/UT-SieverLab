@@ -35,13 +35,13 @@ export function SieveAnalysisCalculator() {
     const [fineAggregatePercentage, setFineAggregatePercentage] = React.useState(35);
     const coarseAggregatePercentage = 100 - fineAggregatePercentage;
 
-    const handleCalculation = async (
+    const handleCalculation = (
         type: AggregateType, 
         setter: React.Dispatch<React.SetStateAction<boolean>>, 
         resultsSetter: React.Dispatch<React.SetStateAction<AnalysisResults | null>>,
         weightsSetter: React.Dispatch<React.SetStateAction<number[]>>
         ) => {
-        return (results: AnalysisResults, weights: number[]) => {
+        return async (results: AnalysisResults, weights: number[]) => {
             setter(true);
             resultsSetter(null); // Clear previous results
             await new Promise(resolve => setTimeout(resolve, 500)); // Simulate calculation delay
@@ -190,4 +190,3 @@ export function SieveAnalysisCalculator() {
         </Tabs>
     );
 }
-
