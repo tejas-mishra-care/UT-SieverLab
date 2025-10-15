@@ -47,15 +47,25 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: Sie
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      weights: currentSieves.map(() => ({ value: null })),
+      // Add 1 for the Pan
+      weights: Array(currentSieves.length + 1).fill({ value: null }),
     },
     reValidateMode: "onChange",
   });
 
-  const { fields } = useFieldArray({
+  const { fields, replace } = useFieldArray({
     control: form.control,
     name: "weights",
   });
+
+   React.useEffect(() => {
+    const newSieves = getSievesForType(aggregateType);
+    // Add 1 for the Pan
+    const newWeights = Array(newSieves.length + 1).fill({ value: null });
+    replace(newWeights);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aggregateType, replace]);
+
 
   function handleCalculate(values: FormValues) {
     try {
@@ -70,6 +80,7 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: Sie
         return;
       }
 
+      // Pass all weights (including pan) to calculation
       const calculated = calculateSieveAnalysis(weights);
       
       let classification: string;
@@ -106,7 +117,7 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: Sie
           <CardHeader>
             <CardTitle>{aggregateType} Aggregate Details</CardTitle>
             <CardDescription>
-              Enter the weight (in grams) retained on each sieve for the {aggregateType.toLowerCase()} aggregate.
+              Enter the weight (in grams) retained on each sieve and in the pan for the {aggregateType.toLowerCase()} aggregate.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -121,7 +132,9 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: Sie
                 <TableBody>
                   {fields.map((field, index) => (
                     <TableRow key={field.id}>
-                      <TableCell className="font-medium">{currentSieves[index]}</TableCell>
+                      <TableCell className="font-medium">
+                        {index < currentSieves.length ? currentSieves[index] : 'Pan'}
+                      </TableCell>
                       <TableCell>
                         <Controller
                           control={form.control}
