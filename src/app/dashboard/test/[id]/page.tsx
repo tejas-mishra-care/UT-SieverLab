@@ -104,12 +104,14 @@ function TestView({ id }: { id: string }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" asChild>
-            <Link href={`/dashboard/test/${test.id}/edit`}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit
-            </Link>
-          </Button>
+          {isDraft && (
+            <Button variant="outline" asChild>
+              <Link href={`/dashboard/new-test`}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit Draft
+              </Link>
+            </Button>
+          )}
           
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -150,7 +152,7 @@ function TestView({ id }: { id: string }) {
                     Complete the test to see the results.
                 </p>
                 <Button asChild>
-                    <Link href={`/dashboard/test/${test.id}/edit`}>
+                    <Link href={`/dashboard/new-test`}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Continue Editing
                     </Link>

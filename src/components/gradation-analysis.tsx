@@ -162,22 +162,20 @@ export function GradationAnalysis() {
 
     const handleOptimizeClick = () => {
         setIsOptimizing(true);
-        setTimeout(() => { // Simulate computation
-            if (optimalBlend.percentage) {
-                setFineAggregatePercentage(optimalBlend.percentage);
-                toast({
-                    title: "Optimal Blend Applied!",
-                    description: `A fine aggregate percentage of ${optimalBlend.percentage}% is recommended and has been set.`,
-                });
-            } else {
-                toast({
-                    variant: 'destructive',
-                    title: "No Optimal Blend Found",
-                    description: "Could not find a compliant blend with the current aggregate gradations.",
-                });
-            }
-            setIsOptimizing(false);
-        }, 500);
+        if (optimalBlend.percentage) {
+            setFineAggregatePercentage(optimalBlend.percentage);
+            toast({
+                title: "Optimal Blend Applied!",
+                description: `A fine aggregate percentage of ${optimalBlend.percentage}% is recommended and has been set.`,
+            });
+        } else {
+            toast({
+                variant: 'destructive',
+                title: "No Optimal Blend Found",
+                description: "Could not find a compliant blend with the current aggregate gradations.",
+            });
+        }
+        setIsOptimizing(false);
     };
 
     return (
@@ -326,5 +324,3 @@ export function GradationAnalysis() {
         </div>
     );
 }
-
-    

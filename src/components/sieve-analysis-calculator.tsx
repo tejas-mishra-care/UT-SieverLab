@@ -6,8 +6,8 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Download, Loader2, Save } from 'lucide-react';
-import { SieveAnalysisForm } from './new-test-form';
+import { Download, Loader2 } from 'lucide-react';
+import { SieveAnalysisForm } from './sieve-analysis-form';
 import type { AggregateType, AnalysisResults } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Slider } from './ui/slider';
@@ -45,10 +45,9 @@ export function SieveAnalysisCalculator() {
         resultsSetter: React.Dispatch<React.SetStateAction<AnalysisResults | null>>,
         weightsSetter: React.Dispatch<React.SetStateAction<number[]>>
         ) => {
-        return async (results: AnalysisResults, weights: number[]) => {
+        return (results: AnalysisResults, weights: number[]) => {
             setter(true);
             resultsSetter(null); // Clear previous results
-            await new Promise(resolve => setTimeout(resolve, 500)); // Simulate calculation delay
             resultsSetter(results);
             weightsSetter(weights);
             setter(false);
@@ -142,10 +141,6 @@ export function SieveAnalysisCalculator() {
                     <TabsTrigger value="report">Report</TabsTrigger>
                 </TabsList>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" disabled>
-                        <Save className="mr-2 h-4 w-4" />
-                        Save Draft
-                    </Button>
                     <Button variant="outline" onClick={handleDownloadPdf} disabled={!isReportReady || isDownloading}>
                         {isDownloading ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
