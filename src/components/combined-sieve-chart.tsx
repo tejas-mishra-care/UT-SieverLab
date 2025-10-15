@@ -80,12 +80,12 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
         <Tooltip
           content={<ChartTooltipContent
             formatter={(value, name) => {
-                const key = name as keyof typeof chartConfig;
-                if (key === 'upperSpecLimit' || key === 'lowerSpecLimit') return null;
-                if (!chartConfig[key]) return null;
+                const key = name as keyof typeof chartConfig | 'specLimitsUpper' | 'specLimitsLower';
+                if (key === 'specLimitsUpper' || key === 'specLimitsLower') return null;
+                if (!chartConfig[key as keyof typeof chartConfig]) return null;
                 if (value === null) return null;
                 
-                let label = chartConfig[key]?.label;
+                let label = chartConfig[key as keyof typeof chartConfig]?.label;
                 if(name === 'upperSpecLimit') label = "Upper Limit";
                 if(name === 'lowerSpecLimit') label = "Lower Limit";
 
@@ -98,6 +98,7 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
         <Legend content={<ChartLegendContent />} />
         
         <Area 
+            key="area-upper"
             type="monotone"
             dataKey="upperLimit"
             stackId="limits"
@@ -108,6 +109,7 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
             tooltipType="none"
         />
          <Area 
+            key="area-lower"
             type="monotone"
             dataKey="lowerLimit"
             stackId="limits"
@@ -119,6 +121,7 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
         />
 
         <Line
+            key="line-upper"
             dataKey="upperLimit"
             type="monotone"
             stroke="hsl(var(--destructive) / 0.5)"
@@ -129,6 +132,7 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
             legendType='line'
         />
          <Line
+            key="line-lower"
             dataKey="lowerLimit"
             type="monotone"
             stroke="hsl(var(--destructive) / 0.5)"
