@@ -48,12 +48,11 @@ const chartConfig = {
 };
 
 export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
-  const reversedData = [...data].reverse();
 
   return (
     <ChartContainer config={chartConfig} className="min-h-[400px] w-full">
       <ComposedChart
-        data={reversedData}
+        data={data}
         margin={{
           top: 5,
           right: 30,
@@ -68,7 +67,6 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
           scale="log"
           domain={["dataMin", "dataMax"]}
           name="Sieve Size (mm)"
-          reversed
           tick={{ fontSize: 12 }}
           label={{ value: "Sieve Size (mm) - Log Scale", position: "insideBottom", dy: 15, fontSize: 12 }}
         />

@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { CombinedSieveChart } from './combined-sieve-chart';
 import { Slider } from './ui/slider';
 
-const ALL_SIEVES = [80, 63, 40, 20, 10, 4.75, 2.36, 1.18, 0.6, 0.3, 0.15];
+const ALL_SIEVES = [0.15, 0.3, 0.6, 1.18, 2.36, 4.75, 10, 20, 40, 63, 80].reverse();
 
 // Example IS 383 Table 7 limits for 20mm nominal size graded aggregate
 const SPEC_LIMITS: Record<number, { min: number; max: number }> = {
@@ -79,7 +79,7 @@ export function GradationAnalysis() {
                 upperLimit: SPEC_LIMITS[sieve].max,
                 lowerLimit: SPEC_LIMITS[sieve].min,
             };
-        });
+        }).sort((a,b) => a.sieveSize - b.sieveSize);
     }, [finePassing, coarsePassing, fineAggregatePercentage, coarseAggregatePercentage]);
 
     const complianceStatus = useMemo(() => {
@@ -124,7 +124,7 @@ export function GradationAnalysis() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {ALL_SIEVES.map(sieve => (
+                                    {[...ALL_SIEVES].reverse().map(sieve => (
                                         <TableRow key={sieve}>
                                             <TableCell className="font-medium">{sieve}</TableCell>
                                             <TableCell>
