@@ -36,15 +36,11 @@ const chartConfig = {
     label: "Recommended Blend",
     color: "hsl(140, 80%, 40%)", // A distinct green color
   },
-  specLimits: {
-    label: "Specification Limits",
-    color: "hsl(var(--muted-foreground) / 0.5)",
-  },
-  upperLimit: {
+  upperSpecLimit: {
     label: "Upper Limit",
     color: "hsl(var(--destructive) / 0.5)",
   },
-  lowerLimit: {
+  lowerSpecLimit: {
     label: "Lower Limit",
     color: "hsl(var(--destructive) / 0.5)",
   },
@@ -85,11 +81,15 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
           content={<ChartTooltipContent
             formatter={(value, name) => {
                 const key = name as keyof typeof chartConfig;
-                if (!chartConfig[key] || chartConfig[key].label === 'Specification Limits') {
-                    return null;
-                }
+                if (key === 'upperSpecLimit' || key === 'lowerSpecLimit') return null;
+                if (!chartConfig[key]) return null;
                 if (value === null) return null;
-                return [`${(value as number).toFixed(2)}%`, chartConfig[key].label];
+                
+                let label = chartConfig[key]?.label;
+                if(name === 'upperSpecLimit') label = "Upper Limit";
+                if(name === 'lowerSpecLimit') label = "Lower Limit";
+
+                return [`${(value as number).toFixed(2)}%`, label];
             }}
             labelFormatter={(label, payload) => `Sieve: ${payload?.[0]?.payload.sieveSize}mm`}
           />}
@@ -103,8 +103,9 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
             stackId="limits"
             strokeWidth={0}
             fill="hsl(var(--muted-foreground) / 0.1)"
-            name="specLimits"
+            name="specLimitsUpper"
             legendType="none"
+            tooltipType="none"
         />
          <Area 
             type="monotone"
@@ -112,8 +113,9 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
             stackId="limits"
             strokeWidth={0}
             fill="hsl(var(--muted-foreground) / 0.1)"
-            name="specLimits"
+            name="specLimitsLower"
             legendType="none"
+            tooltipType="none"
         />
 
         <Line
@@ -123,7 +125,7 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
             strokeDasharray="5 5"
             dot={false}
             strokeWidth={1.5}
-            name="Upper Limit"
+            name="upperSpecLimit"
             legendType='line'
         />
          <Line
@@ -133,7 +135,7 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
             strokeDasharray="5 5"
             dot={false}
             strokeWidth={1.5}
-            name="Lower Limit"
+            name="lowerSpecLimit"
             legendType='line'
         />
 
@@ -183,5 +185,3 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
     </ChartContainer>
   );
 }
-
-    
