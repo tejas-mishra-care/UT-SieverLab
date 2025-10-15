@@ -89,10 +89,16 @@ body {
 }
 
 @layer utilities {
-  .pdf-render h1 {
-    @apply text-xl;
+  .pdf-render {
+    @apply bg-white text-black;
   }
-  .pdf-render h2, .pdf-render .card-title {
+  .pdf-render .chart-container {
+    height: 300px !important;
+  }
+  .pdf-render .recharts-surface {
+    overflow: visible;
+  }
+  .pdf-render h1, .pdf-render h2, .pdf-render .card-title {
     @apply text-lg;
   }
   .pdf-render p, .pdf-render .card-description {
@@ -103,6 +109,10 @@ body {
   }
   .pdf-render .card {
     page-break-inside: avoid;
+  }
+  .pdf-render .page-break {
+    break-inside: avoid;
+    break-after: auto;
   }
   .pdf-render #grading-curve-card {
     break-before: page;

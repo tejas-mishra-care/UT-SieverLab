@@ -2,16 +2,18 @@
 "use client";
 
 import * as React from 'react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Download, Save } from 'lucide-react';
+import { Download, Loader2, Save } from 'lucide-react';
 import { SieveAnalysisForm } from './new-test-form';
 import type { AggregateType, AnalysisResults } from '@/lib/definitions';
-import { SieveResultsDisplay } from './sieve-results-display';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Slider } from './ui/slider';
 import { CombinedSieveChart } from './combined-sieve-chart';
 import { SIEVE_SIZES } from '@/lib/sieve-analysis';
+import { ReportLayout } from './report-layout';
 
 const ALL_SIEVES = [0.15, 0.3, 0.6, 1.18, 2.36, 4.75, 10, 20, 40, 63, 80].reverse();
 const SPEC_LIMITS: Record<number, { min: number; max: number }> = {
@@ -31,9 +33,11 @@ export function SieveAnalysisCalculator() {
     
     const [isFineCalculating, setIsFineCalculating] = React.useState(false);
     const [isCoarseCalculating, setIsCoarseCalculating] = React.useState(false);
+    const [isDownloading, setIsDownloading] = React.useState(false);
 
     const [fineAggregatePercentage, setFineAggregatePercentage] = React.useState(35);
     const coarseAggregatePercentage = 100 - fineAggregatePercentage;
+    const reportRef = React.useRef<HTMLDivElement>(null);
 
     const handleCalculation = (
         type: AggregateType, 
@@ -49,6 +53,55 @@ export function SieveAnalysisCalculator() {
             weightsSetter(weights);
             setter(false);
         };
+    };
+
+    const handleDownloadPdf = async () => {
+        const reportElement = reportRef.current;
+        if (!reportElement) return;
+
+        setIsDownloading(true);
+
+        try {
+            const canvas = await html2canvas(reportElement, {
+                scale: 2, // Higher scale for better quality
+                useCORS: true,
+                logging: false,
+                backgroundColor: null,
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            // A4 dimensions in mm: 297 x 210 (landscape)
+            const pdf = new jsPDF({
+                orientation: 'landscape',
+                unit: 'mm',
+                format: 'a4',
+            });
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const ratio = imgWidth / imgHeight;
+            
+            let finalImgWidth = pdfWidth;
+            let finalImgHeight = pdfWidth / ratio;
+            
+            if (finalImgHeight > pdfHeight) {
+                finalImgHeight = pdfHeight;
+                finalImgWidth = pdfHeight * ratio;
+            }
+
+            const x = (pdfWidth - finalImgWidth) / 2;
+            const y = (pdfHeight - finalImgHeight) / 2;
+
+            pdf.addImage(imgData, 'PNG', x, y, finalImgWidth, finalImgHeight);
+            pdf.save(`sieve-analysis-report-${new Date().toISOString().split('T')[0]}.pdf`);
+        } catch (error) {
+            console.error("Error generating PDF:", error);
+        } finally {
+            setIsDownloading(false);
+        }
     };
 
     const combinedChartData = React.useMemo(() => {
@@ -68,15 +121,18 @@ export function SieveAnalysisCalculator() {
                 combinedPassing: combinedPassing,
                 upperLimit: SPEC_LIMITS[sieve]?.max ?? 100,
                 lowerLimit: SPEC_LIMITS[sieve]?.min ?? 0,
+                recommendedPassing: null, // This can be populated later if needed
             };
         }).sort((a,b) => a.sieveSize - b.sieveSize);
     }, [fineResults, coarseResults, fineAggregatePercentage, coarseAggregatePercentage]);
 
     const isCombinedTabActive = fineResults !== null && coarseResults !== null;
+    const isReportReady = fineResults !== null || coarseResults !== null;
+
 
     return (
         <Tabs defaultValue="fine" className="w-full">
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+             <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                 <TabsList>
                     <TabsTrigger value="fine">Fine Aggregate</TabsTrigger>
                     <TabsTrigger value="coarse">Coarse Aggregate</TabsTrigger>
@@ -90,8 +146,12 @@ export function SieveAnalysisCalculator() {
                         <Save className="mr-2 h-4 w-4" />
                         Save Draft
                     </Button>
-                     <Button variant="outline" disabled>
-                        <Download className="mr-2 h-4 w-4" />
+                    <Button variant="outline" onClick={handleDownloadPdf} disabled={!isReportReady || isDownloading}>
+                        {isDownloading ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Download className="mr-2 h-4 w-4" />
+                        )}
                         Download PDF
                     </Button>
                 </div>
@@ -145,48 +205,27 @@ export function SieveAnalysisCalculator() {
             </TabsContent>
 
             <TabsContent value="report">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Analysis Report</CardTitle>
-                        <CardDescription>A summary of all calculated results. This will update automatically.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-8">
-                        {fineResults ? (
-                            <div>
-                                <h3 className="text-xl font-bold mb-4 font-headline">Fine Aggregate Results</h3>
-                                <SieveResultsDisplay sieves={SIEVE_SIZES.FINE} type="Fine" {...fineResults} />
-                            </div>
-                        ) : <p className='text-muted-foreground'>No fine aggregate results calculated yet.</p>}
-                        
-                        <hr />
-                        
-                        {coarseResults ? (
-                            <div>
-                                <h3 className="text-xl font-bold mb-4 font-headline">Coarse Aggregate Results</h3>
-                                <SieveResultsDisplay sieves={SIEVE_SIZES.COARSE} type="Coarse" {...coarseResults} />
-                            </div>
-                        ) : <p className='text-muted-foreground'>No coarse aggregate results calculated yet.</p>}
-
-                        {isCombinedTabActive && (
-                             <div>
-                                <h3 className="text-xl font-bold mb-4 font-headline">Combined Gradation Results</h3>
-                                 <Card>
-                                    <CardHeader>
-                                        <CardTitle>Combined Gradation Curve</CardTitle>
-                                        <CardDescription>
-                                            Analysis of the blended aggregate against specification limits for 20mm nominal size graded aggregate.
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <CombinedSieveChart data={combinedChartData} />
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                <ReportLayout 
+                    fineResults={fineResults}
+                    coarseResults={coarseResults}
+                    combinedChartData={combinedChartData}
+                    fineAggregatePercentage={fineAggregatePercentage}
+                    coarseAggregatePercentage={coarseAggregatePercentage}
+                    showCombined={isCombinedTabActive}
+                />
             </TabsContent>
 
+            {/* Hidden div for PDF generation */}
+            <div className="absolute -left-[9999px] top-auto w-[1200px] bg-white text-black pdf-render" ref={reportRef}>
+                 <ReportLayout 
+                    fineResults={fineResults}
+                    coarseResults={coarseResults}
+                    combinedChartData={combinedChartData}
+                    fineAggregatePercentage={fineAggregatePercentage}
+                    coarseAggregatePercentage={coarseAggregatePercentage}
+                    showCombined={isCombinedTabActive}
+                />
+            </div>
         </Tabs>
     );
 }
