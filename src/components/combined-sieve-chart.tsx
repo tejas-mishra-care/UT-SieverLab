@@ -50,10 +50,16 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
   const sortedData = [...data].sort((a, b) => a.sieveSize - b.sieveSize);
   const hasRecommended = sortedData.some(d => d.recommendedPassing !== null);
 
+  const chartDataWithKeys = sortedData.map(d => ({
+    ...d,
+    upperSpecLimit: d.upperLimit,
+    lowerSpecLimit: d.lowerLimit,
+  }))
+
   return (
     <ChartContainer config={chartConfig} className="min-h-[400px] w-full">
       <ComposedChart
-        data={sortedData}
+        data={chartDataWithKeys}
         margin={{
           top: 5,
           right: 30,
@@ -85,11 +91,10 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
                 if (!chartConfig[key as keyof typeof chartConfig]) return null;
                 if (value === null) return null;
                 
-                let label = chartConfig[key as keyof typeof chartConfig]?.label;
-                if(name === 'upperSpecLimit') label = "Upper Limit";
-                if(name === 'lowerSpecLimit') label = "Lower Limit";
+                const configItem = chartConfig[key as keyof typeof chartConfig];
+                const label = configItem?.label;
 
-                return [`${(value as number).toFixed(2)}%`, label];
+                return [(value as number).toFixed(2) + '%', label];
             }}
             labelFormatter={(label, payload) => `Sieve: ${payload?.[0]?.payload.sieveSize}mm`}
           />}
@@ -122,7 +127,7 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
 
         <Line
             key="line-upper"
-            dataKey="upperLimit"
+            dataKey="upperSpecLimit"
             type="monotone"
             stroke="hsl(var(--destructive) / 0.5)"
             strokeDasharray="5 5"
@@ -133,7 +138,7 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
         />
          <Line
             key="line-lower"
-            dataKey="lowerLimit"
+            dataKey="lowerSpecLimit"
             type="monotone"
             stroke="hsl(var(--destructive) / 0.5)"
             strokeDasharray="5 5"
