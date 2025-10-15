@@ -8,6 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CombinedSieveChart } from './combined-sieve-chart';
 import { Slider } from './ui/slider';
+import { Button } from './ui/button';
+import { Loader2, WandSparkles } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const ALL_SIEVES = [0.15, 0.3, 0.6, 1.18, 2.36, 4.75, 10, 20, 40, 63, 80].reverse();
 
@@ -52,6 +55,8 @@ export function GradationAnalysis() {
         Object.fromEntries(ALL_SIEVES.map(s => [s.toString(), DEFAULT_COARSE_PASSING[s] ?? (s > 40 ? 100 : 0)]))
     );
     const [fineAggregatePercentage, setFineAggregatePercentage] = useState(35);
+    const [isOptimizing, setIsOptimizing] = useState(false);
+    const { toast } = useToast();
 
     const handleInputChange = (
         sieve: number,
@@ -66,21 +71,24 @@ export function GradationAnalysis() {
     
     const coarseAggregatePercentage = 100 - fineAggregatePercentage;
 
-    const chartData = useMemo(() => {
+    const getCombinedPassing = (finePercent: number) => {
+        const coarsePercent = 100 - finePercent;
         return ALL_SIEVES.map(sieve => {
             const fineP = finePassing[sieve.toString()] || 0;
             const coarseP = coarsePassing[sieve.toString()] || 0;
-            
-            const combinedPassing = (fineP * (fineAggregatePercentage / 100)) + (coarseP * (coarseAggregatePercentage / 100));
-
+            const combinedPassing = (fineP * (finePercent / 100)) + (coarseP * (coarsePercent / 100));
             return {
                 sieveSize: sieve,
                 combinedPassing: combinedPassing,
                 upperLimit: SPEC_LIMITS[sieve].max,
                 lowerLimit: SPEC_LIMITS[sieve].min,
             };
-        }).sort((a,b) => a.sieveSize - b.sieveSize);
-    }, [finePassing, coarsePassing, fineAggregatePercentage, coarseAggregatePercentage]);
+        });
+    }
+
+    const chartData = useMemo(() => {
+        return getCombinedPassing(fineAggregatePercentage).sort((a,b) => a.sieveSize - b.sieveSize);
+    }, [finePassing, coarsePassing, fineAggregatePercentage]);
 
     const complianceStatus = useMemo(() => {
         return chartData.map(d => {
@@ -102,6 +110,30 @@ export function GradationAnalysis() {
         return (cumulativeRetainedSum / 100).toFixed(2);
     }, [finePassing]);
 
+    const findOptimalBlend = () => {
+        setIsOptimizing(true);
+        setTimeout(() => { // Simulate computation
+            for (let i = 1; i <= 100; i++) {
+                const passingData = getCombinedPassing(i);
+                const isCompliant = passingData.every(d => d.combinedPassing >= d.lowerLimit && d.combinedPassing <= d.upperLimit);
+                if (isCompliant) {
+                    setFineAggregatePercentage(i);
+                    toast({
+                        title: "Optimal Blend Found!",
+                        description: `A fine aggregate percentage of ${i}% meets the specification.`,
+                    });
+                    setIsOptimizing(false);
+                    return;
+                }
+            }
+            toast({
+                variant: 'destructive',
+                title: "No Optimal Blend Found",
+                description: "Could not find a compliant blend with the current aggregate gradations.",
+            });
+            setIsOptimizing(false);
+        }, 500);
+    };
 
     return (
         <div className="space-y-6">
@@ -156,7 +188,7 @@ export function GradationAnalysis() {
                         <CardHeader>
                             <CardTitle>Mix Proportions</CardTitle>
                              <CardDescription>
-                                Adjust the blend of fine and coarse aggregates.
+                                Adjust the blend or let the system find an optimal mix.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className='space-y-4 pt-4'>
@@ -170,6 +202,10 @@ export function GradationAnalysis() {
                                 max={100}
                                 step={1}
                             />
+                            <Button onClick={findOptimalBlend} disabled={isOptimizing} className="w-full">
+                                {isOptimizing ? <Loader2 className="mr-2 animate-spin" /> : <WandSparkles className="mr-2" />}
+                                Optimize Blend
+                            </Button>
                         </CardContent>
                     </Card>
                      <Card>
@@ -223,12 +259,12 @@ export function GradationAnalysis() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {complianceStatus.map(({ sieveSize, isCompliant }) => {
-                                const dataPoint = chartData.find(d => d.sieveSize === sieveSize);
-                                if (!dataPoint) return null;
+                            {chartData.sort((a, b) => b.sieveSize - a.sieveSize).map((dataPoint) => {
+                                const isCompliant = complianceStatus.find(c => c.sieveSize === dataPoint.sieveSize)?.isCompliant;
+                                if (dataPoint === undefined) return null;
                                 return (
-                                <TableRow key={sieveSize} className={!isCompliant ? 'bg-destructive/10' : ''}>
-                                    <TableCell>{sieveSize}</TableCell>
+                                <TableRow key={dataPoint.sieveSize} className={!isCompliant ? 'bg-destructive/10' : ''}>
+                                    <TableCell>{dataPoint.sieveSize}</TableCell>
                                     <TableCell>{dataPoint.combinedPassing.toFixed(2)}</TableCell>
                                     <TableCell>{dataPoint.lowerLimit}</TableCell>
                                     <TableCell>{dataPoint.upperLimit}</TableCell>
@@ -244,3 +280,5 @@ export function GradationAnalysis() {
         </div>
     );
 }
+
+    
