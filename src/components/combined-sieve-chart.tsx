@@ -67,7 +67,6 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
           bottom: 20,
         }}
       >
-        <CartesianGrid strokeDasharray="3 3" />
         <XAxis
           dataKey="sieveSize"
           type="category"

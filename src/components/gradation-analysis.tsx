@@ -118,7 +118,7 @@ export function GradationAnalysis() {
         const bestBlendPercentage = findOptimalBlend();
         if (bestBlendPercentage !== -1) {
             const optimalData = getCombinedPassing(bestBlendPercentage).map(d => ({
-                ...d,
+                sieveSize: d.sieveSize,
                 recommendedPassing: d.combinedPassing
             }));
             setOptimalBlend({ percentage: bestBlendPercentage, data: optimalData });
@@ -131,15 +131,14 @@ export function GradationAnalysis() {
     const chartData = useMemo(() => {
         const currentBlendData = getCombinedPassing(fineAggregatePercentage);
         
-        const mergedData = currentBlendData.map(d => {
+        return currentBlendData.map(d => {
             const optimalPoint = optimalBlend.data.find(op => op.sieveSize === d.sieveSize);
             return {
                 ...d,
                 recommendedPassing: optimalPoint ? optimalPoint.recommendedPassing : null,
             };
         });
-
-        return mergedData;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fineAggregatePercentage, optimalBlend.data, finePassing, coarsePassing]);
 
 
