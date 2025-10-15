@@ -1,18 +1,19 @@
 
 "use client";
 
-import { NewTestForm } from "@/components/new-test-form";
+import * as React from "react";
+import { SieveAnalysisCalculator } from "@/components/sieve-analysis-calculator";
 
 export default function NewTestPage() {
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="space-y-6">
       <div>
         <h2 className="font-headline text-3xl font-bold">New Sieve Analysis</h2>
         <p className="text-muted-foreground">
-          Fill in your test details, enter the weights, and calculate the results.
+          Input data for fine, coarse, or combined aggregates to see live calculations and reports.
         </p>
       </div>
-      <NewTestForm />
+      <SieveAnalysisCalculator />
     </div>
   );
 }
