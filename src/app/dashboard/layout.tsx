@@ -15,7 +15,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useUser } from "@/firebase";
-import { FlaskConical, HardHat, LayoutDashboard, Loader2, PlusCircle } from "lucide-react";
+import { HardHat, LayoutDashboard, Loader2, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";
@@ -74,14 +74,6 @@ export default function DashboardLayout({
                     <Link href="/dashboard/new-test">
                         <PlusCircle />
                         <span>New Test</span>
-                    </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Gradation Analysis">
-                    <Link href="/dashboard/gradation-analysis">
-                        <FlaskConical />
-                        <span>Gradation Analysis</span>
                     </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
