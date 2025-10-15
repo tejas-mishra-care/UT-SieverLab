@@ -3,12 +3,10 @@
 
 import {
   Line,
-  LineChart,
   XAxis,
   YAxis,
   Tooltip,
   Legend,
-  CartesianGrid,
   Area,
   ComposedChart,
 } from "recharts";
@@ -86,10 +84,12 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
         <Tooltip
           content={<ChartTooltipContent
             formatter={(value, name) => {
-              if (name === 'specLimits') return null;
-              if (value === null) return null;
-              const config = chartConfig[name as keyof typeof chartConfig];
-              return config ? [`${(value as number).toFixed(2)}%`, config.label] : null;
+                const key = name as keyof typeof chartConfig;
+                if (!chartConfig[key] || chartConfig[key].label === 'Specification Limits') {
+                    return null;
+                }
+                if (value === null) return null;
+                return [`${(value as number).toFixed(2)}%`, chartConfig[key].label];
             }}
             labelFormatter={(label, payload) => `Sieve: ${payload?.[0]?.payload.sieveSize}mm`}
           />}
@@ -100,21 +100,19 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
         <Area 
             type="monotone"
             dataKey="upperLimit"
-            stackId="1"
-            stroke="0"
-            fill="hsl(var(--muted-foreground) / 0.2)"
+            stackId="limits"
+            strokeWidth={0}
+            fill="hsl(var(--muted-foreground) / 0.1)"
             name="specLimits"
-            tooltipType="none"
             legendType="none"
         />
          <Area 
             type="monotone"
             dataKey="lowerLimit"
-            stackId="1"
-            stroke="0"
-            fill="hsl(var(--muted-foreground) / 0.2)"
+            stackId="limits"
+            strokeWidth={0}
+            fill="hsl(var(--muted-foreground) / 0.1)"
             name="specLimits"
-            tooltipType="none"
             legendType="none"
         />
 
@@ -126,7 +124,7 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
             dot={false}
             strokeWidth={1.5}
             name="Upper Limit"
-            legendType='none'
+            legendType='line'
         />
          <Line
             dataKey="lowerLimit"
@@ -136,7 +134,7 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
             dot={false}
             strokeWidth={1.5}
             name="Lower Limit"
-            legendType='none'
+            legendType='line'
         />
 
         <Line
@@ -156,7 +154,7 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
             stroke: "hsl(var(--background))",
             strokeWidth: 2,
           }}
-          name="Current Mix"
+          name="combinedPassing"
         />
         {hasRecommended && (
           <Line
@@ -177,7 +175,7 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
               stroke: "hsl(var(--background))",
               strokeWidth: 2,
             }}
-            name="Recommended Blend"
+            name="recommendedPassing"
             connectNulls
           />
         )}
@@ -185,3 +183,5 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
     </ChartContainer>
   );
 }
+
+    

@@ -56,7 +56,7 @@ export function GradationAnalysis() {
     );
     const [fineAggregatePercentage, setFineAggregatePercentage] = useState(35);
     const [isOptimizing, setIsOptimizing] = useState(false);
-    const [optimalBlend, setOptimalBlend] = useState<{ percentage: number | null, data: any[] }>({ percentage: null, data: [] });
+    const [optimalBlend, setOptimalBlend] = useState<{ percentage: number | null; data: { sieveSize: number; recommendedPassing: number | null; }[] }>({ percentage: null, data: [] });
     const { toast } = useToast();
 
     const handleInputChange = (
@@ -72,11 +72,11 @@ export function GradationAnalysis() {
     
     const coarseAggregatePercentage = 100 - fineAggregatePercentage;
 
-    const getCombinedPassing = (finePercent: number) => {
+    const getCombinedPassing = (finePercent: number, fineData: Record<string, number>, coarseData: Record<string, number>) => {
         const coarsePercent = 100 - finePercent;
         return ALL_SIEVES.map(sieve => {
-            const fineP = finePassing[sieve.toString()] || 0;
-            const coarseP = coarsePassing[sieve.toString()] || 0;
+            const fineP = fineData[sieve.toString()] || 0;
+            const coarseP = coarseData[sieve.toString()] || 0;
             const combinedPassing = (fineP * (finePercent / 100)) + (coarseP * (coarsePercent / 100));
             return {
                 sieveSize: sieve,
@@ -87,13 +87,13 @@ export function GradationAnalysis() {
         });
     }
     
-    useEffect(() => {
+     useEffect(() => {
         const findOptimalBlend = () => {
             let bestBlend = -1;
             let maxMinDistance = -1;
 
             for (let i = 1; i <= 100; i++) {
-                const passingData = getCombinedPassing(i);
+                const passingData = getCombinedPassing(i, finePassing, coarsePassing);
                 let isCompliant = true;
                 let minDistance = Infinity;
 
@@ -117,7 +117,7 @@ export function GradationAnalysis() {
 
         const bestBlendPercentage = findOptimalBlend();
         if (bestBlendPercentage !== -1) {
-            const optimalData = getCombinedPassing(bestBlendPercentage).map(d => ({
+            const optimalData = getCombinedPassing(bestBlendPercentage, finePassing, coarsePassing).map(d => ({
                 sieveSize: d.sieveSize,
                 recommendedPassing: d.combinedPassing
             }));
@@ -125,11 +125,10 @@ export function GradationAnalysis() {
         } else {
             setOptimalBlend({ percentage: null, data: [] });
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [finePassing, coarsePassing]);
 
     const chartData = useMemo(() => {
-        const currentBlendData = getCombinedPassing(fineAggregatePercentage);
+        const currentBlendData = getCombinedPassing(fineAggregatePercentage, finePassing, coarsePassing);
         
         return currentBlendData.map(d => {
             const optimalPoint = optimalBlend.data.find(op => op.sieveSize === d.sieveSize);
@@ -138,7 +137,6 @@ export function GradationAnalysis() {
                 recommendedPassing: optimalPoint ? optimalPoint.recommendedPassing : null,
             };
         });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fineAggregatePercentage, optimalBlend.data, finePassing, coarsePassing]);
 
 
@@ -328,3 +326,5 @@ export function GradationAnalysis() {
         </div>
     );
 }
+
+    

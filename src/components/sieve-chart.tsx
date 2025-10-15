@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -7,7 +8,6 @@ import {
   YAxis,
   Tooltip,
   Legend,
-  CartesianGrid,
 } from "recharts";
 import {
   ChartContainer,
@@ -31,29 +31,27 @@ const chartConfig = {
 };
 
 export function SieveChart({ data }: SieveChartProps) {
-  const reversedData = [...data].reverse();
+  const sortedData = [...data].sort((a, b) => a.sieveSize - b.sieveSize);
 
   return (
     <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
       <LineChart
-        data={reversedData}
+        data={sortedData}
         margin={{
           top: 5,
           right: 30,
           left: 20,
-          bottom: 5,
+          bottom: 20,
         }}
       >
-        <CartesianGrid strokeDasharray="3 3" />
         <XAxis
           dataKey="sieveSize"
           type="category"
           scale="log"
           domain={["dataMin", "dataMax"]}
           name="Sieve Size (mm)"
-          reversed
           tick={{ fontSize: 12 }}
-          label={{ value: "Sieve Size (mm) - Log Scale", position: "insideBottom", dy: 10, fontSize: 12 }}
+          label={{ value: "Sieve Size (mm) - Log Scale", position: "insideBottom", dy: 15, fontSize: 12 }}
         />
         <YAxis
           domain={[0, 100]}
@@ -64,7 +62,7 @@ export function SieveChart({ data }: SieveChartProps) {
         />
         <Tooltip
           content={<ChartTooltipContent
-            formatter={(value, name) => [`${(value as number).toFixed(2)}%`, name]}
+            formatter={(value, name) => [`${(value as number).toFixed(2)}%`, chartConfig.percentPassing.label]}
             labelFormatter={(label, payload) => `Sieve: ${payload?.[0]?.payload.sieveSize}mm`}
           />}
           cursor={{ stroke: "hsl(var(--primary))", strokeWidth: 2, strokeDasharray: "3 3" }}
@@ -92,3 +90,5 @@ export function SieveChart({ data }: SieveChartProps) {
     </ChartContainer>
   );
 }
+
+    
