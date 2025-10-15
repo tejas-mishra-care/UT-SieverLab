@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -56,6 +56,7 @@ export function GradationAnalysis() {
     );
     const [fineAggregatePercentage, setFineAggregatePercentage] = useState(35);
     const [isOptimizing, setIsOptimizing] = useState(false);
+    const [optimalBlend, setOptimalBlend] = useState<{ percentage: number | null, data: any[] }>({ percentage: null, data: [] });
     const { toast } = useToast();
 
     const handleInputChange = (
@@ -85,10 +86,61 @@ export function GradationAnalysis() {
             };
         });
     }
+    
+    const findOptimalBlend = () => {
+        let bestBlend = -1;
+        let maxMinDistance = -1;
+
+        for (let i = 1; i <= 100; i++) {
+            const passingData = getCombinedPassing(i);
+            let isCompliant = true;
+            let minDistance = Infinity;
+
+            for (const d of passingData) {
+                if (d.combinedPassing < d.lowerLimit || d.combinedPassing > d.upperLimit) {
+                    isCompliant = false;
+                    break;
+                }
+                const distToLower = d.combinedPassing - d.lowerLimit;
+                const distToUpper = d.upperLimit - d.combinedPassing;
+                minDistance = Math.min(minDistance, distToLower, distToUpper);
+            }
+
+            if (isCompliant && minDistance > maxMinDistance) {
+                maxMinDistance = minDistance;
+                bestBlend = i;
+            }
+        }
+        return bestBlend;
+    };
+    
+    useEffect(() => {
+        const bestBlendPercentage = findOptimalBlend();
+        if (bestBlendPercentage !== -1) {
+            const optimalData = getCombinedPassing(bestBlendPercentage).map(d => ({
+                ...d,
+                recommendedPassing: d.combinedPassing
+            })).sort((a,b) => a.sieveSize - b.sieveSize);
+            setOptimalBlend({ percentage: bestBlendPercentage, data: optimalData });
+        } else {
+            setOptimalBlend({ percentage: null, data: [] });
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [finePassing, coarsePassing]);
 
     const chartData = useMemo(() => {
-        return getCombinedPassing(fineAggregatePercentage).sort((a,b) => a.sieveSize - b.sieveSize);
-    }, [finePassing, coarsePassing, fineAggregatePercentage]);
+        const currentBlendData = getCombinedPassing(fineAggregatePercentage);
+        
+        const mergedData = currentBlendData.map(d => {
+            const optimalPoint = optimalBlend.data.find(op => op.sieveSize === d.sieveSize);
+            return {
+                ...d,
+                recommendedPassing: optimalPoint ? optimalPoint.recommendedPassing : null,
+            };
+        });
+
+        return mergedData.sort((a,b) => a.sieveSize - b.sieveSize);
+    }, [finePassing, coarsePassing, fineAggregatePercentage, optimalBlend.data]);
 
     const complianceStatus = useMemo(() => {
         return chartData.map(d => {
@@ -110,27 +162,22 @@ export function GradationAnalysis() {
         return (cumulativeRetainedSum / 100).toFixed(2);
     }, [finePassing]);
 
-    const findOptimalBlend = () => {
+    const handleOptimizeClick = () => {
         setIsOptimizing(true);
         setTimeout(() => { // Simulate computation
-            for (let i = 1; i <= 100; i++) {
-                const passingData = getCombinedPassing(i);
-                const isCompliant = passingData.every(d => d.combinedPassing >= d.lowerLimit && d.combinedPassing <= d.upperLimit);
-                if (isCompliant) {
-                    setFineAggregatePercentage(i);
-                    toast({
-                        title: "Optimal Blend Found!",
-                        description: `A fine aggregate percentage of ${i}% meets the specification.`,
-                    });
-                    setIsOptimizing(false);
-                    return;
-                }
+            if (optimalBlend.percentage) {
+                setFineAggregatePercentage(optimalBlend.percentage);
+                toast({
+                    title: "Optimal Blend Applied!",
+                    description: `A fine aggregate percentage of ${optimalBlend.percentage}% is recommended and has been set.`,
+                });
+            } else {
+                toast({
+                    variant: 'destructive',
+                    title: "No Optimal Blend Found",
+                    description: "Could not find a compliant blend with the current aggregate gradations.",
+                });
             }
-            toast({
-                variant: 'destructive',
-                title: "No Optimal Blend Found",
-                description: "Could not find a compliant blend with the current aggregate gradations.",
-            });
             setIsOptimizing(false);
         }, 500);
     };
@@ -202,15 +249,16 @@ export function GradationAnalysis() {
                                 max={100}
                                 step={1}
                             />
-                            <Button onClick={findOptimalBlend} disabled={isOptimizing} className="w-full">
+                            <Button onClick={handleOptimizeClick} disabled={isOptimizing || optimalBlend.percentage === null} className="w-full">
                                 {isOptimizing ? <Loader2 className="mr-2 animate-spin" /> : <WandSparkles className="mr-2" />}
-                                Optimize Blend
+                                {optimalBlend.percentage === null ? 'No Optimum Found' : 'Apply Optimal Blend'}
                             </Button>
                         </CardContent>
                     </Card>
                      <Card>
                         <CardHeader>
                            <CardTitle>Analysis Summary</CardTitle>
+                           {optimalBlend.percentage && <CardDescription>Recommended fine aggregate: {optimalBlend.percentage}%</CardDescription>}
                         </CardHeader>
                         <CardContent className="grid grid-cols-2 gap-4">
                            <div className="space-y-1">
@@ -218,7 +266,7 @@ export function GradationAnalysis() {
                              <p className="text-2xl font-bold">{finenessModulus}</p>
                            </div>
                            <div className="space-y-1">
-                             <p className="text-sm font-medium text-muted-foreground">Compliance</p>
+                             <p className="text-sm font-medium text-muted-foreground">Compliance (Current Mix)</p>
                               <p className={`text-2xl font-bold ${complianceStatus.every(s => s.isCompliant) ? 'text-green-600' : 'text-destructive'}`}>
                                 {complianceStatus.every(s => s.isCompliant) ? 'Pass' : 'Fail'}
                               </p>

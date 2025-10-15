@@ -23,6 +23,7 @@ interface CombinedSieveChartProps {
   data: {
     sieveSize: number;
     combinedPassing: number;
+    recommendedPassing: number | null;
     upperLimit: number;
     lowerLimit: number;
   }[];
@@ -30,8 +31,12 @@ interface CombinedSieveChartProps {
 
 const chartConfig = {
   combinedPassing: {
-    label: "Combined Gradation",
+    label: "Current Mix",
     color: "hsl(var(--primary))",
+  },
+  recommendedPassing: {
+    label: "Recommended Blend",
+    color: "hsl(140, 80%, 40%)", // A distinct green color
   },
   specLimits: {
     label: "Specification Limits",
@@ -48,11 +53,13 @@ const chartConfig = {
 };
 
 export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
+  const sortedData = [...data].sort((a, b) => a.sieveSize - b.sieveSize);
+  const hasRecommended = sortedData.some(d => d.recommendedPassing !== null);
 
   return (
     <ChartContainer config={chartConfig} className="min-h-[400px] w-full">
       <ComposedChart
-        data={data}
+        data={sortedData}
         margin={{
           top: 5,
           right: 30,
@@ -81,7 +88,9 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
           content={<ChartTooltipContent
             formatter={(value, name) => {
               if (name === 'specLimits') return null;
-              return [`${(value as number).toFixed(2)}%`, chartConfig[name as keyof typeof chartConfig]?.label]
+              if (value === null) return null;
+              const config = chartConfig[name as keyof typeof chartConfig];
+              return config ? [`${(value as number).toFixed(2)}%`, config.label] : null;
             }}
             labelFormatter={(label, payload) => `Sieve: ${payload?.[0]?.payload.sieveSize}mm`}
           />}
@@ -148,8 +157,31 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
             stroke: "hsl(var(--background))",
             strokeWidth: 2,
           }}
-          name="Combined Gradation"
+          name="Current Mix"
         />
+        {hasRecommended && (
+          <Line
+            type="monotone"
+            dataKey="recommendedPassing"
+            stroke={chartConfig.recommendedPassing.color}
+            strokeWidth={2}
+            strokeDasharray="3 3"
+            dot={{
+              r: 4,
+              fill: chartConfig.recommendedPassing.color,
+              stroke: "hsl(var(--background))",
+              strokeWidth: 2,
+            }}
+            activeDot={{
+              r: 6,
+              fill: chartConfig.recommendedPassing.color,
+              stroke: "hsl(var(--background))",
+              strokeWidth: 2,
+            }}
+            name="Recommended Blend"
+            connectNulls
+          />
+        )}
       </ComposedChart>
     </ChartContainer>
   );
