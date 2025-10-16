@@ -62,19 +62,11 @@ export default function DashboardLayout({
           <SidebarGroup>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Dashboard">
-                  <Link href="/dashboard">
+                <SidebarMenuButton asChild tooltip="Calculator">
+                  <Link href="/dashboard/new-test">
                     <LayoutDashboard />
-                    <span>Dashboard</span>
+                    <span>Calculator</span>
                   </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="New Test">
-                    <Link href="/dashboard/new-test">
-                        <PlusCircle />
-                        <span>New Test</span>
-                    </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

@@ -18,8 +18,6 @@ interface PdfData {
 
 // Function to convert a Recharts chart to a data URL
 async function getChartDataURL(chartId: string): Promise<string | null> {
-  // We need to find the SVG element rendered by Recharts.
-  // This selector is specific to how Recharts renders its components.
   const chartContainer = document.getElementById(chartId);
   const svgElement = chartContainer?.querySelector("svg");
 

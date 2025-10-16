@@ -7,18 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogOut } from "lucide-react";
-import { useAuth, useUser, useFirestore } from "@/firebase";
+import { LogOut, Loader2 } from "lucide-react";
+import { useAuth, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { updateProfile } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
-import { Loader2 } from "lucide-react";
 
 export default function ProfilePage() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
-  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -34,7 +31,9 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    await auth.signOut();
+    if (auth) {
+        await auth.signOut();
+    }
     toast({ title: "Logged Out", description: "You have been successfully logged out." });
     router.push("/");
   };
@@ -44,9 +43,6 @@ export default function ProfilePage() {
     setIsSaving(true);
     try {
       await updateProfile(user, { displayName: name });
-      if (firestore) {
-        await setDoc(doc(firestore, 'users', user.uid), { name }, { merge: true });
-      }
       toast({ title: "Profile Updated", description: "Your changes have been saved." });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
@@ -64,7 +60,7 @@ export default function ProfilePage() {
     return name.substring(0, 2);
   }
   
-  if (isUserLoading) {
+  if (isUserLoading || !user) {
     return (
         <div className="flex justify-center items-center h-full">
             <Loader2 className="h-8 w-8 animate-spin" />
