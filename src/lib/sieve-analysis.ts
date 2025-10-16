@@ -9,6 +9,24 @@ export const SIEVE_SIZES = {
 
 export const STANDARD_SIEVES_FM = [4.75, 2.36, 1.18, 0.6, 0.3, 0.15];
 
+// Combined list of all unique sieve sizes, sorted.
+export const ALL_SIEVES = [...new Set([...SIEVE_SIZES.COARSE, ...SIEVE_SIZES.FINE])].sort((a, b) => a - b);
+
+// IS 383: 2016, Table 7 for 20mm nominal size graded aggregate
+export const SPEC_LIMITS: Record<number, { min: number; max: number }> = {
+    80: { min: 100, max: 100 },
+    63: { min: 100, max: 100 },
+    40: { min: 95, max: 100 },
+    20: { min: 90, max: 100 },
+    10: { min: 25, max: 55 },
+    4.75: { min: 10, max: 35 },
+    2.36: { min: 5, max: 25 },
+    1.18: { min: 0, max: 15 },
+    0.6: { min: 0, max: 5 },
+    0.3: { min: 0, max: 2 },
+    0.15: { min: 0, max: 2 },
+};
+
 // IS 383: 2016, Table 9: Grading Zones for Fine Aggregates
 const ZONING_LIMITS: Record<string, Record<number, { min: number; max: number }>> = {
   "Zone I": {
