@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -58,12 +57,15 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, initi
   });
 
   React.useEffect(() => {
-    const newSieves = getSievesForType(aggregateType);
-    const newWeights = newSieves.map((_, index) => ({ value: initialWeights[index] ?? null }));
-    // Add pan
-    newWeights.push({ value: initialWeights[newSieves.length] ?? null });
-    replace(newWeights);
-  }, [aggregateType, replace, initialWeights]);
+    if (initialWeights && initialWeights.length > 0) {
+      const newSieves = getSievesForType(aggregateType);
+      const newWeights = newSieves.map((_, index) => ({ value: initialWeights[index] ?? null }));
+      // Add pan
+      newWeights.push({ value: initialWeights[newSieves.length] ?? null });
+      replace(newWeights);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aggregateType, initialWeights]);
 
 
   function handleCalculate(values: FormValues) {

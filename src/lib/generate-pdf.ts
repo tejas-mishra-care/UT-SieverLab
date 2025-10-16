@@ -108,8 +108,8 @@ export async function generatePdf(data: PdfData) {
     cursorY = (doc as any).lastAutoTable.finalY + 10;
     
     // Input and Results Tables
-    const inputBody = SIEVE_SIZES.FINE.map((sieve, i) => [sieve, fineWeights[i].toFixed(2)]);
-    inputBody.push(['Pan', fineWeights[SIEVE_SIZES.FINE.length].toFixed(2)]);
+    const inputBody = SIEVE_SIZES.FINE.map((sieve, i) => [sieve, (fineWeights[i] || 0).toFixed(2)]);
+    inputBody.push(['Pan', (fineWeights[SIEVE_SIZES.FINE.length] || 0).toFixed(2)]);
     
     const resultsBody = SIEVE_SIZES.FINE.map((sieve, i) => [
         sieve,
@@ -166,8 +166,8 @@ export async function generatePdf(data: PdfData) {
     cursorY = (doc as any).lastAutoTable.finalY + 10;
     
     // Tables
-    const inputBody = SIEVE_SIZES.COARSE.map((sieve, i) => [sieve, coarseWeights[i].toFixed(2)]);
-    inputBody.push(['Pan', coarseWeights[SIEVE_SIZES.COARSE.length].toFixed(2)]);
+    const inputBody = SIEVE_SIZES.COARSE.map((sieve, i) => [sieve, (coarseWeights[i] || 0).toFixed(2)]);
+    inputBody.push(['Pan', (coarseWeights[SIEVE_SIZES.COARSE.length] || 0).toFixed(2)]);
 
     const resultsBody = SIEVE_SIZES.COARSE.map((sieve, i) => [
         sieve,
