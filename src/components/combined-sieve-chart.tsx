@@ -54,6 +54,7 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
     ...d,
     upperSpecLimit: d.upperLimit,
     lowerSpecLimit: d.lowerLimit,
+    specLimits: [d.lowerLimit, d.upperLimit],
   }))
 
   return (
@@ -85,13 +86,19 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
         />
         <Tooltip
           content={<ChartTooltipContent
-            formatter={(value, name) => {
-                const key = name as keyof typeof chartConfig | 'specLimitsUpper' | 'specLimitsLower';
-                if (key === 'specLimitsUpper' || key === 'specLimitsLower') return null;
-                if (!chartConfig[key as keyof typeof chartConfig]) return null;
+            formatter={(value, name, item) => {
+                if (name === 'specLimits') {
+                    const [lower, upper] = value as number[];
+                    return [
+                        `${lower.toFixed(1)}% - ${upper.toFixed(1)}%`,
+                        "Spec Limits"
+                    ]
+                }
+                const key = name as keyof typeof chartConfig;
+                if (!chartConfig[key]) return null;
                 if (value === null) return null;
                 
-                const configItem = chartConfig[key as keyof typeof chartConfig];
+                const configItem = chartConfig[key];
                 const label = configItem?.label;
 
                 return [(value as number).toFixed(2) + '%', label];
@@ -102,26 +109,13 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
         />
         <Legend content={<ChartLegendContent />} />
         
-        <Area 
-            key="area-upper"
+        <Area
             type="monotone"
-            dataKey="upperLimit"
-            stackId="limits"
-            strokeWidth={0}
+            dataKey="specLimits"
+            stroke="hsl(var(--muted-foreground) / 0.2)"
             fill="hsl(var(--muted-foreground) / 0.1)"
-            name="specLimitsUpper"
-            legendType="none"
-            tooltipType="none"
-        />
-         <Area 
-            key="area-lower"
-            type="monotone"
-            dataKey="lowerLimit"
-            stackId="limits"
             strokeWidth={0}
-            fill="hsl(var(--muted-foreground) / 0.1)"
-            name="specLimitsLower"
-            legendType="none"
+            name="specLimits"
             tooltipType="none"
         />
 
