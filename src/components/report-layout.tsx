@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +8,7 @@ import { SIEVE_SIZES } from "@/lib/sieve-analysis";
 import { SieveInputsDisplay } from "./sieve-inputs-display";
 
 interface ReportLayoutProps {
+  testName: string;
   fineResults: AnalysisResults | null;
   coarseResults: AnalysisResults | null;
   fineWeights: number[];
@@ -20,6 +20,7 @@ interface ReportLayoutProps {
 }
 
 export function ReportLayout({
+  testName,
   fineResults,
   coarseResults,
   fineWeights,
@@ -37,38 +38,35 @@ export function ReportLayout({
       </CardHeader>
       <CardContent className="space-y-8">
         <div className="mb-8 border-b pb-4">
-            <h1 className="font-headline text-2xl font-bold">Sieve Analysis Report</h1>
+            <h1 className="font-headline text-2xl font-bold">{testName || 'Sieve Analysis Report'}</h1>
             <p className="text-sm text-muted-foreground">
                 Generated on: {new Date().toLocaleString()}
             </p>
         </div>
 
-        {fineResults ? (
+        {fineResults && (
           <div className="page-break space-y-4">
             <h2 className="mb-4 font-headline text-xl font-bold">Fine Aggregate Results</h2>
             <SieveInputsDisplay sieves={SIEVE_SIZES.FINE} weights={fineWeights} />
             <SieveResultsDisplay sieves={SIEVE_SIZES.FINE} type="Fine" {...fineResults} />
           </div>
-        ) : (
-          <p className="text-muted-foreground">No fine aggregate results calculated yet.</p>
         )}
 
-        <hr />
-
-        {coarseResults ? (
-          <div className="page-break space-y-4">
-            <h2 className="mb-4 font-headline text-xl font-bold">Coarse Aggregate Results</h2>
-            <SieveInputsDisplay sieves={SIEVE_SIZES.COARSE} weights={coarseWeights} />
-            <SieveResultsDisplay sieves={SIEVE_SIZES.COARSE} type="Coarse" {...coarseResults} />
-          </div>
-        ) : (
-          <p className="text-muted-foreground">No coarse aggregate results calculated yet.</p>
+        {coarseResults && (
+          <>
+            {fineResults && <hr />}
+            <div className="page-break space-y-4">
+              <h2 className="mb-4 font-headline text-xl font-bold">Coarse Aggregate Results</h2>
+              <SieveInputsDisplay sieves={SIEVE_SIZES.COARSE} weights={coarseWeights} />
+              <SieveResultsDisplay sieves={SIEVE_SIZES.COARSE} type="Coarse" {...coarseResults} />
+            </div>
+          </>
         )}
 
         {showCombined && (
           <>
-            <hr />
-            <div className="page-break">
+            {(fineResults || coarseResults) && <hr />}
+            <div id="grading-curve-card" className="page-break">
               <h2 className="mb-4 font-headline text-xl font-bold">Combined Gradation Results</h2>
               <Card>
                 <CardHeader>

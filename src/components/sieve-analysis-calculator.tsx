@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from 'react';
-import jsPDF from 'jspdf';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Download, Loader2, Save } from 'lucide-react';
@@ -17,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
 import { Input } from './ui/input';
 import { useRouter } from 'next/navigation';
+import { generatePdf } from '@/lib/generate-pdf';
 
 interface SieveAnalysisCalculatorProps {
     existingTest?: SieveAnalysisTest;
@@ -27,6 +27,8 @@ export function SieveAnalysisCalculator({ existingTest }: SieveAnalysisCalculato
     const firestore = useFirestore();
     const { toast } = useToast();
     const router = useRouter();
+
+    const [activeTab, setActiveTab] = React.useState('fine');
 
     const [fineResults, setFineResults] = React.useState<AnalysisResults | null>(null);
     const [coarseResults, setCoarseResults] = React.useState<AnalysisResults | null>(null);
@@ -47,8 +49,10 @@ export function SieveAnalysisCalculator({ existingTest }: SieveAnalysisCalculato
     React.useEffect(() => {
         if (existingTest) {
             setTestName(existingTest.name);
+            const weightsWithNulls = existingTest.weights.map(w => w === 0 ? null : w);
+
             if (existingTest.type === 'Fine') {
-                setFineWeights(existingTest.weights);
+                setFineWeights(weightsWithNulls);
                 setFineResults({
                     percentRetained: existingTest.percentRetained,
                     cumulativeRetained: existingTest.cumulativeRetained,
@@ -56,8 +60,9 @@ export function SieveAnalysisCalculator({ existingTest }: SieveAnalysisCalculato
                     finenessModulus: existingTest.finenessModulus,
                     classification: existingTest.classification,
                 });
+                setActiveTab('fine');
             } else if (existingTest.type === 'Coarse') {
-                setCoarseWeights(existingTest.weights);
+                setCoarseWeights(weightsWithNulls);
                  setCoarseResults({
                     percentRetained: existingTest.percentRetained,
                     cumulativeRetained: existingTest.cumulativeRetained,
@@ -65,6 +70,7 @@ export function SieveAnalysisCalculator({ existingTest }: SieveAnalysisCalculato
                     finenessModulus: existingTest.finenessModulus,
                     classification: existingTest.classification,
                 });
+                setActiveTab('coarse');
             }
         } else {
             setFineWeights(Array(SIEVE_SIZES.FINE.length + 1).fill(null));
@@ -83,51 +89,44 @@ export function SieveAnalysisCalculator({ existingTest }: SieveAnalysisCalculato
             setter(true);
             resultsSetter(null); // Clear previous results
             resultsSetter(results);
-            weightsSetter(weights);
+            weightsSetter(weights.map(w => w === 0 ? null : w));
             setter(false);
         };
     };
 
     const handleDownloadPdf = async () => {
-        if (!fineResults && !coarseResults) {
-            toast({
-                variant: 'destructive',
-                title: 'Cannot generate PDF',
-                description: 'Please calculate results for at least one aggregate type first.',
-            });
-            return;
+        if (!isReportReady) {
+          toast({
+            variant: "destructive",
+            title: "Cannot generate PDF",
+            description: "Please calculate results for at least one aggregate type.",
+          });
+          return;
         }
-
-        const reportElement = reportRef.current;
-        if (!reportElement) return;
-
         setIsDownloading(true);
-
         try {
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4',
-            });
-            
-            await pdf.html(reportElement, {
-                callback: function (doc) {
-                    doc.save(`sieve-analysis-report-${new Date().toISOString().split('T')[0]}.pdf`);
-                },
-                x: 10,
-                y: 10,
-                width: 190, // A4 width in mm minus margins
-                windowWidth: reportElement.offsetWidth,
-                autoPaging: 'slice',
-                margin: [10, 10, 10, 10],
-            });
-
+          await generatePdf({
+            testName,
+            fineResults,
+            coarseResults,
+            fineWeights: fineWeights.map(w => w || 0),
+            coarseWeights: coarseWeights.map(w => w || 0),
+            combinedChartData,
+            fineAggregatePercentage,
+            coarseAggregatePercentage,
+            showCombined: isCombinedTabActive,
+          });
         } catch (error) {
-            console.error("Error generating PDF:", error);
+          console.error("PDF Generation Error:", error);
+          toast({
+            variant: "destructive",
+            title: "PDF Error",
+            description: "An unexpected error occurred while generating the PDF.",
+          });
         } finally {
-            setIsDownloading(false);
+          setIsDownloading(false);
         }
-    };
+      };
     
     const handleSaveTest = async () => {
         if (!user || !firestore) {
@@ -138,51 +137,69 @@ export function SieveAnalysisCalculator({ existingTest }: SieveAnalysisCalculato
             toast({ variant: 'destructive', title: 'Error', description: 'Please provide a name for the test.' });
             return;
         }
-        if (!fineResults && !coarseResults) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Calculate at least one aggregate type to save.' });
+        
+        let testToSave: Partial<SieveAnalysisTest> | null = null;
+        let saveType: AggregateType | 'Combined' | null = null;
+
+        if (activeTab === 'fine' && fineResults) saveType = 'Fine';
+        else if (activeTab === 'coarse' && coarseResults) saveType = 'Coarse';
+        else if (activeTab === 'combined' && fineResults && coarseResults) saveType = 'Combined';
+        else if (isReportReady) { // Fallback for report tab
+            if (fineResults && coarseResults) saveType = 'Combined';
+            else if (fineResults) saveType = 'Fine';
+            else if (coarseResults) saveType = 'Coarse';
+        }
+
+        if (!saveType) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Please calculate results for the active tab to save.' });
             return;
         }
 
         setIsSaving(true);
         try {
-            let testToSave: Partial<SieveAnalysisTest> = {
+            const baseTest = {
                 userId: user.uid,
                 name: testName,
                 timestamp: Date.now(),
-                status: 'completed',
+                status: 'completed' as 'completed',
             };
 
-            // Logic to determine what to save
-            if (fineResults && coarseResults) {
-                // This is a combined test. For simplicity, we save one document.
-                // In a more complex app, you might save three: fine, coarse, and combined link.
-                // Here, we'll save the "dominant" one, or just fine for simplicity.
-                testToSave = {
-                    ...testToSave,
-                    type: 'Fine', // Or some logic to decide
-                    sieves: SIEVE_SIZES.FINE,
-                    weights: fineWeights.map(w => w || 0),
-                    ...fineResults
-                };
-                 toast({ title: 'Note', description: 'Combined test saving is simplified. Only Fine aggregate portion is saved.' });
-            } else if (fineResults) {
+            if (saveType === 'Fine' && fineResults) {
                  testToSave = {
-                    ...testToSave,
+                    ...baseTest,
                     type: 'Fine',
                     sieves: SIEVE_SIZES.FINE,
                     weights: fineWeights.map(w => w || 0),
                     ...fineResults
                 };
-            } else if (coarseResults) {
+            } else if (saveType === 'Coarse' && coarseResults) {
                  testToSave = {
-                    ...testToSave,
+                    ...baseTest,
                     type: 'Coarse',
                     sieves: SIEVE_SIZES.COARSE,
                     weights: coarseWeights.map(w => w || 0),
                     ...coarseResults
                 };
+            } else if (saveType === 'Combined' && fineResults && coarseResults) {
+                // For combined, we save the fine aggregate data as the primary record.
+                // A more complex implementation might store all data.
+                testToSave = {
+                    ...baseTest,
+                    type: 'Fine',
+                    sieves: SIEVE_SIZES.FINE,
+                    weights: fineWeights.map(w => w || 0),
+                    ...fineResults,
+                    // Potentially add combined data here if schema supported it
+                };
+                 toast({ title: 'Note', description: 'For combined tests, only the Fine Aggregate data is saved in this version.' });
             }
             
+            if (!testToSave) {
+                 toast({ variant: 'destructive', title: 'Save Failed', description: 'No results to save.' });
+                 setIsSaving(false);
+                 return;
+            }
+
             const docId = existingTest?.id || (await addDoc(collection(firestore, 'tests'), {})).id;
             await setDoc(doc(firestore, 'tests', docId), { ...testToSave, id: docId }, { merge: true });
 
@@ -224,9 +241,8 @@ export function SieveAnalysisCalculator({ existingTest }: SieveAnalysisCalculato
     const isCombinedTabActive = fineResults !== null && coarseResults !== null;
     const isReportReady = fineResults !== null || coarseResults !== null;
 
-
     return (
-        <Tabs defaultValue="fine" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
              <div className="flex flex-col gap-4 mb-4">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                     <TabsList>
@@ -235,23 +251,13 @@ export function SieveAnalysisCalculator({ existingTest }: SieveAnalysisCalculato
                         <TabsTrigger value="combined" disabled={!isCombinedTabActive}>
                             Combined Gradation
                         </TabsTrigger>
-                        <TabsTrigger value="report">Report</TabsTrigger>
+                        <TabsTrigger value="report" disabled={!isReportReady}>Report</TabsTrigger>
                     </TabsList>
-                    <div className="flex items-center gap-2">
-                        <Button variant="outline" onClick={handleDownloadPdf} disabled={!isReportReady || isDownloading}>
-                            {isDownloading ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <Download className="mr-2 h-4 w-4" />
-                            )}
-                            Download PDF
-                        </Button>
-                    </div>
                 </div>
                  <Card>
                     <CardHeader>
                         <CardTitle>Test Details & Actions</CardTitle>
-                        <CardDescription>Name your test and save your progress or the final results.</CardDescription>
+                        <CardDescription>Name your test and save your results.</CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-wrap items-center justify-between gap-4">
                         <Input 
@@ -265,6 +271,14 @@ export function SieveAnalysisCalculator({ existingTest }: SieveAnalysisCalculato
                              <Button onClick={handleSaveTest} disabled={isSaving || !isReportReady}>
                                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                                 {existingTest ? 'Update Test' : 'Save Test'}
+                            </Button>
+                             <Button variant="outline" onClick={handleDownloadPdf} disabled={!isReportReady || isDownloading}>
+                                {isDownloading ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Download className="mr-2 h-4 w-4" />
+                                )}
+                                Download PDF
                             </Button>
                         </div>
                     </CardContent>
@@ -321,31 +335,26 @@ export function SieveAnalysisCalculator({ existingTest }: SieveAnalysisCalculato
             </TabsContent>
 
             <TabsContent value="report">
-                <ReportLayout 
-                    fineResults={fineResults}
-                    coarseResults={coarseResults}
-                    fineWeights={fineWeights.map(w => w || 0)}
-                    coarseWeights={coarseWeights.map(w => w || 0)}
-                    combinedChartData={combinedChartData}
-                    fineAggregatePercentage={fineAggregatePercentage}
-                    coarseAggregatePercentage={coarseAggregatePercentage}
-                    showCombined={isCombinedTabActive}
-                />
+                {isReportReady ? (
+                    <div ref={reportRef}>
+                        <ReportLayout 
+                            testName={testName}
+                            fineResults={fineResults}
+                            coarseResults={coarseResults}
+                            fineWeights={fineWeights.map(w => w || 0)}
+                            coarseWeights={coarseWeights.map(w => w || 0)}
+                            combinedChartData={combinedChartData}
+                            fineAggregatePercentage={fineAggregatePercentage}
+                            coarseAggregatePercentage={coarseAggregatePercentage}
+                            showCombined={isCombinedTabActive}
+                        />
+                    </div>
+                ) : (
+                     <Card className="flex items-center justify-center h-64">
+                        <p className="text-muted-foreground">Calculate results for an aggregate type to view the report.</p>
+                    </Card>
+                )}
             </TabsContent>
-
-            {/* Hidden div for PDF generation */}
-            <div className="absolute -left-[9999px] top-auto w-[800px] bg-white text-black pdf-render" ref={reportRef}>
-                 <ReportLayout 
-                    fineResults={fineResults}
-                    coarseResults={coarseResults}
-                    fineWeights={fineWeights.map(w => w || 0)}
-                    coarseWeights={coarseWeights.map(w => w || 0)}
-                    combinedChartData={combinedChartData}
-                    fineAggregatePercentage={fineAggregatePercentage}
-                    coarseAggregatePercentage={coarseAggregatePercentage}
-                    showCombined={isCombinedTabActive}
-                />
-            </div>
         </Tabs>
     );
 }

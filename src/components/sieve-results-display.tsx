@@ -1,4 +1,3 @@
-
 "use client";
 
 import { SieveChart } from "@/components/sieve-chart";
@@ -37,6 +36,8 @@ export function SieveResultsDisplay({
     sieveSize: sieve,
     percentPassing: percentPassing[index],
   })).filter(d => d.percentPassing !== undefined); // Ensure no undefined values go to chart
+
+  const chartId = type === 'Fine' ? 'fine-aggregate-chart' : 'coarse-aggregate-chart';
 
   return (
     <div className="space-y-6">
@@ -82,7 +83,7 @@ export function SieveResultsDisplay({
       </div>
 
       <div className="space-y-6 mt-4">
-        <Card id="grading-curve-card">
+        <Card id={chartId}>
             <CardHeader>
             <CardTitle>Grading Curve</CardTitle>
             <CardDescription>
