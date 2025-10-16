@@ -3,7 +3,6 @@
 
 import * as React from 'react';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Download, Loader2 } from 'lucide-react';
@@ -12,7 +11,7 @@ import type { AggregateType, AnalysisResults } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Slider } from './ui/slider';
 import { CombinedSieveChart } from './combined-sieve-chart';
-import { SIEVE_SIZES, ALL_SIEVES, SPEC_LIMITS } from '@/lib/sieve-analysis';
+import { SIEVE_SIZES, SPEC_LIMITS } from '@/lib/sieve-analysis';
 import { ReportLayout } from './report-layout';
 
 export function SieveAnalysisCalculator() {
@@ -52,51 +51,24 @@ export function SieveAnalysisCalculator() {
         setIsDownloading(true);
 
         try {
-            const canvas = await html2canvas(reportElement, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                backgroundColor: null,
-            });
-
-            const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF({
                 orientation: 'portrait',
                 unit: 'mm',
                 format: 'a4',
             });
+            
+            await pdf.html(reportElement, {
+                callback: function (doc) {
+                    doc.save(`sieve-analysis-report-${new Date().toISOString().split('T')[0]}.pdf`);
+                },
+                x: 10,
+                y: 10,
+                width: 190, // A4 width in mm minus margins
+                windowWidth: reportElement.offsetWidth,
+                autoPaging: 'slice',
+                margin: [10, 10, 10, 10],
+            });
 
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            
-            const imgWidth = canvas.width;
-            const imgHeight = canvas.height;
-            const ratio = imgHeight / imgWidth;
-            
-            let finalImgWidth = pdfWidth;
-            let finalImgHeight = pdfWidth * ratio;
-
-            if (finalImgHeight > pdfHeight) {
-                finalImgHeight = pdfHeight;
-                finalImgWidth = pdfHeight / ratio;
-            }
-            
-            let y = 0;
-            let remainingHeight = imgHeight;
-            const pageHeight = (pdf.internal.pageSize.getHeight() * (imgWidth / pdf.internal.pageSize.getWidth()));
-            
-            let page = 1;
-            while(remainingHeight > 0) {
-                if (page > 1) {
-                    pdf.addPage();
-                }
-                pdf.addImage(imgData, 'PNG', 0, -y, pdfWidth, pdfHeight * (imgHeight/imgWidth) + 15 );
-                remainingHeight -= pageHeight;
-                y += pageHeight;
-                page++;
-            }
-            
-            pdf.save(`sieve-analysis-report-${new Date().toISOString().split('T')[0]}.pdf`);
         } catch (error) {
             console.error("Error generating PDF:", error);
         } finally {
@@ -106,11 +78,12 @@ export function SieveAnalysisCalculator() {
 
     const combinedChartData = React.useMemo(() => {
         if (!fineResults || !coarseResults) return [];
-
+        const allSieves = [...new Set([...SIEVE_SIZES.FINE, ...SIEVE_SIZES.COARSE])].sort((a,b) => b-a);
+        
         const finePassingMap = new Map(SIEVE_SIZES.FINE.map((s, i) => [s, fineResults.percentPassing[i]]));
         const coarsePassingMap = new Map(SIEVE_SIZES.COARSE.map((s, i) => [s, coarseResults.percentPassing[i]]));
 
-        return ALL_SIEVES.map(sieve => {
+        return allSieves.map(sieve => {
             const fineP = finePassingMap.get(sieve) ?? (sieve > 4.75 ? 100 : 0);
             const coarseP = coarsePassingMap.get(sieve) ?? (sieve > 80 ? 100 : 0);
             
@@ -121,7 +94,7 @@ export function SieveAnalysisCalculator() {
                 combinedPassing: combinedPassing,
                 upperLimit: SPEC_LIMITS[sieve]?.max ?? 100,
                 lowerLimit: SPEC_LIMITS[sieve]?.min ?? 0,
-                recommendedPassing: null, // This can be populated later if needed
+                recommendedPassing: null, 
             };
         }).sort((a,b) => a.sieveSize - b.sieveSize);
     }, [fineResults, coarseResults, fineAggregatePercentage]);

@@ -111,11 +111,10 @@ body {
     page-break-inside: avoid;
   }
   .pdf-render .page-break {
-    break-inside: avoid;
-    break-after: auto;
+    page-break-inside: avoid;
   }
   .pdf-render #grading-curve-card {
-    break-before: page;
+    page-break-before: always;
   }
   .pdf-render .text-2xl {
     @apply text-xl;
