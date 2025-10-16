@@ -89,40 +89,11 @@ body {
 }
 
 @layer utilities {
-  .pdf-render {
-    @apply bg-white text-black;
+    .pdf-render {
+      @apply bg-white text-black;
+    }
+    /* Ensure recharts text is visible on white background */
+    .pdf-render .recharts-text {
+        fill: #333;
+    }
   }
-  .pdf-render .chart-container {
-    height: 300px !important;
-  }
-  .pdf-render .recharts-surface {
-    overflow: visible;
-  }
-  .pdf-render h1, .pdf-render h2, .pdf-render .card-title {
-    @apply text-lg;
-  }
-  .pdf-render p, .pdf-render .card-description {
-    @apply text-xs;
-  }
-  .pdf-render .card-content {
-    @apply p-4 pt-0;
-  }
-  .pdf-render .card {
-    page-break-inside: avoid;
-  }
-  .pdf-render .page-break {
-    page-break-inside: avoid;
-  }
-  .pdf-render #grading-curve-card {
-    page-break-before: always;
-  }
-  .pdf-render .text-2xl {
-    @apply text-xl;
-  }
-  .pdf-render table {
-    @apply text-xs;
-  }
-  .pdf-render th, .pdf-render td {
-    @apply px-2 py-1;
-  }
-}

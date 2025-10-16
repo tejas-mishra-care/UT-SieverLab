@@ -15,7 +15,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useUser } from "@/firebase";
-import { HardHat, LayoutDashboard, Loader2, PlusCircle } from "lucide-react";
+import { HardHat, LayoutDashboard, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";

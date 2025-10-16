@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from 'react';
@@ -51,7 +52,8 @@ export function SieveAnalysisCalculator() {
     };
 
     const handleDownloadPdf = async () => {
-        if (!isReportReady) {
+        const reportElement = reportRef.current;
+        if (!reportElement || !isReportReady) {
           toast({
             variant: "destructive",
             title: "Cannot generate PDF",
@@ -59,19 +61,10 @@ export function SieveAnalysisCalculator() {
           });
           return;
         }
+    
         setIsDownloading(true);
         try {
-          await generatePdf({
-            testName,
-            fineResults,
-            coarseResults,
-            fineWeights: fineWeights.map(w => w || 0),
-            coarseWeights: coarseWeights.map(w => w || 0),
-            combinedChartData,
-            fineAggregatePercentage,
-            coarseAggregatePercentage,
-            showCombined: isCombinedTabActive,
-          });
+          await generatePdf(reportElement, testName);
         } catch (error) {
           console.error("PDF Generation Error:", error);
           toast({
@@ -82,7 +75,7 @@ export function SieveAnalysisCalculator() {
         } finally {
           setIsDownloading(false);
         }
-    };
+      };
     
     const combinedChartData = React.useMemo(() => {
         if (!fineResults || !coarseResults) return [];
@@ -199,8 +192,8 @@ export function SieveAnalysisCalculator() {
             </TabsContent>
 
             <TabsContent value="report">
-                {isReportReady ? (
-                    <div ref={reportRef}>
+                <div id="pdf-content" ref={reportRef}>
+                    {isReportReady ? (
                         <ReportLayout 
                             testName={testName}
                             fineResults={fineResults}
@@ -212,12 +205,12 @@ export function SieveAnalysisCalculator() {
                             coarseAggregatePercentage={coarseAggregatePercentage}
                             showCombined={isCombinedTabActive}
                         />
-                    </div>
-                ) : (
-                     <Card className="flex items-center justify-center h-64">
-                        <p className="text-muted-foreground">Calculate results for an aggregate type to view the report.</p>
-                    </Card>
-                )}
+                    ) : (
+                        <Card className="flex items-center justify-center h-64">
+                            <p className="text-muted-foreground">Calculate results for an aggregate type to view the report.</p>
+                        </Card>
+                    )}
+                </div>
             </TabsContent>
         </Tabs>
     );
