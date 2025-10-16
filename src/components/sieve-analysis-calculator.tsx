@@ -12,24 +12,15 @@ import type { AggregateType, AnalysisResults } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Slider } from './ui/slider';
 import { CombinedSieveChart } from './combined-sieve-chart';
-import { SIEVE_SIZES } from '@/lib/sieve-analysis';
+import { SIEVE_SIZES, ALL_SIEVES, SPEC_LIMITS } from '@/lib/sieve-analysis';
 import { ReportLayout } from './report-layout';
-
-const ALL_SIEVES = [0.15, 0.3, 0.6, 1.18, 2.36, 4.75, 10, 20, 40, 63, 80].reverse();
-const SPEC_LIMITS: Record<number, { min: number; max: number }> = {
-    80: { min: 100, max: 100 }, 63: { min: 100, max: 100 }, 40: { min: 95, max: 100 },
-    20: { min: 90, max: 100 }, 10: { min: 25, max: 55 }, 4.75: { min: 0, max: 10 },
-    2.36: { min: 0, max: 5 }, 1.18: { min: 0, max: 0 }, 0.6: { min: 0, max: 0 },
-    0.3: { min: 0, max: 0 }, 0.15: { min: 0, max: 0 },
-};
-
 
 export function SieveAnalysisCalculator() {
     const [fineResults, setFineResults] = React.useState<AnalysisResults | null>(null);
     const [coarseResults, setCoarseResults] = React.useState<AnalysisResults | null>(null);
 
-    const [fineWeights, setFineWeights] = React.useState<(number | null)[]>([]);
-    const [coarseWeights, setCoarseWeights] = React.useState<(number | null)[]>([]);
+    const [fineWeights, setFineWeights] = React.useState<(number | null)[]>(SIEVE_SIZES.FINE.map(() => null));
+    const [coarseWeights, setCoarseWeights] = React.useState<(number | null)[]>(SIEVE_SIZES.COARSE.map(() => null));
     
     const [isFineCalculating, setIsFineCalculating] = React.useState(false);
     const [isCoarseCalculating, setIsCoarseCalculating] = React.useState(false);
@@ -62,7 +53,7 @@ export function SieveAnalysisCalculator() {
 
         try {
             const canvas = await html2canvas(reportElement, {
-                scale: 2, // Higher scale for better quality
+                scale: 2,
                 useCORS: true,
                 logging: false,
                 backgroundColor: null,
@@ -89,10 +80,7 @@ export function SieveAnalysisCalculator() {
                 finalImgHeight = pdfHeight;
                 finalImgWidth = pdfHeight / ratio;
             }
-
-            const x = (pdfWidth - finalImgWidth) / 2;
             
-            // Add image page by page
             let y = 0;
             let remainingHeight = imgHeight;
             const pageHeight = (pdf.internal.pageSize.getHeight() * (imgWidth / pdf.internal.pageSize.getWidth()));
@@ -218,6 +206,8 @@ export function SieveAnalysisCalculator() {
                 <ReportLayout 
                     fineResults={fineResults}
                     coarseResults={coarseResults}
+                    fineWeights={fineWeights.map(w => w || 0)}
+                    coarseWeights={coarseWeights.map(w => w || 0)}
                     combinedChartData={combinedChartData}
                     fineAggregatePercentage={fineAggregatePercentage}
                     coarseAggregatePercentage={coarseAggregatePercentage}
@@ -230,6 +220,8 @@ export function SieveAnalysisCalculator() {
                  <ReportLayout 
                     fineResults={fineResults}
                     coarseResults={coarseResults}
+                    fineWeights={fineWeights.map(w => w || 0)}
+                    coarseWeights={coarseWeights.map(w => w || 0)}
                     combinedChartData={combinedChartData}
                     fineAggregatePercentage={fineAggregatePercentage}
                     coarseAggregatePercentage={coarseAggregatePercentage}

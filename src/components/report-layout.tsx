@@ -6,10 +6,13 @@ import { SieveResultsDisplay } from "@/components/sieve-results-display";
 import { CombinedSieveChart } from "@/components/combined-sieve-chart";
 import type { AnalysisResults } from "@/lib/definitions";
 import { SIEVE_SIZES } from "@/lib/sieve-analysis";
+import { SieveInputsDisplay } from "./sieve-inputs-display";
 
 interface ReportLayoutProps {
   fineResults: AnalysisResults | null;
   coarseResults: AnalysisResults | null;
+  fineWeights: number[];
+  coarseWeights: number[];
   combinedChartData: any[]; // Adjust type as needed
   fineAggregatePercentage: number;
   coarseAggregatePercentage: number;
@@ -19,6 +22,8 @@ interface ReportLayoutProps {
 export function ReportLayout({
   fineResults,
   coarseResults,
+  fineWeights,
+  coarseWeights,
   combinedChartData,
   fineAggregatePercentage,
   coarseAggregatePercentage,
@@ -32,8 +37,9 @@ export function ReportLayout({
       </CardHeader>
       <CardContent className="space-y-8">
         {fineResults ? (
-          <div className="page-break">
+          <div className="page-break space-y-4">
             <h2 className="mb-4 font-headline text-xl font-bold">Fine Aggregate Results</h2>
+            <SieveInputsDisplay sieves={SIEVE_SIZES.FINE} weights={fineWeights} />
             <SieveResultsDisplay sieves={SIEVE_SIZES.FINE} type="Fine" {...fineResults} />
           </div>
         ) : (
@@ -43,8 +49,9 @@ export function ReportLayout({
         <hr />
 
         {coarseResults ? (
-          <div className="page-break">
+          <div className="page-break space-y-4">
             <h2 className="mb-4 font-headline text-xl font-bold">Coarse Aggregate Results</h2>
+            <SieveInputsDisplay sieves={SIEVE_SIZES.COARSE} weights={coarseWeights} />
             <SieveResultsDisplay sieves={SIEVE_SIZES.COARSE} type="Coarse" {...coarseResults} />
           </div>
         ) : (
