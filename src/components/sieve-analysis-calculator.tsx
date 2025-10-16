@@ -28,8 +28,8 @@ export function SieveAnalysisCalculator() {
     const [fineResults, setFineResults] = React.useState<AnalysisResults | null>(null);
     const [coarseResults, setCoarseResults] = React.useState<AnalysisResults | null>(null);
 
-    const [fineWeights, setFineWeights] = React.useState<number[]>([]);
-    const [coarseWeights, setCoarseWeights] = React.useState<number[]>([]);
+    const [fineWeights, setFineWeights] = React.useState<(number | null)[]>([]);
+    const [coarseWeights, setCoarseWeights] = React.useState<(number | null)[]>([]);
     
     const [isFineCalculating, setIsFineCalculating] = React.useState(false);
     const [isCoarseCalculating, setIsCoarseCalculating] = React.useState(false);
@@ -43,7 +43,7 @@ export function SieveAnalysisCalculator() {
         type: AggregateType, 
         setter: React.Dispatch<React.SetStateAction<boolean>>, 
         resultsSetter: React.Dispatch<React.SetStateAction<AnalysisResults | null>>,
-        weightsSetter: React.Dispatch<React.SetStateAction<number[]>>
+        weightsSetter: React.Dispatch<React.SetStateAction<(number | null)[]>>
         ) => {
         return (results: AnalysisResults, weights: number[]) => {
             setter(true);
@@ -69,9 +69,8 @@ export function SieveAnalysisCalculator() {
             });
 
             const imgData = canvas.toDataURL('image/png');
-            // A4 dimensions in mm: 297 x 210 (landscape)
             const pdf = new jsPDF({
-                orientation: 'landscape',
+                orientation: 'portrait',
                 unit: 'mm',
                 format: 'a4',
             });
@@ -81,20 +80,34 @@ export function SieveAnalysisCalculator() {
             
             const imgWidth = canvas.width;
             const imgHeight = canvas.height;
-            const ratio = imgWidth / imgHeight;
+            const ratio = imgHeight / imgWidth;
             
             let finalImgWidth = pdfWidth;
-            let finalImgHeight = pdfWidth / ratio;
-            
+            let finalImgHeight = pdfWidth * ratio;
+
             if (finalImgHeight > pdfHeight) {
                 finalImgHeight = pdfHeight;
-                finalImgWidth = pdfHeight * ratio;
+                finalImgWidth = pdfHeight / ratio;
             }
 
             const x = (pdfWidth - finalImgWidth) / 2;
-            const y = (pdfHeight - finalImgHeight) / 2;
-
-            pdf.addImage(imgData, 'PNG', x, y, finalImgWidth, finalImgHeight);
+            
+            // Add image page by page
+            let y = 0;
+            let remainingHeight = imgHeight;
+            const pageHeight = (pdf.internal.pageSize.getHeight() * (imgWidth / pdf.internal.pageSize.getWidth()));
+            
+            let page = 1;
+            while(remainingHeight > 0) {
+                if (page > 1) {
+                    pdf.addPage();
+                }
+                pdf.addImage(imgData, 'PNG', 0, -y, pdfWidth, pdfHeight * (imgHeight/imgWidth) + 15 );
+                remainingHeight -= pageHeight;
+                y += pageHeight;
+                page++;
+            }
+            
             pdf.save(`sieve-analysis-report-${new Date().toISOString().split('T')[0]}.pdf`);
         } catch (error) {
             console.error("Error generating PDF:", error);
@@ -123,7 +136,7 @@ export function SieveAnalysisCalculator() {
                 recommendedPassing: null, // This can be populated later if needed
             };
         }).sort((a,b) => a.sieveSize - b.sieveSize);
-    }, [fineResults, coarseResults, fineAggregatePercentage, coarseAggregatePercentage]);
+    }, [fineResults, coarseResults, fineAggregatePercentage]);
 
     const isCombinedTabActive = fineResults !== null && coarseResults !== null;
     const isReportReady = fineResults !== null || coarseResults !== null;
@@ -157,6 +170,7 @@ export function SieveAnalysisCalculator() {
                     aggregateType="Fine"
                     onCalculate={handleCalculation("Fine", setIsFineCalculating, setFineResults, setFineWeights)}
                     isLoading={isFineCalculating}
+                    initialWeights={fineWeights}
                 />
             </TabsContent>
 
@@ -165,6 +179,7 @@ export function SieveAnalysisCalculator() {
                     aggregateType="Coarse"
                     onCalculate={handleCalculation("Coarse", setIsCoarseCalculating, setCoarseResults, setCoarseWeights)}
                     isLoading={isCoarseCalculating}
+                    initialWeights={coarseWeights}
                 />
             </TabsContent>
 
@@ -211,7 +226,7 @@ export function SieveAnalysisCalculator() {
             </TabsContent>
 
             {/* Hidden div for PDF generation */}
-            <div className="absolute -left-[9999px] top-auto w-[1200px] bg-white text-black pdf-render" ref={reportRef}>
+            <div className="absolute -left-[9999px] top-auto w-[800px] bg-white text-black pdf-render" ref={reportRef}>
                  <ReportLayout 
                     fineResults={fineResults}
                     coarseResults={coarseResults}

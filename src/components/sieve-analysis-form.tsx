@@ -17,7 +17,6 @@ import {
   Form,
   FormControl,
   FormItem,
-  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -36,18 +35,18 @@ interface SieveAnalysisFormProps {
   aggregateType: AggregateType;
   onCalculate: (results: AnalysisResults, weights: number[]) => void;
   isLoading: boolean;
+  initialWeights: (number | null)[];
 }
 
 const getSievesForType = (type: AggregateType) => SIEVE_SIZES[type.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
 
-export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: SieveAnalysisFormProps) {
+export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, initialWeights }: SieveAnalysisFormProps) {
   const { toast } = useToast();
   const currentSieves = getSievesForType(aggregateType);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      // Add 1 for the Pan
       weights: Array(currentSieves.length + 1).fill({ value: null }),
     },
     reValidateMode: "onChange",
@@ -58,13 +57,13 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: Sie
     name: "weights",
   });
 
-   React.useEffect(() => {
+  React.useEffect(() => {
     const newSieves = getSievesForType(aggregateType);
-    // Add 1 for the Pan
-    const newWeights = Array(newSieves.length + 1).fill({ value: null });
+    const newWeights = newSieves.map((_, index) => ({ value: initialWeights[index] ?? null }));
+    // Add pan
+    newWeights.push({ value: initialWeights[newSieves.length] ?? null });
     replace(newWeights);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aggregateType, replace]);
+  }, [aggregateType, replace, initialWeights]);
 
 
   function handleCalculate(values: FormValues) {
@@ -81,7 +80,7 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: Sie
       }
 
       // Pass all weights (including pan) to calculation
-      const calculated = calculateSieveAnalysis(weights);
+      const calculated = calculateSieveAnalysis(weights.slice(0, currentSieves.length + 1));
       
       let classification: string;
       if (aggregateType === 'Fine') {

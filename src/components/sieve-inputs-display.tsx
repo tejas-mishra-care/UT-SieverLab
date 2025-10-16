@@ -23,12 +23,14 @@ interface SieveInputsDisplayProps {
 }
 
 export function SieveInputsDisplay({ sieves, weights }: SieveInputsDisplayProps) {
+  const totalWeight = weights.reduce((acc, w) => acc + (w || 0), 0);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Test Inputs</CardTitle>
         <CardDescription>
-          The raw weights entered for the analysis.
+          The raw weights entered for the analysis. Total sample weight: {totalWeight.toFixed(1)}g.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -51,6 +53,12 @@ export function SieveInputsDisplay({ sieves, weights }: SieveInputsDisplayProps)
                   </TableCell>
                 </TableRow>
               ))}
+               <TableRow>
+                  <TableCell className="font-medium">Pan</TableCell>
+                  <TableCell className="text-right">
+                    {(weights?.[sieves.length] ?? 0).toFixed(1)}
+                  </TableCell>
+                </TableRow>
             </TableBody>
           </Table>
         </div>
