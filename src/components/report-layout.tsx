@@ -36,6 +36,13 @@ export function ReportLayout({
         <CardDescription>A summary of all calculated results.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
+        <div className="mb-8 border-b pb-4">
+            <h1 className="font-headline text-2xl font-bold">Sieve Analysis Report</h1>
+            <p className="text-sm text-muted-foreground">
+                Generated on: {new Date().toLocaleString()}
+            </p>
+        </div>
+
         {fineResults ? (
           <div className="page-break space-y-4">
             <h2 className="mb-4 font-headline text-xl font-bold">Fine Aggregate Results</h2>
