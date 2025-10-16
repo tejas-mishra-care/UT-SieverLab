@@ -14,11 +14,15 @@ import { SIEVE_SIZES, SPEC_LIMITS } from '@/lib/sieve-analysis';
 import { ReportLayout } from './report-layout';
 import { useUser, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
 import { Input } from './ui/input';
 import { useRouter } from 'next/navigation';
 
-export function SieveAnalysisCalculator() {
+interface SieveAnalysisCalculatorProps {
+    existingTest?: SieveAnalysisTest;
+}
+
+export function SieveAnalysisCalculator({ existingTest }: SieveAnalysisCalculatorProps) {
     const { user } = useUser();
     const firestore = useFirestore();
     const { toast } = useToast();
@@ -27,8 +31,8 @@ export function SieveAnalysisCalculator() {
     const [fineResults, setFineResults] = React.useState<AnalysisResults | null>(null);
     const [coarseResults, setCoarseResults] = React.useState<AnalysisResults | null>(null);
 
-    const [fineWeights, setFineWeights] = React.useState<(number | null)[]>(Array(SIEVE_SIZES.FINE.length + 1).fill(null));
-    const [coarseWeights, setCoarseWeights] = React.useState<(number | null)[]>(Array(SIEVE_SIZES.COARSE.length + 1).fill(null));
+    const [fineWeights, setFineWeights] = React.useState<(number | null)[]>([]);
+    const [coarseWeights, setCoarseWeights] = React.useState<(number | null)[]>([]);
     
     const [isFineCalculating, setIsFineCalculating] = React.useState(false);
     const [isCoarseCalculating, setIsCoarseCalculating] = React.useState(false);
@@ -39,6 +43,35 @@ export function SieveAnalysisCalculator() {
     const [fineAggregatePercentage, setFineAggregatePercentage] = React.useState(35);
     const coarseAggregatePercentage = 100 - fineAggregatePercentage;
     const reportRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        if (existingTest) {
+            setTestName(existingTest.name);
+            if (existingTest.type === 'Fine') {
+                setFineWeights(existingTest.weights);
+                setFineResults({
+                    percentRetained: existingTest.percentRetained,
+                    cumulativeRetained: existingTest.cumulativeRetained,
+                    percentPassing: existingTest.percentPassing,
+                    finenessModulus: existingTest.finenessModulus,
+                    classification: existingTest.classification,
+                });
+            } else if (existingTest.type === 'Coarse') {
+                setCoarseWeights(existingTest.weights);
+                 setCoarseResults({
+                    percentRetained: existingTest.percentRetained,
+                    cumulativeRetained: existingTest.cumulativeRetained,
+                    percentPassing: existingTest.percentPassing,
+                    finenessModulus: existingTest.finenessModulus,
+                    classification: existingTest.classification,
+                });
+            }
+        } else {
+            setFineWeights(Array(SIEVE_SIZES.FINE.length + 1).fill(null));
+            setCoarseWeights(Array(SIEVE_SIZES.COARSE.length + 1).fill(null));
+        }
+    }, [existingTest]);
+
 
     const handleCalculation = (
         type: AggregateType, 
@@ -56,6 +89,15 @@ export function SieveAnalysisCalculator() {
     };
 
     const handleDownloadPdf = async () => {
+        if (!fineResults && !coarseResults) {
+            toast({
+                variant: 'destructive',
+                title: 'Cannot generate PDF',
+                description: 'Please calculate results for at least one aggregate type first.',
+            });
+            return;
+        }
+
         const reportElement = reportRef.current;
         if (!reportElement) return;
 
@@ -87,7 +129,7 @@ export function SieveAnalysisCalculator() {
         }
     };
     
-    const handleSaveTest = async (status: 'draft' | 'completed') => {
+    const handleSaveTest = async () => {
         if (!user || !firestore) {
             toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to save.' });
             return;
@@ -107,7 +149,7 @@ export function SieveAnalysisCalculator() {
                 userId: user.uid,
                 name: testName,
                 timestamp: Date.now(),
-                status: status,
+                status: 'completed',
             };
 
             // Logic to determine what to save
@@ -140,12 +182,13 @@ export function SieveAnalysisCalculator() {
                     ...coarseResults
                 };
             }
-
-            const docRef = await addDoc(collection(firestore, 'tests'), {});
-            await setDoc(doc(firestore, 'tests', docRef.id), { ...testToSave, id: docRef.id });
+            
+            const docId = existingTest?.id || (await addDoc(collection(firestore, 'tests'), {})).id;
+            await setDoc(doc(firestore, 'tests', docId), { ...testToSave, id: docId }, { merge: true });
 
             toast({ title: 'Test Saved', description: `"${testName}" has been saved successfully.` });
-            router.push(`/dashboard/test/${docRef.id}`);
+            router.push(`/dashboard/test/${docId}`);
+            router.refresh();
 
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
@@ -219,13 +262,9 @@ export function SieveAnalysisCalculator() {
                             disabled={isSaving}
                         />
                          <div className="flex items-center gap-2">
-                            <Button variant="outline" onClick={() => handleSaveTest('draft')} disabled={isSaving || !isReportReady}>
+                             <Button onClick={handleSaveTest} disabled={isSaving || !isReportReady}>
                                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                                Save as Draft
-                            </Button>
-                             <Button onClick={() => handleSaveTest('completed')} disabled={isSaving || !isReportReady}>
-                                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                                Save Final Test
+                                {existingTest ? 'Update Test' : 'Save Test'}
                             </Button>
                         </div>
                     </CardContent>

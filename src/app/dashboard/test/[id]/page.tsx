@@ -98,20 +98,16 @@ function TestView({ id }: { id: string }) {
         <div>
           <h2 className="font-headline text-3xl font-bold">{test.name}</h2>
           <p className="text-muted-foreground">
-            {isDraft ? 'Draft' : 
-            `Test ID: ${test.id.slice(-6)} • Completed on ${new Date(test.timestamp).toLocaleDateString()}`
-            }
+            {`Test ID: ${test.id.slice(-6)} • Completed on ${new Date(test.timestamp).toLocaleDateString()}`}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {isDraft && (
-            <Button variant="outline" asChild>
-              <Link href={`/dashboard/new-test`}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit Draft
-              </Link>
-            </Button>
-          )}
+          <Button variant="outline" asChild>
+            <Link href={`/dashboard/test/${test.id}/edit`}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit Test
+            </Link>
+          </Button>
           
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -145,42 +141,27 @@ function TestView({ id }: { id: string }) {
       </div>
 
       <div className="rounded-lg bg-background">
-        {isDraft ? (
-             <div className="flex min-h-[200px] flex-col items-center justify-center rounded-lg border border-dashed p-6 text-center">
-                <h3 className="text-xl font-bold tracking-tight">This is a draft.</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                    Complete the test to see the results.
-                </p>
-                <Button asChild>
-                    <Link href={`/dashboard/new-test`}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Continue Editing
-                    </Link>
-                </Button>
+        <div className="space-y-6">
+          <div className="space-y-6 rounded-lg bg-background p-6">
+            <div className="mb-6 border-b pb-4">
+              <h1 className="font-headline text-2xl font-bold">{test.name}</h1>
+              <p className="text-sm text-muted-foreground">
+                Sieve Analysis Report &bull;{" "}
+                {new Date(test.timestamp).toLocaleDateString()}
+              </p>
             </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="space-y-6 rounded-lg bg-background p-6">
-              <div className="mb-6 border-b pb-4">
-                <h1 className="font-headline text-2xl font-bold">{test.name}</h1>
-                <p className="text-sm text-muted-foreground">
-                  Sieve Analysis Report &bull;{" "}
-                  {new Date(test.timestamp).toLocaleDateString()}
-                </p>
-              </div>
-              <SieveInputsDisplay sieves={test.sieves} weights={test.weights} />
-              <SieveResultsDisplay
-                sieves={test.sieves}
-                percentPassing={test.percentPassing}
-                percentRetained={test.percentRetained}
-                cumulativeRetained={test.cumulativeRetained}
-                finenessModulus={test.finenessModulus}
-                classification={test.classification}
-                type={test.type}
-              />
-            </div>
+            <SieveInputsDisplay sieves={test.sieves} weights={test.weights} />
+            <SieveResultsDisplay
+              sieves={test.sieves}
+              percentPassing={test.percentPassing}
+              percentRetained={test.percentRetained}
+              cumulativeRetained={test.cumulativeRetained}
+              finenessModulus={test.finenessModulus}
+              classification={test.classification}
+              type={test.type}
+            />
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
