@@ -16,6 +16,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from './ui/input';
 import { generatePdf } from '@/lib/generate-pdf';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Label } from './ui/label';
+
+type CoarseForCombination = 'Graded' | 'Coarse - 20mm' | 'Coarse - 10mm';
 
 export function SieveAnalysisCalculator() {
     const { toast } = useToast();
@@ -42,6 +45,8 @@ export function SieveAnalysisCalculator() {
     
     const [coarseAggType, setCoarseAggType] = React.useState<CoarseAggregateType>('Graded');
     const [activeCoarseTab, setActiveCoarseTab] = React.useState<SingleSizeType | 'graded'>('graded');
+    const [coarseForCombination, setCoarseForCombination] = React.useState<CoarseForCombination | null>(null);
+
 
     const handleCalculation = (
         _type: ExtendedAggregateType, 
@@ -96,43 +101,42 @@ export function SieveAnalysisCalculator() {
         }
     };
     
+    const availableCoarseForCombination = React.useMemo(() => {
+        const options: CoarseForCombination[] = [];
+        if (coarseGradedResults) options.push('Graded');
+        if (coarseSingle20mmResults) options.push('Coarse - 20mm');
+        if (coarseSingle10mmResults) options.push('Coarse - 10mm');
+        return options;
+    }, [coarseGradedResults, coarseSingle20mmResults, coarseSingle10mmResults]);
+
     const isCombinedTabActive = React.useMemo(() => {
-        if (!fineResults) return false;
-        if (coarseAggType === 'Graded') {
-            return coarseGradedResults !== null;
+        return fineResults !== null && availableCoarseForCombination.length > 0;
+    }, [fineResults, availableCoarseForCombination]);
+    
+    React.useEffect(() => {
+        if (isCombinedTabActive && !coarseForCombination && availableCoarseForCombination.length > 0) {
+            setCoarseForCombination(availableCoarseForCombination[0]);
         }
-        if (coarseAggType === 'Single Size') {
-            return coarseSingle10mmResults !== null && coarseSingle20mmResults !== null;
+        if (!isCombinedTabActive) {
+            setCoarseForCombination(null);
         }
-        return false;
-    }, [fineResults, coarseGradedResults, coarseSingle10mmResults, coarseSingle20mmResults, coarseAggType]);
+    }, [isCombinedTabActive, availableCoarseForCombination, coarseForCombination]);
 
     const combinedChartData = React.useMemo(() => {
-        if (!isCombinedTabActive || !fineResults) return [];
+        if (!isCombinedTabActive || !fineResults || !coarseForCombination) return [];
 
         let coarseResults: AnalysisResults | null = null;
         let coarseSieves: number[] = [];
 
-        if (coarseAggType === 'Graded' && coarseGradedResults) {
+        if (coarseForCombination === 'Graded' && coarseGradedResults) {
             coarseResults = coarseGradedResults;
             coarseSieves = SIEVE_SIZES.COARSE_GRADED;
-        } else if (coarseAggType === 'Single Size' && coarseSingle10mmResults && coarseSingle20mmResults) {
-             const allCoarseSieves = [...new Set([...SIEVE_SIZES.COARSE_SINGLE_10MM, ...SIEVE_SIZES.COARSE_SINGLE_20MM])].sort((a,b) => b-a);
-             const coarse10mmMap = new Map(SIEVE_SIZES.COARSE_SINGLE_10MM.map((s,i) => [s, coarseSingle10mmResults.percentPassing[i]]));
-             const coarse20mmMap = new Map(SIEVE_SIZES.COARSE_SINGLE_20MM.map((s,i) => [s, coarseSingle20mmResults.percentPassing[i]]));
-
-             const combinedCoarsePassing = allCoarseSieves.map(sieve => {
-                 const passing10 = coarse10mmMap.get(sieve) ?? (sieve > Math.max(...SIEVE_SIZES.COARSE_SINGLE_10MM) ? 100 : 0);
-                 const passing20 = coarse20mmMap.get(sieve) ?? (sieve > Math.max(...SIEVE_SIZES.COARSE_SINGLE_20MM) ? 100 : 0);
-                 // Assuming 50/50 blend of 10mm and 20mm for simplicity. This can be made adjustable.
-                 return (passing10 * 0.5) + (passing20 * 0.5);
-             });
-
-             coarseResults = { 
-                ...coarseSingle20mmResults, // use 20mm as base, overwrite passing
-                percentPassing: combinedCoarsePassing,
-             }; 
-             coarseSieves = allCoarseSieves;
+        } else if (coarseForCombination === 'Coarse - 20mm' && coarseSingle20mmResults) {
+            coarseResults = coarseSingle20mmResults;
+            coarseSieves = SIEVE_SIZES.COARSE_SINGLE_20MM;
+        } else if (coarseForCombination === 'Coarse - 10mm' && coarseSingle10mmResults) {
+            coarseResults = coarseSingle10mmResults;
+            coarseSieves = SIEVE_SIZES.COARSE_SINGLE_10MM;
         }
         
         if (!coarseResults) return [];
@@ -156,7 +160,8 @@ export function SieveAnalysisCalculator() {
                 recommendedPassing: null, 
             };
         }).sort((a,b) => a.sieveSize - b.sieveSize);
-    }, [fineResults, coarseGradedResults, coarseSingle10mmResults, coarseSingle20mmResults, coarseAggType, fineAggregatePercentage, isCombinedTabActive]);
+    }, [fineResults, coarseGradedResults, coarseSingle10mmResults, coarseSingle10mmResults, coarseForCombination, fineAggregatePercentage, isCombinedTabActive]);
+
 
     const isReportReady = fineResults !== null || coarseGradedResults !== null || coarseSingle10mmResults !== null || coarseSingle20mmResults !== null;
 
@@ -282,23 +287,41 @@ export function SieveAnalysisCalculator() {
                         <CardContent className="space-y-6">
                             <div className="space-y-4 rounded-lg border p-4">
                                 <h3 className="font-semibold">Mix Proportions</h3>
-                                <div className="flex justify-between text-sm font-medium">
-                                    <span>Fine Aggregate: <span className='font-bold'>{fineAggregatePercentage}%</span></span>
-                                    <span>Coarse Aggregate: <span className='font-bold'>{coarseAggregatePercentage}%</span></span>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                     <div className="space-y-2">
+                                        <Label>Coarse Aggregate for Combination</Label>
+                                        <Select value={coarseForCombination ?? ''} onValueChange={(val) => setCoarseForCombination(val as CoarseForCombination)}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select Coarse Aggregate..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {availableCoarseForCombination.map(opt => (
+                                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                     </div>
+                                    <div className='space-y-2'>
+                                        <Label>Fine Aggregate Percentage</Label>
+                                        <div className="flex justify-between text-sm font-medium">
+                                            <span>Fine: <span className='font-bold'>{fineAggregatePercentage}%</span></span>
+                                            <span>Coarse: <span className='font-bold'>{coarseAggregatePercentage}%</span></span>
+                                        </div>
+                                        <Slider
+                                            value={[fineAggregatePercentage]}
+                                            onValueChange={(value) => setFineAggregatePercentage(value[0])}
+                                            max={100}
+                                            step={1}
+                                        />
+                                    </div>
                                 </div>
-                                <Slider
-                                    value={[fineAggregatePercentage]}
-                                    onValueChange={(value) => setFineAggregatePercentage(value[0])}
-                                    max={100}
-                                    step={1}
-                                />
                             </div>
                             <CombinedSieveChart data={combinedChartData} />
                         </CardContent>
                     </Card>
                 ) : (
                     <Card className="flex items-center justify-center h-64">
-                        <p className="text-muted-foreground">Calculate fine and relevant coarse aggregates to enable this view.</p>
+                        <p className="text-muted-foreground">Calculate fine and at least one coarse aggregate to enable this view.</p>
                     </Card>
                 )}
             </TabsContent>
@@ -331,7 +354,5 @@ export function SieveAnalysisCalculator() {
         </Tabs>
     );
 }
-
-    
 
     
