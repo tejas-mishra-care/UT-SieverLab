@@ -5,6 +5,8 @@ import { format } from "date-fns";
 import type { AnalysisResults, ExtendedAggregateType } from "./definitions";
 import { SIEVE_SIZES } from "./sieve-analysis";
 
+type CoarseForCombination = 'Graded' | 'Coarse - 20mm' | 'Coarse - 10mm';
+
 interface PdfData {
   testName: string;
   fineResults: AnalysisResults | null;
@@ -19,6 +21,7 @@ interface PdfData {
   fineAggregatePercentage: number;
   coarseAggregatePercentage: number;
   showCombined: boolean;
+  coarseForCombination: CoarseForCombination | null;
 }
 
 async function getChartImage(chartId: string): Promise<string | null> {
@@ -166,7 +169,8 @@ export async function generatePdf(data: PdfData) {
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`Blend: ${data.fineAggregatePercentage}% Fine Aggregate, ${data.coarseAggregatePercentage}% Coarse Aggregate`, pageMargin, yPos);
+    const blendText = `Blend: ${data.fineAggregatePercentage}% Fine, ${data.coarseAggregatePercentage}% Coarse (using ${data.coarseForCombination})`;
+    doc.text(blendText, pageMargin, yPos);
     yPos += 10;
     
     const combinedChartImage = await getChartImage('combined-gradation-chart');
@@ -206,3 +210,5 @@ export async function generatePdf(data: PdfData) {
 
   doc.save(`${data.testName || "sieve-analysis"}-${format(new Date(), "yyyy-MM-dd")}.pdf`);
 }
+
+    

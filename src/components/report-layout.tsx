@@ -9,6 +9,8 @@ import { SIEVE_SIZES } from "@/lib/sieve-analysis";
 import { SieveInputsDisplay } from "./sieve-inputs-display";
 import { CombinedGradationTable } from "./combined-gradation-table";
 
+type CoarseForCombination = 'Graded' | 'Coarse - 20mm' | 'Coarse - 10mm';
+
 interface ReportLayoutProps {
   testName: string;
   fineResults: AnalysisResults | null;
@@ -23,6 +25,7 @@ interface ReportLayoutProps {
   fineAggregatePercentage: number;
   coarseAggregatePercentage: number;
   showCombined: boolean;
+  coarseForCombination: CoarseForCombination | null;
 }
 
 export function ReportLayout({
@@ -39,6 +42,7 @@ export function ReportLayout({
   fineAggregatePercentage,
   coarseAggregatePercentage,
   showCombined,
+  coarseForCombination,
 }: ReportLayoutProps) {
   return (
     <Card>
@@ -104,7 +108,7 @@ export function ReportLayout({
                 <CardHeader>
                   <CardTitle>Combined Gradation Curve</CardTitle>
                   <CardDescription>
-                    Analysis for a mix of {fineAggregatePercentage}% Fine Aggregate and {coarseAggregatePercentage}% Coarse Aggregate against specification limits for 20mm nominal size graded aggregate.
+                    Analysis for a mix of {fineAggregatePercentage}% Fine Aggregate and {coarseAggregatePercentage}% Coarse Aggregate (Blend with: <span className="font-semibold">{coarseForCombination}</span>) against specification limits for 20mm nominal size graded aggregate.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -121,3 +125,5 @@ export function ReportLayout({
     </Card>
   );
 }
+
+    

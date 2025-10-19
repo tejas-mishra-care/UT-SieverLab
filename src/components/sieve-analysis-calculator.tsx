@@ -30,10 +30,10 @@ export function SieveAnalysisCalculator() {
     const [coarseSingle20mmResults, setCoarseSingle20mmResults] = React.useState<AnalysisResults | null>(null);
     const [coarseSingle10mmResults, setCoarseSingle10mmResults] = React.useState<AnalysisResults | null>(null);
 
-    const [fineWeights, setFineWeights] = React.useState<(number)[]>([]);
-    const [coarseGradedWeights, setCoarseGradedWeights] = React.useState<(number)[]>([]);
-    const [coarseSingle20mmWeights, setCoarseSingle20mmWeights] = React.useState<(number)[]>([]);
-    const [coarseSingle10mmWeights, setCoarseSingle10mmWeights] = React.useState<(number)[]>([]);
+    const [fineWeights, setFineWeights] = React.useState<(number | null)[]>([]);
+    const [coarseGradedWeights, setCoarseGradedWeights] = React.useState<(number | null)[]>([]);
+    const [coarseSingle20mmWeights, setCoarseSingle20mmWeights] = React.useState<(number | null)[]>([]);
+    const [coarseSingle10mmWeights, setCoarseSingle10mmWeights] = React.useState<(number | null)[]>([]);
 
     const [isCalculating, setIsCalculating] = React.useState(false);
     const [isDownloading, setIsDownloading] = React.useState(false);
@@ -51,7 +51,7 @@ export function SieveAnalysisCalculator() {
     const handleCalculation = (
         _type: ExtendedAggregateType, 
         resultsSetter: React.Dispatch<React.SetStateAction<AnalysisResults | null>>,
-        weightsSetter: React.Dispatch<React.SetStateAction<(number)[]>>
+        weightsSetter: React.Dispatch<React.SetStateAction<(number | null)[]>>
     ) => {
         return (results: AnalysisResults, weights: number[]) => {
             setIsCalculating(true);
@@ -88,6 +88,7 @@ export function SieveAnalysisCalculator() {
                 fineAggregatePercentage,
                 coarseAggregatePercentage,
                 showCombined: isCombinedTabActive,
+                coarseForCombination: coarseForCombination
             });
         } catch (error) {
             console.error("PDF Generation Error:", error);
@@ -160,7 +161,7 @@ export function SieveAnalysisCalculator() {
                 recommendedPassing: null, 
             };
         }).sort((a,b) => a.sieveSize - b.sieveSize);
-    }, [fineResults, coarseGradedResults, coarseSingle10mmResults, coarseSingle10mmResults, coarseForCombination, fineAggregatePercentage, isCombinedTabActive]);
+    }, [fineResults, coarseGradedResults, coarseSingle10mmResults, coarseSingle20mmResults, coarseForCombination, fineAggregatePercentage, isCombinedTabActive]);
 
 
     const isReportReady = fineResults !== null || coarseGradedResults !== null || coarseSingle10mmResults !== null || coarseSingle20mmResults !== null;
@@ -343,6 +344,7 @@ export function SieveAnalysisCalculator() {
                             fineAggregatePercentage={fineAggregatePercentage}
                             coarseAggregatePercentage={coarseAggregatePercentage}
                             showCombined={isCombinedTabActive}
+                            coarseForCombination={coarseForCombination}
                         />
                     ) : (
                         <Card className="flex items-center justify-center h-64">
