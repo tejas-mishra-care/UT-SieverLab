@@ -160,7 +160,10 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
                 dataKey="combinedPassing"
                 stroke="hsl(var(--primary))"
                 strokeWidth={2.5}
-                dot={(props) => <CustomDot {...props} lowerLimit={props.payload.lowerLimit} upperLimit={props.payload.upperLimit} />}
+                dot={(dotProps) => {
+                  const { key, ...rest } = dotProps;
+                  return <CustomDot key={key} {...rest} lowerLimit={rest.payload.lowerLimit} upperLimit={rest.payload.upperLimit} />;
+                }}
                 activeDot={{
                     r: 6,
                     fill: "hsl(var(--primary))",
