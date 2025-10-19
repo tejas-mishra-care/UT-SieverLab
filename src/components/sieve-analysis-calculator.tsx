@@ -6,11 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Download, Loader2 } from 'lucide-react';
 import { SieveAnalysisForm } from './sieve-analysis-form';
-import type { AggregateType, AnalysisResults, CoarseAggregateType, SingleSizeType } from '@/lib/definitions';
+import type { AggregateType, AnalysisResults, CoarseAggregateType, SingleSizeType, ExtendedAggregateType } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Slider } from './ui/slider';
 import { CombinedSieveChart } from './combined-sieve-chart';
-import { SIEVE_SIZES, SPEC_LIMITS_20MM } from '@/lib/sieve-analysis';
+import { SIEVE_SIZES, SPEC_LIMITS_20MM, getSievesForType } from '@/lib/sieve-analysis';
 import { ReportLayout } from './report-layout';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from './ui/input';
@@ -27,10 +27,10 @@ export function SieveAnalysisCalculator() {
     const [coarseSingle20mmResults, setCoarseSingle20mmResults] = React.useState<AnalysisResults | null>(null);
     const [coarseSingle10mmResults, setCoarseSingle10mmResults] = React.useState<AnalysisResults | null>(null);
 
-    const [fineWeights, setFineWeights] = React.useState<(number | null)[]>([]);
-    const [coarseGradedWeights, setCoarseGradedWeights] = React.useState<(number | null)[]>([]);
-    const [coarseSingle20mmWeights, setCoarseSingle20mmWeights] = React.useState<(number | null)[]>([]);
-    const [coarseSingle10mmWeights, setCoarseSingle10mmWeights] = React.useState<(number | null)[]>([]);
+    const [fineWeights, setFineWeights] = React.useState<(number)[]>([]);
+    const [coarseGradedWeights, setCoarseGradedWeights] = React.useState<(number)[]>([]);
+    const [coarseSingle20mmWeights, setCoarseSingle20mmWeights] = React.useState<(number)[]>([]);
+    const [coarseSingle10mmWeights, setCoarseSingle10mmWeights] = React.useState<(number)[]>([]);
 
     const [isCalculating, setIsCalculating] = React.useState(false);
     const [isDownloading, setIsDownloading] = React.useState(false);
@@ -44,21 +44,20 @@ export function SieveAnalysisCalculator() {
     const [activeCoarseTab, setActiveCoarseTab] = React.useState<SingleSizeType | 'graded'>('graded');
 
     const handleCalculation = (
-        type: AggregateType | SingleSizeType, 
+        type: ExtendedAggregateType, 
         resultsSetter: React.Dispatch<React.SetStateAction<AnalysisResults | null>>,
-        weightsSetter: React.Dispatch<React.SetStateAction<(number | null)[]>>
+        weightsSetter: React.Dispatch<React.SetStateAction<(number)[]>>
     ) => {
         return (results: AnalysisResults, weights: number[]) => {
             setIsCalculating(true);
             resultsSetter(results);
-            weightsSetter(weights.map(w => w === 0 ? null : w));
+            weightsSetter(weights);
             setIsCalculating(false);
         };
     };
 
     const handleDownloadPdf = async () => {
-        const reportElement = reportRef.current;
-        if (!reportElement || !isReportReady) {
+        if (!isReportReady) {
             toast({
                 variant: "destructive",
                 title: "Cannot generate PDF",
@@ -106,10 +105,18 @@ export function SieveAnalysisCalculator() {
             coarseResults = coarseGradedResults;
             coarseSieves = SIEVE_SIZES.COARSE_GRADED;
         } else if (coarseAggType === 'Single Size' && coarseSingle10mmResults && coarseSingle20mmResults) {
-            // Logic to combine 10mm and 20mm single size aggregates if needed
-            // For now, let's assume we use a primary coarse result for blending
-            coarseResults = coarseSingle20mmResults; // Or some combination
-            coarseSieves = SIEVE_SIZES.COARSE_SINGLE_20MM;
+             const allCoarseSieves = [...new Set([...SIEVE_SIZES.COARSE_SINGLE_10MM, ...SIEVE_SIZES.COARSE_SINGLE_20MM])].sort((a,b) => b-a);
+             const coarse10mmMap = new Map(SIEVE_SIZES.COARSE_SINGLE_10MM.map((s,i) => [s, coarseSingle10mmResults.percentPassing[i]]));
+             const coarse20mmMap = new Map(SIEVE_SIZES.COARSE_SINGLE_20MM.map((s,i) => [s, coarseSingle20mmResults.percentPassing[i]]));
+
+             const combinedCoarsePassing = allCoarseSieves.map(sieve => {
+                 const passing10 = coarse10mmMap.get(sieve) ?? (sieve > Math.max(...SIEVE_SIZES.COARSE_SINGLE_10MM) ? 100 : 0);
+                 const passing20 = coarse20mmMap.get(sieve) ?? (sieve > Math.max(...SIEVE_SIZES.COARSE_SINGLE_20MM) ? 100 : 0);
+                 // Assuming 50/50 blend of 10mm and 20mm for simplicity. This can be made adjustable.
+                 return (passing10 * 0.5) + (passing20 * 0.5);
+             });
+             coarseResults = { ...coarseSingle20mmResults, percentPassing: combinedCoarsePassing}; // use 20mm as base, overwrite passing
+             coarseSieves = allCoarseSieves;
         }
         
         if (!coarseResults) return [];

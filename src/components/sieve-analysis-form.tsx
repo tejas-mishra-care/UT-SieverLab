@@ -81,8 +81,7 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, initi
         return;
       }
 
-      // Pass all weights (including pan) to calculation
-      const calculated = calculateSieveAnalysis(weights.slice(0, currentSieves.length + 1));
+      const calculated = calculateSieveAnalysis(weights, currentSieves);
       
       let classification: string;
       if (aggregateType === 'Fine') {

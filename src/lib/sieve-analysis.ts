@@ -82,18 +82,19 @@ export function getSievesForType(type: ExtendedAggregateType): number[] {
 
 /**
  * Calculates sieve analysis results.
- * @param weights - Array of weights retained on each sieve.
+ * @param weights - Array of weights retained on each sieve, including the pan.
+ * @param sieves - Array of sieve sizes, excluding the pan.
  * @returns Calculated analysis results.
  */
 export function calculateSieveAnalysis(
-  weights: number[]
+  weights: number[],
+  sieves: number[]
 ): Omit<AnalysisResults, "classification" | "finenessModulus"> {
   const totalWeight = weights.reduce((sum, w) => sum + w, 0);
 
   if (totalWeight === 0) {
-    const zeros = Array(weights.length).fill(0);
-    // For an empty calculation, percent passing should be 100 at the start, not 0.
-    const passing = Array(weights.length).fill(100);
+    const zeros = Array(sieves.length).fill(0);
+    const passing = Array(sieves.length).fill(100);
     return {
       percentRetained: zeros,
       cumulativeRetained: zeros,
@@ -101,28 +102,35 @@ export function calculateSieveAnalysis(
     };
   }
 
-  const percentRetained = weights.map((w) => (w / totalWeight) * 100);
+  const weightsOnSieves = weights.slice(0, sieves.length);
+  const percentRetained = weightsOnSieves.map((w) => (w / totalWeight) * 100);
 
   const cumulativeRetained: number[] = [];
-  percentRetained.slice(0, -1).reduce((acc, val) => { // Exclude pan from cumulative calculation for FM
+  percentRetained.reduce((acc, val, index) => {
+    // Only accumulate for standard sieves for FM calculation later
+    if (STANDARD_SIEVES_FM.includes(sieves[index])) {
+      const newTotal = acc + val;
+      cumulativeRetained.push(newTotal);
+      return newTotal;
+    }
     const newTotal = acc + val;
     cumulativeRetained.push(newTotal);
     return newTotal;
   }, 0);
 
-  const percentPassing = cumulativeRetained.map((cr) => 100 - cr);
-  
-  // The percent passing the last sieve is based on the pan weight
-  const panWeight = weights[weights.length-1] || 0;
-  const totalWithoutPan = totalWeight - panWeight;
-  if(totalWeight > 0) {
-      percentPassing[percentPassing.length-1] = 100 - cumulativeRetained[cumulativeRetained.length - 1];
-  }
+  // This should fill up the cumulative retained for all sieves.
+  let cumulativeTotal = 0;
+  const fullCumulativeRetained = weightsOnSieves.map(w => {
+    cumulativeTotal += (w/totalWeight) * 100;
+    return cumulativeTotal;
+  })
 
+
+  const percentPassing = fullCumulativeRetained.map((cr) => 100 - cr);
 
   return {
-    percentRetained: percentRetained.slice(0, -1),
-    cumulativeRetained,
+    percentRetained: percentRetained,
+    cumulativeRetained: fullCumulativeRetained,
     percentPassing,
   };
 }

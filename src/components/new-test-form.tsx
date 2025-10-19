@@ -9,9 +9,9 @@ import {
   calculateSieveAnalysis,
   classifyCoarseAggregate,
   classifyFineAggregate,
-  SIEVE_SIZES,
+  getSievesForType,
 } from "@/lib/sieve-analysis";
-import type { AggregateType, AnalysisResults, SieveAnalysisTest } from "@/lib/definitions";
+import type { ExtendedAggregateType, AnalysisResults } from "@/lib/definitions";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -33,12 +33,10 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 interface SieveAnalysisFormProps {
-  aggregateType: AggregateType;
+  aggregateType: ExtendedAggregateType;
   onCalculate: (results: AnalysisResults, weights: number[]) => void;
   isLoading: boolean;
 }
-
-const getSievesForType = (type: AggregateType) => SIEVE_SIZES[type.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
 
 export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: SieveAnalysisFormProps) {
   const { toast } = useToast();
@@ -79,7 +77,7 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: Sie
         return;
       }
 
-      const calculated = calculateSieveAnalysis(weights);
+      const calculated = calculateSieveAnalysis(weights, currentSieves);
       
       let classification: string;
       if (aggregateType === 'Fine') {
