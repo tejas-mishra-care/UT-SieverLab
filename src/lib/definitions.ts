@@ -1,5 +1,14 @@
 
 export type AggregateType = "Fine" | "Coarse";
+export type CoarseAggregateType = "Graded" | "Single Size";
+export type SingleSizeType = "20mm" | "10mm";
+
+export type ExtendedAggregateType = 
+    | "Fine" 
+    | "Coarse - Graded" 
+    | "Coarse - 20mm"
+    | "Coarse - 10mm";
+
 
 export interface SieveData {
   sieveSize: number;

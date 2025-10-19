@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -8,9 +9,9 @@ import {
   calculateSieveAnalysis,
   classifyCoarseAggregate,
   classifyFineAggregate,
-  SIEVE_SIZES,
+  getSievesForType,
 } from "@/lib/sieve-analysis";
-import type { AggregateType, AnalysisResults } from "@/lib/definitions";
+import type { ExtendedAggregateType, AnalysisResults } from "@/lib/definitions";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -31,13 +32,11 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 interface SieveAnalysisFormProps {
-  aggregateType: AggregateType;
+  aggregateType: ExtendedAggregateType;
   onCalculate: (results: AnalysisResults, weights: number[]) => void;
   isLoading: boolean;
   initialWeights: (number | null)[];
 }
-
-const getSievesForType = (type: AggregateType) => SIEVE_SIZES[type.toUpperCase() as keyof typeof SIEVE_SIZES] || [];
 
 export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, initialWeights }: SieveAnalysisFormProps) {
   const { toast } = useToast();
@@ -57,13 +56,14 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, initi
   });
 
   React.useEffect(() => {
-    if (initialWeights && initialWeights.length > 0) {
       const newSieves = getSievesForType(aggregateType);
-      const newWeights = newSieves.map((_, index) => ({ value: initialWeights[index] ?? null }));
-      // Add pan
-      newWeights.push({ value: initialWeights[newSieves.length] ?? null });
-      replace(newWeights);
-    }
+      const newWeights = Array(newSieves.length + 1).fill(null);
+      
+      initialWeights.forEach((val, index) => {
+        if(index < newWeights.length) newWeights[index] = val;
+      })
+
+      replace(newWeights.map(v => ({ value: v })));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aggregateType, initialWeights]);
 
@@ -118,7 +118,7 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, initi
           <CardHeader>
             <CardTitle>{aggregateType} Aggregate Details</CardTitle>
             <CardDescription>
-              Enter the weight (in grams) retained on each sieve and in the pan for the {aggregateType.toLowerCase()} aggregate.
+              Enter the weight (in grams) retained on each sieve and in the pan.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -173,7 +173,7 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, initi
                 ) : (
                   <WandSparkles className="mr-2 h-4 w-4" />
                 )}
-                Calculate {aggregateType} Aggregate
+                Calculate
               </Button>
             </div>
           </CardContent>

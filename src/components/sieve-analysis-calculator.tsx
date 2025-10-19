@@ -6,15 +6,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Download, Loader2 } from 'lucide-react';
 import { SieveAnalysisForm } from './sieve-analysis-form';
-import type { AggregateType, AnalysisResults } from '@/lib/definitions';
+import type { AggregateType, AnalysisResults, CoarseAggregateType, SingleSizeType } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Slider } from './ui/slider';
 import { CombinedSieveChart } from './combined-sieve-chart';
-import { SIEVE_SIZES, SPEC_LIMITS } from '@/lib/sieve-analysis';
+import { SIEVE_SIZES, SPEC_LIMITS_20MM } from '@/lib/sieve-analysis';
 import { ReportLayout } from './report-layout';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from './ui/input';
 import { generatePdf } from '@/lib/generate-pdf';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 export function SieveAnalysisCalculator() {
     const { toast } = useToast();
@@ -22,86 +23,128 @@ export function SieveAnalysisCalculator() {
     const [activeTab, setActiveTab] = React.useState('fine');
 
     const [fineResults, setFineResults] = React.useState<AnalysisResults | null>(null);
-    const [coarseResults, setCoarseResults] = React.useState<AnalysisResults | null>(null);
+    const [coarseGradedResults, setCoarseGradedResults] = React.useState<AnalysisResults | null>(null);
+    const [coarseSingle20mmResults, setCoarseSingle20mmResults] = React.useState<AnalysisResults | null>(null);
+    const [coarseSingle10mmResults, setCoarseSingle10mmResults] = React.useState<AnalysisResults | null>(null);
 
-    const [fineWeights, setFineWeights] = React.useState<(number | null)[]>(Array(SIEVE_SIZES.FINE.length + 1).fill(null));
-    const [coarseWeights, setCoarseWeights] = React.useState<(number | null)[]>(Array(SIEVE_SIZES.COARSE.length + 1).fill(null));
-    
-    const [isFineCalculating, setIsFineCalculating] = React.useState(false);
-    const [isCoarseCalculating, setIsCoarseCalculating] = React.useState(false);
+    const [fineWeights, setFineWeights] = React.useState<(number | null)[]>([]);
+    const [coarseGradedWeights, setCoarseGradedWeights] = React.useState<(number | null)[]>([]);
+    const [coarseSingle20mmWeights, setCoarseSingle20mmWeights] = React.useState<(number | null)[]>([]);
+    const [coarseSingle10mmWeights, setCoarseSingle10mmWeights] = React.useState<(number | null)[]>([]);
+
+    const [isCalculating, setIsCalculating] = React.useState(false);
     const [isDownloading, setIsDownloading] = React.useState(false);
     const [testName, setTestName] = React.useState('');
 
     const [fineAggregatePercentage, setFineAggregatePercentage] = React.useState(35);
     const coarseAggregatePercentage = 100 - fineAggregatePercentage;
     const reportRef = React.useRef<HTMLDivElement>(null);
+    
+    const [coarseAggType, setCoarseAggType] = React.useState<CoarseAggregateType>('Graded');
+    const [activeCoarseTab, setActiveCoarseTab] = React.useState<SingleSizeType | 'graded'>('graded');
 
     const handleCalculation = (
-        type: AggregateType, 
-        setter: React.Dispatch<React.SetStateAction<boolean>>, 
+        type: AggregateType | SingleSizeType, 
         resultsSetter: React.Dispatch<React.SetStateAction<AnalysisResults | null>>,
         weightsSetter: React.Dispatch<React.SetStateAction<(number | null)[]>>
-        ) => {
+    ) => {
         return (results: AnalysisResults, weights: number[]) => {
-            setter(true);
-            resultsSetter(null); 
+            setIsCalculating(true);
             resultsSetter(results);
             weightsSetter(weights.map(w => w === 0 ? null : w));
-            setter(false);
+            setIsCalculating(false);
         };
     };
 
     const handleDownloadPdf = async () => {
         const reportElement = reportRef.current;
         if (!reportElement || !isReportReady) {
-          toast({
-            variant: "destructive",
-            title: "Cannot generate PDF",
-            description: "Please calculate results for at least one aggregate type.",
-          });
-          return;
+            toast({
+                variant: "destructive",
+                title: "Cannot generate PDF",
+                description: "Please calculate results for at least one aggregate type.",
+            });
+            return;
         }
-    
+
         setIsDownloading(true);
         try {
-          await generatePdf(reportElement, testName);
+            await generatePdf({
+                testName,
+                fineResults,
+                coarseGradedResults,
+                coarseSingle10mmResults,
+                coarseSingle20mmResults,
+                fineWeights,
+                coarseGradedWeights,
+                coarseSingle10mmWeights,
+                coarseSingle20mmWeights,
+                combinedChartData,
+                fineAggregatePercentage,
+                coarseAggregatePercentage,
+                showCombined: isCombinedTabActive,
+            });
         } catch (error) {
-          console.error("PDF Generation Error:", error);
-          toast({
-            variant: "destructive",
-            title: "PDF Error",
-            description: "An unexpected error occurred while generating the PDF.",
-          });
+            console.error("PDF Generation Error:", error);
+            toast({
+                variant: "destructive",
+                title: "PDF Error",
+                description: "An unexpected error occurred while generating the PDF.",
+            });
         } finally {
-          setIsDownloading(false);
+            setIsDownloading(false);
         }
-      };
+    };
     
     const combinedChartData = React.useMemo(() => {
-        if (!fineResults || !coarseResults) return [];
-        const allSieves = [...new Set([...SIEVE_SIZES.FINE, ...SIEVE_SIZES.COARSE])].sort((a,b) => b-a);
+        if (!fineResults) return [];
+
+        let coarseResults: AnalysisResults | null = null;
+        let coarseSieves: number[] = [];
+
+        if (coarseAggType === 'Graded' && coarseGradedResults) {
+            coarseResults = coarseGradedResults;
+            coarseSieves = SIEVE_SIZES.COARSE_GRADED;
+        } else if (coarseAggType === 'Single Size' && coarseSingle10mmResults && coarseSingle20mmResults) {
+            // Logic to combine 10mm and 20mm single size aggregates if needed
+            // For now, let's assume we use a primary coarse result for blending
+            coarseResults = coarseSingle20mmResults; // Or some combination
+            coarseSieves = SIEVE_SIZES.COARSE_SINGLE_20MM;
+        }
+        
+        if (!coarseResults) return [];
+
+        const allSieves = [...new Set([...SIEVE_SIZES.FINE, ...coarseSieves])].sort((a,b) => b-a);
         
         const finePassingMap = new Map(SIEVE_SIZES.FINE.map((s, i) => [s, fineResults.percentPassing[i]]));
-        const coarsePassingMap = new Map(SIEVE_SIZES.COARSE.map((s, i) => [s, coarseResults.percentPassing[i]]));
+        const coarsePassingMap = new Map(coarseSieves.map((s, i) => [s, coarseResults!.percentPassing[i]]));
 
         return allSieves.map(sieve => {
-            const fineP = finePassingMap.get(sieve) ?? (sieve > 4.75 ? 100 : 0);
-            const coarseP = coarsePassingMap.get(sieve) ?? (sieve > 80 ? 100 : 0);
+            const fineP = finePassingMap.get(sieve) ?? (sieve > Math.max(...SIEVE_SIZES.FINE) ? 100 : 0);
+            const coarseP = coarsePassingMap.get(sieve) ?? (sieve > Math.max(...coarseSieves) ? 100 : 0);
             
             const combinedPassing = (fineP * (fineAggregatePercentage / 100)) + (coarseP * (coarseAggregatePercentage / 100));
 
             return {
                 sieveSize: sieve,
                 combinedPassing: combinedPassing,
-                upperLimit: SPEC_LIMITS[sieve]?.max ?? 100,
-                lowerLimit: SPEC_LIMITS[sieve]?.min ?? 0,
+                upperLimit: SPEC_LIMITS_20MM[sieve]?.max ?? 100,
+                lowerLimit: SPEC_LIMITS_20MM[sieve]?.min ?? 0,
                 recommendedPassing: null, 
             };
         }).sort((a,b) => a.sieveSize - b.sieveSize);
-    }, [fineResults, coarseResults, fineAggregatePercentage]);
+    }, [fineResults, coarseGradedResults, coarseSingle10mmResults, coarseSingle20mmResults, coarseAggType, fineAggregatePercentage]);
 
-    const isCombinedTabActive = fineResults !== null && coarseResults !== null;
-    const isReportReady = fineResults !== null || coarseResults !== null;
+    const isCombinedTabActive = fineResults !== null && (coarseGradedResults !== null || (coarseSingle10mmResults !== null && coarseSingle20mmResults !== null));
+    const isReportReady = fineResults !== null || coarseGradedResults !== null || coarseSingle10mmResults !== null || coarseSingle20mmResults !== null;
+
+    React.useEffect(() => {
+        if(coarseAggType === 'Graded') {
+            setActiveCoarseTab('graded');
+        } else if (activeCoarseTab === 'graded') {
+            setActiveCoarseTab('20mm');
+        }
+    }, [coarseAggType, activeCoarseTab]);
 
     return (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -145,19 +188,66 @@ export function SieveAnalysisCalculator() {
             <TabsContent value="fine">
                 <SieveAnalysisForm
                     aggregateType="Fine"
-                    onCalculate={handleCalculation("Fine", setIsFineCalculating, setFineResults, setFineWeights)}
-                    isLoading={isFineCalculating}
+                    onCalculate={handleCalculation("Fine", setFineResults, setFineWeights)}
+                    isLoading={isCalculating}
                     initialWeights={fineWeights}
                 />
             </TabsContent>
 
             <TabsContent value="coarse">
-                <SieveAnalysisForm
-                    aggregateType="Coarse"
-                    onCalculate={handleCalculation("Coarse", setIsCoarseCalculating, setCoarseResults, setCoarseWeights)}
-                    isLoading={isCoarseCalculating}
-                    initialWeights={coarseWeights}
-                />
+                 <div className='space-y-4'>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Coarse Aggregate Type</CardTitle>
+                            <CardDescription>Select the type of coarse aggregate to analyze.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Select value={coarseAggType} onValueChange={(val) => setCoarseAggType(val as CoarseAggregateType)}>
+                                <SelectTrigger className='max-w-sm'>
+                                    <SelectValue placeholder="Select coarse aggregate type..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Graded">Graded Aggregate</SelectItem>
+                                    <SelectItem value="Single Size">Single Size Aggregate</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </CardContent>
+                    </Card>
+
+                    {coarseAggType === 'Graded' && (
+                        <SieveAnalysisForm
+                            aggregateType="Coarse - Graded"
+                            onCalculate={handleCalculation('Coarse - Graded', setCoarseGradedResults, setCoarseGradedWeights)}
+                            isLoading={isCalculating}
+                            initialWeights={coarseGradedWeights}
+                        />
+                    )}
+
+                    {coarseAggType === 'Single Size' && (
+                         <Tabs value={activeCoarseTab} onValueChange={setActiveCoarseTab} className="w-full">
+                             <TabsList className='mb-4'>
+                                 <TabsTrigger value="20mm">20mm Single Size</TabsTrigger>
+                                 <TabsTrigger value="10mm">10mm Single Size</TabsTrigger>
+                             </TabsList>
+                             <TabsContent value="20mm">
+                                 <SieveAnalysisForm
+                                     aggregateType="Coarse - 20mm"
+                                     onCalculate={handleCalculation('Coarse - 20mm', setCoarseSingle20mmResults, setCoarseSingle20mmWeights)}
+                                     isLoading={isCalculating}
+                                     initialWeights={coarseSingle20mmWeights}
+                                 />
+                             </TabsContent>
+                             <TabsContent value="10mm">
+                                 <SieveAnalysisForm
+                                     aggregateType="Coarse - 10mm"
+                                     onCalculate={handleCalculation('Coarse - 10mm', setCoarseSingle10mmResults, setCoarseSingle10mmWeights)}
+                                     isLoading={isCalculating}
+                                     initialWeights={coarseSingle10mmWeights}
+                                 />
+                             </TabsContent>
+                         </Tabs>
+                    )}
+                </div>
             </TabsContent>
 
             <TabsContent value="combined">
@@ -197,9 +287,13 @@ export function SieveAnalysisCalculator() {
                         <ReportLayout 
                             testName={testName}
                             fineResults={fineResults}
-                            coarseResults={coarseResults}
+                            coarseGradedResults={coarseGradedResults}
+                            coarseSingle10mmResults={coarseSingle10mmResults}
+                            coarseSingle20mmResults={coarseSingle20mmResults}
                             fineWeights={fineWeights.map(w => w || 0)}
-                            coarseWeights={coarseWeights.map(w => w || 0)}
+                            coarseGradedWeights={coarseGradedWeights.map(w => w || 0)}
+                            coarseSingle10mmWeights={coarseSingle10mmWeights.map(w=>w||0)}
+                            coarseSingle20mmWeights={coarseSingle20mmWeights.map(w=>w||0)}
                             combinedChartData={combinedChartData}
                             fineAggregatePercentage={fineAggregatePercentage}
                             coarseAggregatePercentage={coarseAggregatePercentage}

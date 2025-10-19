@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,9 +11,13 @@ import { SieveInputsDisplay } from "./sieve-inputs-display";
 interface ReportLayoutProps {
   testName: string;
   fineResults: AnalysisResults | null;
-  coarseResults: AnalysisResults | null;
+  coarseGradedResults: AnalysisResults | null;
+  coarseSingle10mmResults: AnalysisResults | null;
+  coarseSingle20mmResults: AnalysisResults | null;
   fineWeights: number[];
-  coarseWeights: number[];
+  coarseGradedWeights: number[];
+  coarseSingle10mmWeights: number[];
+  coarseSingle20mmWeights: number[];
   combinedChartData: any[]; // Adjust type as needed
   fineAggregatePercentage: number;
   coarseAggregatePercentage: number;
@@ -22,9 +27,13 @@ interface ReportLayoutProps {
 export function ReportLayout({
   testName,
   fineResults,
-  coarseResults,
+  coarseGradedResults,
+  coarseSingle10mmResults,
+  coarseSingle20mmResults,
   fineWeights,
-  coarseWeights,
+  coarseGradedWeights,
+  coarseSingle10mmWeights,
+  coarseSingle20mmWeights,
   combinedChartData,
   fineAggregatePercentage,
   coarseAggregatePercentage,
@@ -52,20 +61,42 @@ export function ReportLayout({
           </div>
         )}
 
-        {coarseResults && (
+        {coarseGradedResults && (
           <>
             {fineResults && <hr />}
             <div className="page-break space-y-4">
-              <h2 className="mb-4 font-headline text-xl font-bold">Coarse Aggregate Results</h2>
-              <SieveInputsDisplay sieves={SIEVE_SIZES.COARSE} weights={coarseWeights} />
-              <SieveResultsDisplay sieves={SIEVE_SIZES.COARSE} type="Coarse" {...coarseResults} />
+              <h2 className="mb-4 font-headline text-xl font-bold">Coarse Aggregate (Graded) Results</h2>
+              <SieveInputsDisplay sieves={SIEVE_SIZES.COARSE_GRADED} weights={coarseGradedWeights} />
+              <SieveResultsDisplay sieves={SIEVE_SIZES.COARSE_GRADED} type="Coarse - Graded" {...coarseGradedResults} />
+            </div>
+          </>
+        )}
+        
+        {coarseSingle20mmResults && (
+          <>
+            {(fineResults || coarseGradedResults) && <hr />}
+            <div className="page-break space-y-4">
+              <h2 className="mb-4 font-headline text-xl font-bold">Coarse Aggregate (20mm Single Size) Results</h2>
+              <SieveInputsDisplay sieves={SIEVE_SIZES.COARSE_SINGLE_20MM} weights={coarseSingle20mmWeights} />
+              <SieveResultsDisplay sieves={SIEVE_SIZES.COARSE_SINGLE_20MM} type="Coarse - 20mm" {...coarseSingle20mmResults} />
+            </div>
+          </>
+        )}
+
+        {coarseSingle10mmResults && (
+          <>
+            {(fineResults || coarseGradedResults || coarseSingle20mmResults) && <hr />}
+            <div className="page-break space-y-4">
+              <h2 className="mb-4 font-headline text-xl font-bold">Coarse Aggregate (10mm Single Size) Results</h2>
+              <SieveInputsDisplay sieves={SIEVE_SIZES.COARSE_SINGLE_10MM} weights={coarseSingle10mmWeights} />
+              <SieveResultsDisplay sieves={SIEVE_SIZES.COARSE_SINGLE_10MM} type="Coarse - 10mm" {...coarseSingle10mmResults} />
             </div>
           </>
         )}
 
         {showCombined && (
           <>
-            {(fineResults || coarseResults) && <hr />}
+            {(fineResults || coarseGradedResults || coarseSingle10mmResults || coarseSingle20mmResults) && <hr />}
             <div id="grading-curve-card" className="page-break">
               <h2 className="mb-4 font-headline text-xl font-bold">Combined Gradation Results</h2>
               <Card>

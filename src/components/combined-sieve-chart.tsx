@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -5,9 +6,9 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   Area,
   ComposedChart,
+  DotProps,
 } from "recharts";
 import {
   ChartContainer,
@@ -37,13 +38,24 @@ const chartConfig = {
   },
   upperSpecLimit: {
     label: "Upper Limit",
-    color: "hsl(var(--destructive) / 0.5)",
+    color: "hsl(var(--muted-foreground) / 0.5)",
   },
   lowerSpecLimit: {
     label: "Lower Limit",
-    color: "hsl(var(--destructive) / 0.5)",
+    color: "hsl(var(--muted-foreground) / 0.5)",
   },
 };
+
+const CustomDot = (props: DotProps & { payload: any, lowerLimit: number, upperLimit: number }) => {
+    const { cx, cy, stroke, payload, value, lowerLimit, upperLimit } = props;
+
+    if (value > upperLimit || value < lowerLimit) {
+        return <circle cx={cx} cy={cy} r={5} strokeWidth={2} fill="hsl(var(--destructive))" stroke="hsl(var(--background))" />;
+    }
+
+    return <circle cx={cx} cy={cy} r={4} strokeWidth={2} fill="hsl(var(--primary))" stroke="hsl(var(--background))" />;
+};
+
 
 export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
   const sortedData = [...data].sort((a, b) => a.sieveSize - b.sieveSize);
@@ -70,9 +82,10 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
         >
             <XAxis
             dataKey="sieveSize"
-            type="category"
+            type="log"
             scale="log"
-            domain={["dataMin", "dataMax"]}
+            domain={['dataMin', 'dataMax']}
+            ticks={[0.15, 0.3, 0.6, 1.18, 2.36, 4.75, 10, 20, 40, 80].filter(s => sortedData.some(d=>d.sieveSize === s))}
             name="Sieve Size (mm)"
             tick={{ fontSize: 12 }}
             label={{ value: "Sieve Size (mm) - Log Scale", position: "insideBottom", dy: 15, fontSize: 12 }}
@@ -107,7 +120,7 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
             />}
             cursor={{ stroke: "hsl(var(--primary))", strokeWidth: 2, strokeDasharray: "3 3" }}
             />
-            <Legend content={<ChartLegendContent />} />
+            <ChartLegend content={<ChartLegendContent />} />
             
             <Area
                 type="monotone"
@@ -123,7 +136,7 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
                 key="line-upper"
                 dataKey="upperSpecLimit"
                 type="monotone"
-                stroke="hsl(var(--destructive) / 0.5)"
+                stroke="hsl(var(--muted-foreground) / 0.5)"
                 strokeDasharray="5 5"
                 dot={false}
                 strokeWidth={1.5}
@@ -134,7 +147,7 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
                 key="line-lower"
                 dataKey="lowerSpecLimit"
                 type="monotone"
-                stroke="hsl(var(--destructive) / 0.5)"
+                stroke="hsl(var(--muted-foreground) / 0.5)"
                 strokeDasharray="5 5"
                 dot={false}
                 strokeWidth={1.5}
@@ -143,23 +156,18 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
             />
 
             <Line
-            type="monotone"
-            dataKey="combinedPassing"
-            stroke="hsl(var(--primary))"
-            strokeWidth={2.5}
-            dot={{
-                r: 4,
-                fill: "hsl(var(--primary))",
-                stroke: "hsl(var(--background))",
-                strokeWidth: 2,
-            }}
-            activeDot={{
-                r: 6,
-                fill: "hsl(var(--primary))",
-                stroke: "hsl(var(--background))",
-                strokeWidth: 2,
-            }}
-            name="combinedPassing"
+                type="monotone"
+                dataKey="combinedPassing"
+                stroke="hsl(var(--primary))"
+                strokeWidth={2.5}
+                dot={(props) => <CustomDot {...props} lowerLimit={props.payload.lowerLimit} upperLimit={props.payload.upperLimit} />}
+                activeDot={{
+                    r: 6,
+                    fill: "hsl(var(--primary))",
+                    stroke: "hsl(var(--background))",
+                    strokeWidth: 2,
+                }}
+                name="combinedPassing"
             />
             {hasRecommended && (
             <Line

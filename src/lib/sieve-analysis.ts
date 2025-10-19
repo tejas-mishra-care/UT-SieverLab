@@ -1,19 +1,21 @@
 
-import type { AnalysisResults } from "./definitions";
+import type { ExtendedAggregateType, AnalysisResults } from "./definitions";
 
 // IS 383: 2016
 export const SIEVE_SIZES = {
   FINE: [4.75, 2.36, 1.18, 0.6, 0.3, 0.15], // in mm
-  COARSE: [80, 63, 40, 20, 10, 4.75], // in mm
+  COARSE_GRADED: [40, 20, 10, 4.75], // For 20mm Graded
+  COARSE_SINGLE_20MM: [20, 10, 4.75], // For 20mm Single Size
+  COARSE_SINGLE_10MM: [10, 4.75, 2.36], // For 10mm Single Size
 };
 
 export const STANDARD_SIEVES_FM = [4.75, 2.36, 1.18, 0.6, 0.3, 0.15];
 
 // Combined list of all unique sieve sizes, sorted.
-export const ALL_SIEVES = [...new Set([...SIEVE_SIZES.COARSE, ...SIEVE_SIZES.FINE])].sort((a, b) => a - b);
+export const ALL_SIEVES = [...new Set([...SIEVE_SIZES.COARSE_GRADED, ...SIEVE_SIZES.FINE])].sort((a, b) => a - b);
 
 // IS 383: 2016, Table 7 for 20mm nominal size graded aggregate
-export const SPEC_LIMITS: Record<number, { min: number; max: number }> = {
+export const SPEC_LIMITS_20MM: Record<number, { min: number; max: number }> = {
     80: { min: 100, max: 100 },
     63: { min: 100, max: 100 },
     40: { min: 95, max: 100 },
@@ -28,7 +30,7 @@ export const SPEC_LIMITS: Record<number, { min: number; max: number }> = {
 };
 
 // IS 383: 2016, Table 9: Grading Zones for Fine Aggregates
-const ZONING_LIMITS: Record<string, Record<number, { min: number; max: number }>> = {
+export const ZONING_LIMITS: Record<string, Record<number, { min: number; max: number }>> = {
   "Zone I": {
     4.75: { min: 90, max: 100 },
     2.36: { min: 60, max: 95 },
@@ -63,6 +65,21 @@ const ZONING_LIMITS: Record<string, Record<number, { min: number; max: number }>
   },
 };
 
+export function getSievesForType(type: ExtendedAggregateType): number[] {
+    switch (type) {
+        case 'Fine':
+            return SIEVE_SIZES.FINE;
+        case 'Coarse - Graded':
+            return SIEVE_SIZES.COARSE_GRADED;
+        case 'Coarse - 20mm':
+            return SIEVE_SIZES.COARSE_SINGLE_20MM;
+        case 'Coarse - 10mm':
+            return SIEVE_SIZES.COARSE_SINGLE_10MM;
+        default:
+            return [];
+    }
+}
+
 /**
  * Calculates sieve analysis results.
  * @param weights - Array of weights retained on each sieve.
@@ -75,26 +92,36 @@ export function calculateSieveAnalysis(
 
   if (totalWeight === 0) {
     const zeros = Array(weights.length).fill(0);
+    // For an empty calculation, percent passing should be 100 at the start, not 0.
+    const passing = Array(weights.length).fill(100);
     return {
       percentRetained: zeros,
       cumulativeRetained: zeros,
-      percentPassing: Array(weights.length).fill(100),
+      percentPassing: passing,
     };
   }
 
   const percentRetained = weights.map((w) => (w / totalWeight) * 100);
 
   const cumulativeRetained: number[] = [];
-  percentRetained.reduce((acc, val) => {
+  percentRetained.slice(0, -1).reduce((acc, val) => { // Exclude pan from cumulative calculation for FM
     const newTotal = acc + val;
     cumulativeRetained.push(newTotal);
     return newTotal;
   }, 0);
 
   const percentPassing = cumulativeRetained.map((cr) => 100 - cr);
+  
+  // The percent passing the last sieve is based on the pan weight
+  const panWeight = weights[weights.length-1] || 0;
+  const totalWithoutPan = totalWeight - panWeight;
+  if(totalWeight > 0) {
+      percentPassing[percentPassing.length-1] = 100 - cumulativeRetained[cumulativeRetained.length - 1];
+  }
+
 
   return {
-    percentRetained,
+    percentRetained: percentRetained.slice(0, -1),
     cumulativeRetained,
     percentPassing,
   };

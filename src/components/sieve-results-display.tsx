@@ -1,3 +1,4 @@
+
 "use client";
 
 import { SieveChart } from "@/components/sieve-chart";
@@ -16,11 +17,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { AggregateType, AnalysisResults } from "@/lib/definitions";
+import type { ExtendedAggregateType, AnalysisResults } from "@/lib/definitions";
+import { ZONING_LIMITS } from "@/lib/sieve-analysis";
 
 interface SieveResultsDisplayProps extends AnalysisResults {
   sieves: number[];
-  type: AggregateType;
+  type: ExtendedAggregateType;
 }
 
 export function SieveResultsDisplay({
@@ -37,7 +39,9 @@ export function SieveResultsDisplay({
     percentPassing: percentPassing[index],
   })).filter(d => d.percentPassing !== undefined); // Ensure no undefined values go to chart
 
-  const chartId = type === 'Fine' ? 'fine-aggregate-chart' : 'coarse-aggregate-chart';
+  const chartId = `${type.replace(/\s/g, '-')}-chart`;
+
+  const specLimits = type === 'Fine' ? ZONING_LIMITS : null;
 
   return (
     <div className="space-y-6">
@@ -91,7 +95,7 @@ export function SieveResultsDisplay({
             </CardDescription>
             </CardHeader>
             <CardContent>
-            <SieveChart data={chartData} />
+            <SieveChart data={chartData} specLimits={specLimits} />
             </CardContent>
         </Card>
 
