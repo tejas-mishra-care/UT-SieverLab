@@ -155,7 +155,7 @@ export async function generatePdf(data: PdfData) {
   }
 
   if(data.showCombined && data.combinedChartData.length > 0) {
-    if (yPos > 180) {
+    if (yPos > 120) { // check space for chart and table
         doc.addPage();
         yPos = 20;
     }
@@ -171,9 +171,36 @@ export async function generatePdf(data: PdfData) {
     
     const combinedChartImage = await getChartImage('combined-gradation-chart');
     if(combinedChartImage) {
-        doc.addImage(combinedChartImage, 'PNG', pageMargin, yPos, pageWidth, 100);
-        yPos += 110;
+        doc.addImage(combinedChartImage, 'PNG', pageMargin, yPos, pageWidth, 80);
+        yPos += 90;
     }
+    
+    const sortedData = [...data.combinedChartData].sort((a, b) => b.sieveSize - a.sieveSize);
+    autoTable(doc, {
+        head: [['Sieve (mm)', 'Lower Limit', 'Upper Limit', 'Combined', 'Status']],
+        body: sortedData.map(row => {
+            const isOutOfSpec = row.combinedPassing < row.lowerLimit || row.combinedPassing > row.upperLimit;
+            return [
+                row.sieveSize.toFixed(2),
+                row.lowerLimit.toFixed(2),
+                row.upperLimit.toFixed(2),
+                row.combinedPassing.toFixed(2),
+                isOutOfSpec ? 'Out of Spec' : 'In Spec'
+            ]
+        }),
+        startY: yPos,
+        theme: 'striped',
+        headStyles: { fillColor: [41, 128, 185], textColor: 'white' },
+        didParseCell: (hookData) => {
+            if (hookData.section === 'body' && hookData.column.index === 4) {
+                if (hookData.cell.raw === 'Out of Spec') {
+                    hookData.cell.styles.textColor = 'red';
+                    hookData.cell.styles.fontStyle = 'bold';
+                }
+            }
+        }
+    });
+
   }
 
 

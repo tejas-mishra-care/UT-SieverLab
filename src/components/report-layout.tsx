@@ -7,6 +7,7 @@ import { CombinedSieveChart } from "@/components/combined-sieve-chart";
 import type { AnalysisResults } from "@/lib/definitions";
 import { SIEVE_SIZES } from "@/lib/sieve-analysis";
 import { SieveInputsDisplay } from "./sieve-inputs-display";
+import { CombinedGradationTable } from "./combined-gradation-table";
 
 interface ReportLayoutProps {
   testName: string;
@@ -97,7 +98,7 @@ export function ReportLayout({
         {showCombined && (
           <>
             {(fineResults || coarseGradedResults || coarseSingle10mmResults || coarseSingle20mmResults) && <hr />}
-            <div id="grading-curve-card" className="page-break">
+            <div id="grading-curve-card" className="page-break space-y-6">
               <h2 className="mb-4 font-headline text-xl font-bold">Combined Gradation Results</h2>
               <Card>
                 <CardHeader>
@@ -110,6 +111,9 @@ export function ReportLayout({
                   <CombinedSieveChart data={combinedChartData} />
                 </CardContent>
               </Card>
+              <div id="combined-gradation-table">
+                <CombinedGradationTable data={combinedChartData} />
+              </div>
             </div>
           </>
         )}
