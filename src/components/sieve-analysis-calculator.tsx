@@ -6,11 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Download, Loader2 } from 'lucide-react';
 import { SieveAnalysisForm } from './sieve-analysis-form';
-import type { AggregateType, AnalysisResults, CoarseAggregateType, SingleSizeType, ExtendedAggregateType } from '@/lib/definitions';
+import type { AnalysisResults, CoarseAggregateType, SingleSizeType, ExtendedAggregateType } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Slider } from './ui/slider';
 import { CombinedSieveChart } from './combined-sieve-chart';
-import { SIEVE_SIZES, SPEC_LIMITS_20MM, getSievesForType } from '@/lib/sieve-analysis';
+import { SIEVE_SIZES, SPEC_LIMITS_20MM } from '@/lib/sieve-analysis';
 import { ReportLayout } from './report-layout';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from './ui/input';
@@ -27,10 +27,10 @@ export function SieveAnalysisCalculator() {
     const [coarseSingle20mmResults, setCoarseSingle20mmResults] = React.useState<AnalysisResults | null>(null);
     const [coarseSingle10mmResults, setCoarseSingle10mmResults] = React.useState<AnalysisResults | null>(null);
 
-    const [fineWeights, setFineWeights] = React.useState<(number)[]>([]);
-    const [coarseGradedWeights, setCoarseGradedWeights] = React.useState<(number)[]>([]);
-    const [coarseSingle20mmWeights, setCoarseSingle20mmWeights] = React.useState<(number)[]>([]);
-    const [coarseSingle10mmWeights, setCoarseSingle10mmWeights] = React.useState<(number)[]>([]);
+    const [fineWeights, setFineWeights] = React.useState<(number | null)[]>([]);
+    const [coarseGradedWeights, setCoarseGradedWeights] = React.useState<(number | null)[]>([]);
+    const [coarseSingle20mmWeights, setCoarseSingle20mmWeights] = React.useState<(number | null)[]>([]);
+    const [coarseSingle10mmWeights, setCoarseSingle10mmWeights] = React.useState<(number | null)[]>([]);
 
     const [isCalculating, setIsCalculating] = React.useState(false);
     const [isDownloading, setIsDownloading] = React.useState(false);
@@ -44,14 +44,15 @@ export function SieveAnalysisCalculator() {
     const [activeCoarseTab, setActiveCoarseTab] = React.useState<SingleSizeType | 'graded'>('graded');
 
     const handleCalculation = (
-        type: ExtendedAggregateType, 
+        _type: ExtendedAggregateType, 
         resultsSetter: React.Dispatch<React.SetStateAction<AnalysisResults | null>>,
-        weightsSetter: React.Dispatch<React.SetStateAction<(number)[]>>
+        weightsSetter: React.Dispatch<React.SetStateAction<(number | null)[]>>
     ) => {
         return (results: AnalysisResults, weights: number[]) => {
             setIsCalculating(true);
             resultsSetter(results);
             weightsSetter(weights);
+            toast({ title: "Calculation complete!" });
             setIsCalculating(false);
         };
     };
@@ -74,10 +75,10 @@ export function SieveAnalysisCalculator() {
                 coarseGradedResults,
                 coarseSingle10mmResults,
                 coarseSingle20mmResults,
-                fineWeights,
-                coarseGradedWeights,
-                coarseSingle10mmWeights,
-                coarseSingle20mmWeights,
+                fineWeights: fineWeights.map(w => w || 0),
+                coarseGradedWeights: coarseGradedWeights.map(w => w || 0),
+                coarseSingle10mmWeights: coarseSingle10mmWeights.map(w => w || 0),
+                coarseSingle20mmWeights: coarseSingle20mmWeights.map(w => w || 0),
                 combinedChartData,
                 fineAggregatePercentage,
                 coarseAggregatePercentage,
@@ -95,8 +96,19 @@ export function SieveAnalysisCalculator() {
         }
     };
     
+    const isCombinedTabActive = React.useMemo(() => {
+        if (!fineResults) return false;
+        if (coarseAggType === 'Graded') {
+            return coarseGradedResults !== null;
+        }
+        if (coarseAggType === 'Single Size') {
+            return coarseSingle10mmResults !== null && coarseSingle20mmResults !== null;
+        }
+        return false;
+    }, [fineResults, coarseGradedResults, coarseSingle10mmResults, coarseSingle20mmResults, coarseAggType]);
+
     const combinedChartData = React.useMemo(() => {
-        if (!fineResults) return [];
+        if (!isCombinedTabActive || !fineResults) return [];
 
         let coarseResults: AnalysisResults | null = null;
         let coarseSieves: number[] = [];
@@ -115,7 +127,11 @@ export function SieveAnalysisCalculator() {
                  // Assuming 50/50 blend of 10mm and 20mm for simplicity. This can be made adjustable.
                  return (passing10 * 0.5) + (passing20 * 0.5);
              });
-             coarseResults = { ...coarseSingle20mmResults, percentPassing: combinedCoarsePassing}; // use 20mm as base, overwrite passing
+
+             coarseResults = { 
+                ...coarseSingle20mmResults, // use 20mm as base, overwrite passing
+                percentPassing: combinedCoarsePassing,
+             }; 
              coarseSieves = allCoarseSieves;
         }
         
@@ -140,9 +156,8 @@ export function SieveAnalysisCalculator() {
                 recommendedPassing: null, 
             };
         }).sort((a,b) => a.sieveSize - b.sieveSize);
-    }, [fineResults, coarseGradedResults, coarseSingle10mmResults, coarseSingle20mmResults, coarseAggType, fineAggregatePercentage]);
+    }, [fineResults, coarseGradedResults, coarseSingle10mmResults, coarseSingle20mmResults, coarseAggType, fineAggregatePercentage, isCombinedTabActive]);
 
-    const isCombinedTabActive = fineResults !== null && (coarseGradedResults !== null || (coarseSingle10mmResults !== null && coarseSingle20mmResults !== null));
     const isReportReady = fineResults !== null || coarseGradedResults !== null || coarseSingle10mmResults !== null || coarseSingle20mmResults !== null;
 
     React.useEffect(() => {
@@ -283,7 +298,7 @@ export function SieveAnalysisCalculator() {
                     </Card>
                 ) : (
                     <Card className="flex items-center justify-center h-64">
-                        <p className="text-muted-foreground">Calculate both fine and coarse aggregates to enable this view.</p>
+                        <p className="text-muted-foreground">Calculate fine and relevant coarse aggregates to enable this view.</p>
                     </Card>
                 )}
             </TabsContent>
@@ -316,3 +331,5 @@ export function SieveAnalysisCalculator() {
         </Tabs>
     );
 }
+
+    
