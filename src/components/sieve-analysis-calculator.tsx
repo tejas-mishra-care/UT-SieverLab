@@ -27,10 +27,10 @@ export function SieveAnalysisCalculator() {
     const [coarseSingle20mmResults, setCoarseSingle20mmResults] = React.useState<AnalysisResults | null>(null);
     const [coarseSingle10mmResults, setCoarseSingle10mmResults] = React.useState<AnalysisResults | null>(null);
 
-    const [fineWeights, setFineWeights] = React.useState<(number | null)[]>([]);
-    const [coarseGradedWeights, setCoarseGradedWeights] = React.useState<(number | null)[]>([]);
-    const [coarseSingle20mmWeights, setCoarseSingle20mmWeights] = React.useState<(number | null)[]>([]);
-    const [coarseSingle10mmWeights, setCoarseSingle10mmWeights] = React.useState<(number | null)[]>([]);
+    const [fineWeights, setFineWeights] = React.useState<(number)[]>([]);
+    const [coarseGradedWeights, setCoarseGradedWeights] = React.useState<(number)[]>([]);
+    const [coarseSingle20mmWeights, setCoarseSingle20mmWeights] = React.useState<(number)[]>([]);
+    const [coarseSingle10mmWeights, setCoarseSingle10mmWeights] = React.useState<(number)[]>([]);
 
     const [isCalculating, setIsCalculating] = React.useState(false);
     const [isDownloading, setIsDownloading] = React.useState(false);
@@ -46,7 +46,7 @@ export function SieveAnalysisCalculator() {
     const handleCalculation = (
         _type: ExtendedAggregateType, 
         resultsSetter: React.Dispatch<React.SetStateAction<AnalysisResults | null>>,
-        weightsSetter: React.Dispatch<React.SetStateAction<(number | null)[]>>
+        weightsSetter: React.Dispatch<React.SetStateAction<(number)[]>>
     ) => {
         return (results: AnalysisResults, weights: number[]) => {
             setIsCalculating(true);
@@ -331,5 +331,7 @@ export function SieveAnalysisCalculator() {
         </Tabs>
     );
 }
+
+    
 
     
