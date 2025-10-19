@@ -7,7 +7,6 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   Area,
 } from "recharts";
 import {
@@ -30,10 +29,10 @@ const chartConfig = {
     label: "% Passing",
     color: "hsl(var(--primary))",
   },
-  zone1: { label: 'Zone I Limits', color: 'hsl(var(--muted-foreground) / 0.5)'},
-  zone2: { label: 'Zone II Limits', color: 'hsl(var(--muted-foreground) / 0.5)'},
-  zone3: { label: 'Zone III Limits', color: 'hsl(var(--muted-foreground) / 0.5)'},
-  zone4: { label: 'Zone IV Limits', color: 'hsl(var(--muted-foreground) / 0.5)'},
+  zone1: { label: 'Zone I Limits', color: 'hsl(var(--chart-2))'},
+  zone2: { label: 'Zone II Limits', color: 'hsl(var(--chart-3))'},
+  zone3: { label: 'Zone III Limits', color: 'hsl(var(--chart-4))'},
+  zone4: { label: 'Zone IV Limits', color: 'hsl(var(--chart-5))'},
 };
 
 
@@ -45,8 +44,9 @@ export function SieveChart({ data, specLimits }: SieveChartProps) {
     chartDataWithLimits = sortedData.map(d => {
         const limits: any = {};
         for(const zone in specLimits) {
+            const zoneKey = zone.replace('Zone ', '');
             if(specLimits[zone][d.sieveSize]) {
-                limits[`zone${zone.replace('Zone ', '')}`] = [specLimits[zone][d.sieveSize].min, specLimits[zone][d.sieveSize].max];
+                limits[`zone${zoneKey}`] = [specLimits[zone][d.sieveSize].min, specLimits[zone][d.sieveSize].max];
             }
         }
         return {
@@ -88,27 +88,33 @@ export function SieveChart({ data, specLimits }: SieveChartProps) {
           content={<ChartTooltipContent
             formatter={(value, name, props) => {
                 if (name.startsWith('zone')) {
-                    const [min, max] = value as number[];
-                    const zoneKey = name.replace('zone', 'Zone ');
-                    return [`${min}-${max}%`, `Zone ${props.dataKey.toString().replace('zone', '')} Limits`];
+                    if (Array.isArray(value) && typeof value[0] === 'number' && typeof value[1] === 'number') {
+                        const [min, max] = value;
+                        return [`${min}-${max}%`, `Zone ${props.dataKey.toString().replace('zone', '')} Limits`];
+                    }
+                    return null;
                 }
-                return [`${(value as number).toFixed(2)}%`, chartConfig.percentPassing.label]
+                if (typeof value === 'number') {
+                    return [`${value.toFixed(2)}%`, chartConfig.percentPassing.label]
+                }
+                return null;
             }}
             labelFormatter={(label, payload) => `Sieve: ${payload?.[0]?.payload.sieveSize}mm`}
           />}
           cursor={{ stroke: "hsl(var(--primary))", strokeWidth: 2, strokeDasharray: "3 3" }}
         />
-        <Legend content={<ChartLegendContent />} />
+        <ChartLegend content={<ChartLegendContent />} />
 
         {specLimits && Object.keys(specLimits).map((zone, index) => (
             <Area 
                 key={`zone-area-${index}`}
                 dataKey={`zone${zone.replace('Zone ', '')}`}
                 type="monotone"
-                fill={`hsl(var(--chart-${index+2}), 0.1)`}
-                stroke={`hsl(var(--chart-${index+2}), 0.4)`}
-                stackId="a"
-                name={`Zone ${zone.replace('Zone ', '')} Limits`}
+                fill={`hsla(var(--chart-${index+2}), 0.1)`}
+                stroke={`hsla(var(--chart-${index+2}), 0.4)`}
+                strokeWidth={1.5}
+                strokeDasharray="5 5"
+                name={`Zone ${zone.replace('Zone ', '')}`}
                 tooltipType="none"
             />
         ))}
