@@ -38,7 +38,9 @@ const chartConfig = {
 
 const CustomDot = (props: DotProps & { payload: any, specLimits: Record<number, { min: number, max: number }> | null }) => {
     const { cx, cy, payload, value, specLimits } = props;
-    const limits = specLimits ? specLimits[payload.sieveSize] : null;
+    if (!specLimits || typeof value !== 'number') return <circle cx={cx} cy={cy} r={4} strokeWidth={2} fill="hsl(var(--primary))" stroke="hsl(var(--background))" />;
+    
+    const limits = specLimits[payload.sieveSize];
 
     if (limits && (value > limits.max || value < limits.min)) {
         return <circle cx={cx} cy={cy} r={5} strokeWidth={2} fill="hsl(var(--destructive))" stroke="hsl(var(--background))" />;
