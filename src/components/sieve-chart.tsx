@@ -22,6 +22,7 @@ interface SieveChartProps {
     percentPassing: number;
   }[];
   specLimits: Record<string, Record<number, { min: number; max: number }>> | null;
+  classification: string | null;
 }
 
 const chartConfig = {
@@ -36,7 +37,7 @@ const chartConfig = {
 };
 
 
-export function SieveChart({ data, specLimits }: SieveChartProps) {
+export function SieveChart({ data, specLimits, classification }: SieveChartProps) {
   const sortedData = [...data].sort((a, b) => a.sieveSize - b.sieveSize);
 
   let chartDataWithLimits = sortedData;
@@ -105,19 +106,23 @@ export function SieveChart({ data, specLimits }: SieveChartProps) {
         />
         <ChartLegend content={<ChartLegendContent />} />
 
-        {specLimits && Object.keys(specLimits).map((zone, index) => (
+        {specLimits && Object.keys(specLimits).map((zone, index) => {
+          const zoneKey = zone.replace('Zone ', '');
+          const isClassifiedZone = classification === zone;
+          return (
             <Area 
                 key={`zone-area-${index}`}
-                dataKey={`zone${zone.replace('Zone ', '')}`}
+                dataKey={`zone${zoneKey}`}
                 type="monotone"
-                fill={`hsla(var(--chart-${index+2}), 0.1)`}
-                stroke={`hsla(var(--chart-${index+2}), 0.4)`}
-                strokeWidth={1.5}
+                fill={isClassifiedZone ? `hsl(var(--chart-${index + 2}) / 0.2)` : `hsl(var(--muted-foreground) / 0.05)`}
+                stroke={isClassifiedZone ? `hsl(var(--chart-${index + 2}))` : `hsl(var(--muted-foreground) / 0.2)`}
+                strokeWidth={isClassifiedZone ? 1.5 : 1}
                 strokeDasharray="5 5"
-                name={`Zone ${zone.replace('Zone ', '')}`}
+                name={chartConfig[`zone${zoneKey}` as keyof typeof chartConfig]?.label || zone}
                 tooltipType="none"
             />
-        ))}
+          )
+        })}
 
         <Line
           type="monotone"

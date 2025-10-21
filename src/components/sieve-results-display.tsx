@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import type { ExtendedAggregateType, AnalysisResults } from "@/lib/definitions";
 import { ZONING_LIMITS } from "@/lib/sieve-analysis";
+import { AnalysisDetailsTable } from "./analysis-details-table";
 
 interface SieveResultsDisplayProps extends AnalysisResults {
   sieves: number[];
@@ -37,7 +38,7 @@ export function SieveResultsDisplay({
   const chartData = sieves.map((sieve, index) => ({
     sieveSize: sieve,
     percentPassing: percentPassing[index],
-  })).filter(d => d.percentPassing !== undefined); // Ensure no undefined values go to chart
+  })).filter(d => d.percentPassing !== undefined);
 
   const chartId = `${type.replace(/\s/g, '-')}-chart`;
 
@@ -95,7 +96,7 @@ export function SieveResultsDisplay({
             </CardDescription>
             </CardHeader>
             <CardContent>
-            <SieveChart data={chartData} specLimits={specLimits} />
+            <SieveChart data={chartData} specLimits={specLimits} classification={classification} />
             </CardContent>
         </Card>
 
@@ -137,6 +138,15 @@ export function SieveResultsDisplay({
             </div>
             </CardContent>
         </Card>
+
+        {type === 'Fine' && classification && specLimits && (
+            <AnalysisDetailsTable 
+                data={chartData}
+                specLimits={specLimits[classification] || null}
+                title="Fine Aggregate Specification Details"
+                description={`Comparison against ${classification} limits.`}
+            />
+        )}
         </div>
     </div>
   );
