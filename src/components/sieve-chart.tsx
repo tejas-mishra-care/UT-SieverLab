@@ -8,6 +8,7 @@ import {
   YAxis,
   Tooltip,
   Area,
+  DotProps,
 } from "recharts";
 import {
   ChartContainer,
@@ -21,8 +22,7 @@ interface SieveChartProps {
     sieveSize: number;
     percentPassing: number;
   }[];
-  specLimits: Record<string, Record<number, { min: number; max: number }>> | null;
-  classification: string | null;
+  specLimits: Record<number, { min: number; max: number }> | null;
 }
 
 const chartConfig = {
@@ -30,29 +30,34 @@ const chartConfig = {
     label: "% Passing",
     color: "hsl(var(--primary))",
   },
-  zone1: { label: 'Zone I Limits', color: 'hsl(var(--chart-2))'},
-  zone2: { label: 'Zone II Limits', color: 'hsl(var(--chart-3))'},
-  zone3: { label: 'Zone III Limits', color: 'hsl(var(--chart-4))'},
-  zone4: { label: 'Zone IV Limits', color: 'hsl(var(--chart-5))'},
+  specLimits: { 
+    label: 'Specification Limits', 
+    color: 'hsl(var(--muted-foreground) / 0.5)'
+  },
+};
+
+const CustomDot = (props: DotProps & { payload: any, specLimits: Record<number, { min: number, max: number }> | null }) => {
+    const { cx, cy, payload, value, specLimits } = props;
+    const limits = specLimits ? specLimits[payload.sieveSize] : null;
+
+    if (limits && (value > limits.max || value < limits.min)) {
+        return <circle cx={cx} cy={cy} r={5} strokeWidth={2} fill="hsl(var(--destructive))" stroke="hsl(var(--background))" />;
+    }
+
+    return <circle cx={cx} cy={cy} r={4} strokeWidth={2} fill="hsl(var(--primary))" stroke="hsl(var(--background))" />;
 };
 
 
-export function SieveChart({ data, specLimits, classification }: SieveChartProps) {
+export function SieveChart({ data, specLimits }: SieveChartProps) {
   const sortedData = [...data].sort((a, b) => a.sieveSize - b.sieveSize);
 
   let chartDataWithLimits = sortedData;
   if (specLimits) {
     chartDataWithLimits = sortedData.map(d => {
-        const limits: any = {};
-        for(const zone in specLimits) {
-            const zoneKey = zone.replace('Zone ', '');
-            if(specLimits[zone][d.sieveSize]) {
-                limits[`zone${zoneKey}`] = [specLimits[zone][d.sieveSize].min, specLimits[zone][d.sieveSize].max];
-            }
-        }
+        const limits = specLimits[d.sieveSize];
         return {
             ...d,
-            ...limits
+            specLimitRange: limits ? [limits.min, limits.max] : undefined
         }
     })
   }
@@ -88,10 +93,10 @@ export function SieveChart({ data, specLimits, classification }: SieveChartProps
         <Tooltip
           content={<ChartTooltipContent
             formatter={(value, name, props) => {
-                if (name.startsWith('zone')) {
+                if (name === 'specLimitRange') {
                     if (Array.isArray(value) && typeof value[0] === 'number' && typeof value[1] === 'number') {
                         const [min, max] = value;
-                        return [`${min}-${max}%`, `Zone ${props.dataKey.toString().replace('zone', '')} Limits`];
+                        return [`${min}-${max}%`, 'Spec Limits'];
                     }
                     return null;
                 }
@@ -106,34 +111,28 @@ export function SieveChart({ data, specLimits, classification }: SieveChartProps
         />
         <ChartLegend content={<ChartLegendContent />} />
 
-        {specLimits && Object.keys(specLimits).map((zone, index) => {
-          const zoneKey = zone.replace('Zone ', '');
-          const isClassifiedZone = classification === zone;
-          return (
+        {specLimits && (
             <Area 
-                key={`zone-area-${index}`}
-                dataKey={`zone${zoneKey}`}
+                key={`spec-limit-area`}
+                dataKey={`specLimitRange`}
                 type="monotone"
-                fill={isClassifiedZone ? `hsl(var(--chart-${index + 2}) / 0.2)` : `hsl(var(--muted-foreground) / 0.05)`}
-                stroke={isClassifiedZone ? `hsl(var(--chart-${index + 2}))` : `hsl(var(--muted-foreground) / 0.2)`}
-                strokeWidth={isClassifiedZone ? 1.5 : 1}
+                fill={`hsl(var(--muted-foreground) / 0.1)`}
+                stroke={`hsl(var(--muted-foreground) / 0.3)`}
+                strokeWidth={1.5}
                 strokeDasharray="5 5"
-                name={chartConfig[`zone${zoneKey}` as keyof typeof chartConfig]?.label || zone}
+                name={chartConfig.specLimits.label}
                 tooltipType="none"
             />
-          )
-        })}
+        )}
 
         <Line
           type="monotone"
           dataKey="percentPassing"
           stroke="hsl(var(--primary))"
           strokeWidth={2}
-          dot={{
-            r: 4,
-            fill: "hsl(var(--primary))",
-            stroke: "hsl(var(--background))",
-            strokeWidth: 2,
+          dot={(dotProps) => {
+            const { key, ...rest } = dotProps;
+            return <CustomDot key={key} {...rest} specLimits={specLimits} />;
           }}
           activeDot={{
             r: 6,

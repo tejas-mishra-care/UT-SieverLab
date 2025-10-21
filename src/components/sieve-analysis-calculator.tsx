@@ -10,7 +10,7 @@ import type { AnalysisResults, CoarseAggregateType, SingleSizeType, ExtendedAggr
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Slider } from './ui/slider';
 import { CombinedSieveChart } from './combined-sieve-chart';
-import { SIEVE_SIZES, SPEC_LIMITS_20MM } from '@/lib/sieve-analysis';
+import { SIEVE_SIZES, SPEC_LIMITS_COARSE_GRADED_20MM, getSievesForType, getSpecLimitsForType } from '@/lib/sieve-analysis';
 import { ReportLayout } from './report-layout';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from './ui/input';
@@ -131,37 +131,39 @@ export function SieveAnalysisCalculator() {
 
         if (coarseForCombination === 'Graded' && coarseGradedResults) {
             coarseResults = coarseGradedResults;
-            coarseSieves = SIEVE_SIZES.COARSE_GRADED;
+            coarseSieves = getSievesForType('Coarse - Graded');
         } else if (coarseForCombination === 'Coarse - 20mm' && coarseSingle20mmResults) {
             coarseResults = coarseSingle20mmResults;
-            coarseSieves = SIEVE_SIZES.COARSE_SINGLE_20MM;
+            coarseSieves = getSievesForType('Coarse - 20mm');
         } else if (coarseForCombination === 'Coarse - 10mm' && coarseSingle10mmResults) {
             coarseResults = coarseSingle10mmResults;
-            coarseSieves = SIEVE_SIZES.COARSE_SINGLE_10MM;
+            coarseSieves = getSievesForType('Coarse - 10mm');
         }
         
         if (!coarseResults) return [];
 
-        const allSieves = [...new Set([...SIEVE_SIZES.FINE, ...coarseSieves])].sort((a,b) => b-a);
+        const fineSieves = getSievesForType('Fine');
+        const allSieves = [...new Set([...fineSieves, ...coarseSieves])].sort((a,b) => b-a);
         
-        const finePassingMap = new Map(SIEVE_SIZES.FINE.map((s, i) => [s, fineResults.percentPassing[i]]));
+        const finePassingMap = new Map(fineSieves.map((s, i) => [s, fineResults.percentPassing[i]]));
         const coarsePassingMap = new Map(coarseSieves.map((s, i) => [s, coarseResults!.percentPassing[i]]));
 
         return allSieves.map(sieve => {
-            const fineP = finePassingMap.get(sieve) ?? (sieve > Math.max(...SIEVE_SIZES.FINE) ? 100 : 0);
+            const fineP = finePassingMap.get(sieve) ?? (sieve > Math.max(...fineSieves) ? 100 : 0);
             const coarseP = coarsePassingMap.get(sieve) ?? (sieve > Math.max(...coarseSieves) ? 100 : 0);
             
             const combinedPassing = (fineP * (fineAggregatePercentage / 100)) + (coarseP * (coarseAggregatePercentage / 100));
-
+            const specLimits = getSpecLimitsForType('Coarse - Graded');
+            
             return {
                 sieveSize: sieve,
                 combinedPassing: combinedPassing,
-                upperLimit: SPEC_LIMITS_20MM[sieve]?.max ?? 100,
-                lowerLimit: SPEC_LIMITS_20MM[sieve]?.min ?? 0,
+                upperLimit: specLimits?.[sieve]?.max ?? 100,
+                lowerLimit: specLimits?.[sieve]?.min ?? 0,
                 recommendedPassing: null, 
             };
         }).sort((a,b) => a.sieveSize - b.sieveSize);
-    }, [fineResults, coarseGradedResults, coarseSingle10mmResults, coarseSingle20mmResults, coarseForCombination, fineAggregatePercentage, isCombinedTabActive]);
+    }, [fineResults, coarseGradedResults, coarseSingle10mmResults, coarseSingle20mmResults, coarseForCombination, fineAggregatePercentage, coarseAggregatePercentage, isCombinedTabActive]);
 
 
     const isReportReady = fineResults !== null || coarseGradedResults !== null || coarseSingle10mmResults !== null || coarseSingle20mmResults !== null;
@@ -356,5 +358,3 @@ export function SieveAnalysisCalculator() {
         </Tabs>
     );
 }
-
-    

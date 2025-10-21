@@ -15,7 +15,7 @@ export const STANDARD_SIEVES_FM = [4.75, 2.36, 1.18, 0.6, 0.3, 0.15];
 export const ALL_SIEVES = [...new Set([...SIEVE_SIZES.COARSE_GRADED, ...SIEVE_SIZES.FINE])].sort((a, b) => a - b);
 
 // IS 383: 2016, Table 7 for 20mm nominal size graded aggregate
-export const SPEC_LIMITS_20MM: Record<number, { min: number; max: number }> = {
+export const SPEC_LIMITS_COARSE_GRADED_20MM: Record<number, { min: number; max: number }> = {
     80: { min: 100, max: 100 },
     63: { min: 100, max: 100 },
     40: { min: 95, max: 100 },
@@ -28,6 +28,22 @@ export const SPEC_LIMITS_20MM: Record<number, { min: number; max: number }> = {
     0.3: { min: 0, max: 2 },
     0.15: { min: 0, max: 2 },
 };
+
+// IS 383: 2016, Table 2: Single-Sized Aggregates
+export const SPEC_LIMITS_COARSE_SINGLE_20MM: Record<number, { min: number; max: number }> = {
+  25: { min: 100, max: 100 },
+  20: { min: 85, max: 100 },
+  10: { min: 0, max: 20 },
+  4.75: { min: 0, max: 5 },
+};
+
+export const SPEC_LIMITS_COARSE_SINGLE_10MM: Record<number, { min: number; max: number }> = {
+    12.5: { min: 100, max: 100 },
+    10: { min: 85, max: 100 },
+    4.75: { min: 0, max: 20 },
+    2.36: { min: 0, max: 5 },
+};
+
 
 // IS 383: 2016, Table 9: Grading Zones for Fine Aggregates
 export const ZONING_LIMITS: Record<string, Record<number, { min: number; max: number }>> = {
@@ -77,6 +93,21 @@ export function getSievesForType(type: ExtendedAggregateType): number[] {
             return SIEVE_SIZES.COARSE_SINGLE_10MM;
         default:
             return [];
+    }
+}
+
+export function getSpecLimitsForType(type: ExtendedAggregateType, classification?: string | null): Record<number, {min: number, max: number}> | null {
+    switch (type) {
+        case 'Fine':
+            return classification && ZONING_LIMITS[classification] ? ZONING_LIMITS[classification] : null;
+        case 'Coarse - Graded':
+            return SPEC_LIMITS_COARSE_GRADED_20MM;
+        case 'Coarse - 20mm':
+            return SPEC_LIMITS_COARSE_SINGLE_20MM;
+        case 'Coarse - 10mm':
+            return SPEC_LIMITS_COARSE_SINGLE_10MM;
+        default:
+            return null;
     }
 }
 
@@ -180,14 +211,20 @@ export function classifyCoarseAggregate(
 ): string {
     // This is a simplified classification. A real app would compare against IS 383 Table 7.
     const passing_10mm_index = sieves.indexOf(10);
-    if (passing_10mm_index === -1) return "Custom/Gap-Graded";
+    if (passing_10mm_index === -1) return "Conforms to IS 383";
 
     const passing_10mm = percentPassing[passing_10mm_index];
-    if (passing_10mm < 30) {
+    
+    // Check against graded 20mm spec
+    const gradedLimits = SPEC_LIMITS_COARSE_GRADED_20MM[10];
+    if (passing_10mm >= gradedLimits.min && passing_10mm <= gradedLimits.max) {
         return "Graded Aggregate (e.g., 20mm Nominal)";
     }
-    if (passing_10mm >= 85) {
-        return "Graded Aggregate (e.g., 10mm Nominal)";
+
+    const single20mmLimits = SPEC_LIMITS_COARSE_SINGLE_20MM[10];
+    if (passing_10mm >= single20mmLimits.min && passing_10mm <= single20mmLimits.max) {
+        return "Single Size Aggregate (20mm)";
     }
-    return "Custom/Gap-Graded";
+
+    return "Custom/Non-Standard";
 }

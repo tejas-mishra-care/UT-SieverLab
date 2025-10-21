@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ExtendedAggregateType, AnalysisResults } from "@/lib/definitions";
-import { ZONING_LIMITS } from "@/lib/sieve-analysis";
+import { getSpecLimitsForType } from "@/lib/sieve-analysis";
 import { AnalysisDetailsTable } from "./analysis-details-table";
 
 interface SieveResultsDisplayProps extends AnalysisResults {
@@ -42,7 +42,7 @@ export function SieveResultsDisplay({
 
   const chartId = `${type.replace(/\s/g, '-')}-chart`;
 
-  const specLimits = type === 'Fine' ? ZONING_LIMITS : null;
+  const specLimits = getSpecLimitsForType(type, classification);
 
   return (
     <div className="space-y-6">
@@ -92,17 +92,17 @@ export function SieveResultsDisplay({
             <CardHeader>
             <CardTitle>Grading Curve</CardTitle>
             <CardDescription>
-                Percentage of material passing through each sieve.
+                Percentage of material passing through each sieve, compared against IS 383 specification limits.
             </CardDescription>
             </CardHeader>
             <CardContent>
-            <SieveChart data={chartData} specLimits={specLimits} classification={classification} />
+            <SieveChart data={chartData} specLimits={specLimits} />
             </CardContent>
         </Card>
 
         <Card>
             <CardHeader>
-            <CardTitle>Analysis Results</CardTitle>
+            <CardTitle>Tabulated Results</CardTitle>
             <CardDescription>
                 Detailed calculated results from the sieve analysis.
             </CardDescription>
@@ -139,12 +139,12 @@ export function SieveResultsDisplay({
             </CardContent>
         </Card>
 
-        {type === 'Fine' && classification && specLimits && (
+        {specLimits && (
             <AnalysisDetailsTable 
                 data={chartData}
-                specLimits={specLimits[classification] || null}
-                title="Fine Aggregate Specification Details"
-                description={`Comparison against ${classification} limits.`}
+                specLimits={specLimits}
+                title="Specification Compliance Details"
+                description={`Comparison against IS 383 limits for ${classification ? classification : type}.`}
             />
         )}
         </div>
