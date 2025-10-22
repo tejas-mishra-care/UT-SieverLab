@@ -40,13 +40,19 @@ async function getChartImage(chartId: string): Promise<string | null> {
       return null;
   }
   
-  // Ensure lines have a stroke
-  svgEl.querySelectorAll('path.recharts-curve').forEach((path) => {
-    if (!path.getAttribute('stroke') || path.getAttribute('stroke') === 'none') {
-        path.setAttribute('stroke', 'black'); // a default color
-    }
-    if (!path.getAttribute('stroke-width')) {
-        path.setAttribute('stroke-width', '1');
+  // Ensure lines have a stroke. This is critical for PDF rendering.
+  // The styles are sometimes lost when serializing, so we force them here.
+  svgEl.querySelectorAll('path').forEach((path) => {
+    // Check if it's a line from the chart (recharts-curve or recharts-area-path)
+    if (path.classList.contains('recharts-curve') || path.classList.contains('recharts-area-path')) {
+      const originalStroke = path.getAttribute('stroke');
+      // If stroke is none, transparent, or not set, it won't render. Give it a default.
+      if (!originalStroke || originalStroke === 'none' || originalStroke === 'transparent') {
+        path.setAttribute('stroke', 'hsl(var(--foreground))'); // A sensible default
+      }
+      if (!path.getAttribute('stroke-width')) {
+        path.setAttribute('stroke-width', '1.5');
+      }
     }
   });
 
