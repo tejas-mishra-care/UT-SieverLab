@@ -3,7 +3,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import type { AnalysisResults, ExtendedAggregateType } from "./definitions";
-import { SIEVE_SIZES } from "./sieve-analysis";
+import { getSievesForType, getSpecLimitsForType, SIEVE_SIZES } from "./sieve-analysis";
 
 type CoarseForCombination = 'Graded' | 'Coarse - 20mm' | 'Coarse - 10mm';
 
@@ -25,7 +25,6 @@ interface PdfData {
 }
 
 async function getChartImage(chartId: string): Promise<string | null> {
-  // Temporarily make the element visible if it's hidden for rendering
   const reportTab = document.getElementById('pdf-content');
   if (!reportTab) return null;
   
@@ -40,6 +39,17 @@ async function getChartImage(chartId: string): Promise<string | null> {
       console.error(`SVG element not found within chart ID '${chartId}'.`);
       return null;
   }
+  
+  // Ensure lines have a stroke
+  svgEl.querySelectorAll('path.recharts-curve').forEach((path) => {
+    if (!path.getAttribute('stroke') || path.getAttribute('stroke') === 'none') {
+        path.setAttribute('stroke', 'black'); // a default color
+    }
+    if (!path.getAttribute('stroke-width')) {
+        path.setAttribute('stroke-width', '1');
+    }
+  });
+
 
   const svgData = new XMLSerializer().serializeToString(svgEl);
   const canvas = document.createElement("canvas");
@@ -181,6 +191,54 @@ export async function generatePdf(data: PdfData) {
         doc.text("Chart could not be rendered.", pageMargin, yPos);
         yPos += 10;
     }
+
+    // Specification Compliance Table
+    const specLimits = getSpecLimitsForType(type, results.classification);
+    if (specLimits) {
+        if (yPos > pageHeight - 60) {
+            doc.addPage();
+            yPos = 20;
+        }
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Specification Compliance Details", pageMargin, yPos);
+        yPos += 6;
+
+        const specData = sieves.map((sieve, i) => {
+            const limits = specLimits[sieve];
+            const percentPassing = results.percentPassing[i];
+            if (!limits) return null;
+            const isOutOfSpec = percentPassing < limits.min || percentPassing > limits.max;
+            return {
+                sieve,
+                lowerLimit: limits.min,
+                upperLimit: limits.max,
+                percentPassing,
+                status: isOutOfSpec ? "Out of Spec" : "In Spec"
+            };
+        }).filter(Boolean) as { sieve: number; lowerLimit: number; upperLimit: number; percentPassing: number; status: string }[];
+        
+        autoTable(doc, {
+            head: [['Sieve (mm)', 'Lower Limit (%)', 'Upper Limit (%)', '% Passing', 'Status']],
+            body: specData.map(row => [
+                row.sieve.toFixed(2),
+                row.lowerLimit.toFixed(2),
+                row.upperLimit.toFixed(2),
+                row.percentPassing.toFixed(2),
+                row.status
+            ]),
+            startY: yPos,
+            theme: 'striped',
+            headStyles: { fillColor: [41, 128, 185], textColor: 'white' },
+            didParseCell: (hookData) => {
+                if (hookData.section === 'body' && hookData.column.index === 4 && hookData.cell.raw === 'Out of Spec') {
+                    hookData.cell.styles.textColor = 'red';
+                    hookData.cell.styles.fontStyle = 'bold';
+                }
+            }
+        });
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+    }
   }
 
   if (data.fineResults) {
@@ -259,3 +317,5 @@ export async function generatePdf(data: PdfData) {
   addFooter();
   doc.save(`${data.testName || "sieve-analysis"}-${format(new Date(), "yyyy-MM-dd")}.pdf`);
 }
+
+    
