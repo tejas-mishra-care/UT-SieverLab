@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -21,6 +20,7 @@ interface SieveChartProps {
   data: {
     sieveSize: number;
     percentPassing: number;
+    percentRetained: number;
   }[];
   specLimits: Record<number, { min: number; max: number }> | null;
 }
@@ -30,6 +30,10 @@ const chartConfig = {
     label: "% Passing",
     color: "hsl(var(--primary))",
   },
+  percentRetained: {
+    label: "% Retained",
+    color: "hsl(var(--chart-2))",
+  },
   specLimits: { 
     label: 'Specification Limits', 
     color: 'hsl(var(--muted-foreground) / 0.5)'
@@ -37,8 +41,10 @@ const chartConfig = {
 };
 
 const CustomDot = (props: DotProps & { payload: any, specLimits: Record<number, { min: number, max: number }> | null }) => {
-    const { cx, cy, payload, value, specLimits } = props;
-    if (!specLimits || typeof value !== 'number') return <circle cx={cx} cy={cy} r={4} strokeWidth={2} fill="hsl(var(--primary))" stroke="hsl(var(--background))" />;
+    const { cx, cy, payload, value, specLimits, stroke } = props;
+    if (!specLimits || typeof value !== 'number' || payload.dataKey !== 'percentPassing') {
+        return <circle cx={cx} cy={cy} r={4} strokeWidth={2} fill={stroke} stroke="hsl(var(--background))" />;
+    }
     
     const limits = specLimits[payload.sieveSize];
 
@@ -46,7 +52,7 @@ const CustomDot = (props: DotProps & { payload: any, specLimits: Record<number, 
         return <circle cx={cx} cy={cy} r={5} strokeWidth={2} fill="hsl(var(--destructive))" stroke="hsl(var(--background))" />;
     }
 
-    return <circle cx={cx} cy={cy} r={4} strokeWidth={2} fill="hsl(var(--primary))" stroke="hsl(var(--background))" />;
+    return <circle cx={cx} cy={cy} r={4} strokeWidth={2} fill={stroke} stroke="hsl(var(--background))" />;
 };
 
 
@@ -87,14 +93,15 @@ export function SieveChart({ data, specLimits }: SieveChartProps) {
         />
         <YAxis
           domain={[0, 100]}
-          name="% Passing"
+          name="% Passing / % Retained"
           tickFormatter={(value) => `${value}%`}
           tick={{ fontSize: 12 }}
-          label={{ value: '% Passing', angle: -90, position: 'insideLeft', dx: -10, fontSize: 12 }}
+          label={{ value: '% Passing / % Retained', angle: -90, position: 'insideLeft', dx: -10, fontSize: 12 }}
         />
         <Tooltip
           content={<ChartTooltipContent
             formatter={(value, name, props) => {
+                const itemConfig = chartConfig[name as keyof typeof chartConfig];
                 if (name === 'specLimitRange') {
                     if (Array.isArray(value) && typeof value[0] === 'number' && typeof value[1] === 'number') {
                         const [min, max] = value;
@@ -103,7 +110,7 @@ export function SieveChart({ data, specLimits }: SieveChartProps) {
                     return null;
                 }
                 if (typeof value === 'number') {
-                    return [`${value.toFixed(2)}%`, chartConfig.percentPassing.label]
+                    return [`${value.toFixed(2)}%`, itemConfig?.label || name]
                 }
                 return null;
             }}
@@ -142,6 +149,23 @@ export function SieveChart({ data, specLimits }: SieveChartProps) {
             stroke: "hsl(var(--background))",
             strokeWidth: 2,
           }}
+          name="percentPassing"
+        />
+
+        <Line
+          type="monotone"
+          dataKey="percentRetained"
+          stroke="hsl(var(--chart-2))"
+          strokeWidth={2}
+          strokeDasharray="3 3"
+          dot={false}
+          activeDot={{
+            r: 6,
+            fill: "hsl(var(--chart-2))",
+            stroke: "hsl(var(--background))",
+            strokeWidth: 2,
+          }}
+          name="percentRetained"
         />
       </ComposedChart>
     </ChartContainer>
