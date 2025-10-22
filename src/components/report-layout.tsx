@@ -48,9 +48,9 @@ export function ReportLayout({
     <Card>
       <CardHeader>
         <CardTitle>Analysis Report</CardTitle>
-        <CardDescription>A summary of all calculated results.</CardDescription>
+        <CardDescription>A summary of all calculated results. This is a preview of the PDF report.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-8">
+      <CardContent className="space-y-8 pdf-render">
         <div className="mb-8 border-b pb-4">
             <h1 className="font-headline text-2xl font-bold">{testName || 'Sieve Analysis Report'}</h1>
             <p className="text-sm text-muted-foreground">
@@ -68,7 +68,7 @@ export function ReportLayout({
 
         {coarseGradedResults && (
           <>
-            {fineResults && <hr />}
+            {fineResults && <hr className="my-6" />}
             <div className="page-break space-y-4">
               <h2 className="mb-4 font-headline text-xl font-bold">Coarse Aggregate (Graded) Results</h2>
               <SieveInputsDisplay sieves={SIEVE_SIZES.COARSE_GRADED} weights={coarseGradedWeights} />
@@ -79,7 +79,7 @@ export function ReportLayout({
         
         {coarseSingle20mmResults && (
           <>
-            {(fineResults || coarseGradedResults) && <hr />}
+            {(fineResults || coarseGradedResults) && <hr className="my-6" />}
             <div className="page-break space-y-4">
               <h2 className="mb-4 font-headline text-xl font-bold">Coarse Aggregate (20mm Single Size) Results</h2>
               <SieveInputsDisplay sieves={SIEVE_SIZES.COARSE_SINGLE_20MM} weights={coarseSingle20mmWeights} />
@@ -90,7 +90,7 @@ export function ReportLayout({
 
         {coarseSingle10mmResults && (
           <>
-            {(fineResults || coarseGradedResults || coarseSingle20mmResults) && <hr />}
+            {(fineResults || coarseGradedResults || coarseSingle20mmResults) && <hr className="my-6" />}
             <div className="page-break space-y-4">
               <h2 className="mb-4 font-headline text-xl font-bold">Coarse Aggregate (10mm Single Size) Results</h2>
               <SieveInputsDisplay sieves={SIEVE_SIZES.COARSE_SINGLE_10MM} weights={coarseSingle10mmWeights} />
@@ -101,8 +101,8 @@ export function ReportLayout({
 
         {showCombined && (
           <>
-            {(fineResults || coarseGradedResults || coarseSingle10mmResults || coarseSingle20mmResults) && <hr />}
-            <div id="grading-curve-card" className="page-break space-y-6">
+            {(fineResults || coarseGradedResults || coarseSingle10mmResults || coarseSingle20mmResults) && <hr className="my-6" />}
+            <div id="combined-gradation-section" className="page-break space-y-6">
               <h2 className="mb-4 font-headline text-xl font-bold">Combined Gradation Results</h2>
               <Card>
                 <CardHeader>
@@ -115,7 +115,7 @@ export function ReportLayout({
                   <CombinedSieveChart data={combinedChartData} />
                 </CardContent>
               </Card>
-              <div id="combined-gradation-table">
+              <div id="combined-gradation-table-container">
                 <CombinedGradationTable data={combinedChartData} />
               </div>
             </div>
@@ -125,5 +125,3 @@ export function ReportLayout({
     </Card>
   );
 }
-
-    
