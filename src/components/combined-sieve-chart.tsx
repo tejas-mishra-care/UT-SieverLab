@@ -53,7 +53,7 @@ const CustomDot = (props: DotProps & { payload: any, lowerLimit: number, upperLi
         return <circle cx={cx} cy={cy} r={5} strokeWidth={2} fill="hsl(var(--destructive))" stroke="hsl(var(--background))" />;
     }
 
-    return <circle cx={cx} cy={cy} r={4} strokeWidth={2} fill="hsl(var(--primary))" stroke="hsl(var(--background))" />;
+    return <circle cx={cx} cy={cy} r={4} strokeWidth={2} fill={stroke} stroke="hsl(var(--background))" />;
 };
 
 
@@ -179,11 +179,9 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
                 stroke={chartConfig.recommendedPassing.color}
                 strokeWidth={2}
                 strokeDasharray="3 3"
-                dot={{
-                r: 4,
-                fill: chartConfig.recommendedPassing.color,
-                stroke: "hsl(var(--background))",
-                strokeWidth: 2,
+                dot={(dotProps) => {
+                    const { key, ...rest } = dotProps;
+                    return <CustomDot key={key} {...rest} lowerLimit={rest.payload.lowerLimit} upperLimit={rest.payload.upperLimit} />;
                 }}
                 activeDot={{
                 r: 6,

@@ -101,21 +101,12 @@ export async function generatePdf(data: PdfData) {
       });
       yPos = (doc as any).lastAutoTable.finalY + 10;
       
-      // Input Weights Table
-      autoTable(doc, {
-          head: [['Sieve (mm)', 'Wt. Retained (g)']],
-          body: [...sieves.map((sieve, i) => [sieve, weights[i]?.toFixed(2) ?? '0.00']), ['Pan', weights[sieves.length]?.toFixed(2) ?? '0.00']],
-          startY: yPos,
-          theme: 'striped',
-          headStyles: { fillColor: [41, 128, 185], textColor: 'white' }
-      });
-      yPos = (doc as any).lastAutoTable.finalY + 5;
-
       // Results Table
       autoTable(doc, {
-        head: [['Sieve (mm)', '% Retained', 'Cum. % Retained', '% Passing']],
+        head: [['Sieve (mm)', 'Wt. Retained (g)', '% Wt. Retained', 'Cum. % Retained', '% Passing']],
         body: sieves.map((sieve, i) => [
             sieve, 
+            weights[i]?.toFixed(2) ?? '0.00',
             results.percentRetained[i].toFixed(2), 
             results.cumulativeRetained[i].toFixed(2), 
             results.percentPassing[i].toFixed(2)
@@ -123,7 +114,12 @@ export async function generatePdf(data: PdfData) {
         startY: yPos,
         theme: 'striped',
         headStyles: { fillColor: [41, 128, 185], textColor: 'white' },
-        columnStyles: { 3: {fontStyle: 'bold'} }
+        columnStyles: { 4: {fontStyle: 'bold'} },
+        didParseCell: (hookData) => {
+            if (type === 'Fine' && hookData.section === 'body' && hookData.row.raw[0] === 0.6) {
+                hookData.cell.styles.fillColor = '#FFFF00'; // Yellow
+            }
+        }
     });
     yPos = (doc as any).lastAutoTable.finalY + 10;
     
@@ -181,7 +177,7 @@ export async function generatePdf(data: PdfData) {
     
     const sortedData = [...data.combinedChartData].sort((a, b) => b.sieveSize - a.sieveSize);
     autoTable(doc, {
-        head: [['Sieve (mm)', 'Lower Limit', 'Upper Limit', 'Combined', 'Status']],
+        head: [['Sieve (mm)', 'Lower Limit (%)', 'Upper Limit (%)', 'Combined Passing (%)', 'Status']],
         body: sortedData.map(row => {
             const isOutOfSpec = row.combinedPassing < row.lowerLimit || row.combinedPassing > row.upperLimit;
             return [
@@ -210,5 +206,3 @@ export async function generatePdf(data: PdfData) {
 
   doc.save(`${data.testName || "sieve-analysis"}-${format(new Date(), "yyyy-MM-dd")}.pdf`);
 }
-
-    
