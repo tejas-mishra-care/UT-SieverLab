@@ -42,7 +42,7 @@ async function getChartImage(chartId: string): Promise<string | null> {
   
   svgEl.querySelectorAll('path').forEach((path) => {
     const classList = path.getAttribute('class') || '';
-    if (classList.includes('recharts-curve') || classList.includes('recharts-area-path') || classList.includes('recharts-line-path')) {
+    if (classList.includes('recharts-curve') || classList.includes('recharts-area-path') || classList.includes('recharts-line-path') || classList.includes('recharts-line')) {
       const originalStroke = path.getAttribute('stroke');
       if (!originalStroke || originalStroke === 'none' || originalStroke === 'transparent') {
         path.setAttribute('stroke', '#333');
@@ -176,24 +176,18 @@ export async function generatePdf(data: PdfData) {
         (weights[sieves.length] ?? 0).toFixed(2),
         '', '', '', '', '', ''
       ]);
-
-      const chartAndTableX = pageMargin;
-      let chartAndTableY = yPos;
-      const availableWidth = pageWidth;
-      const tableWidth = availableWidth * 0.55;
-      const chartWidth = availableWidth * 0.4;
-      const chartX = chartAndTableX + tableWidth + (availableWidth * 0.05);
-
-      if (chartAndTableY > pageHeight - 110) {
+      
+      if (yPos > pageHeight - 60) {
         doc.addPage();
-        chartAndTableY = 20;
+        yPos = 20;
       }
 
       autoTable(doc, {
         head: [['Sieve (mm)', 'Wt. Retained (g)', '% Retained', 'Cum. % Retained', '% Passing', 'Lower Limit', 'Upper Limit', 'Remark']],
         body: tableBody,
-        startY: chartAndTableY,
+        startY: yPos,
         theme: 'striped',
+        tableWidth: pageWidth,
         headStyles: { fillColor: [41, 128, 185], textColor: 'white', fontSize: 8 },
         styles: { fontSize: 8, cellPadding: 1.5 },
         columnStyles: { 4: {fontStyle: 'bold'} },
@@ -202,31 +196,40 @@ export async function generatePdf(data: PdfData) {
             hookData.cell.styles.textColor = [255, 0, 0]; // Red
           }
           if (hookData.section === 'body' && type === 'Fine' && sieves[hookData.row.index] === 0.6) {
-             if (!hookData.row.styles) {
+            if (!hookData.row.styles) {
               hookData.row.styles = {};
             }
-            (hookData.row.styles as any).fillColor = '#fef9c3'; // Tailwind yellow-100
+            (hookData.row.styles as any).fillColor = '#fef9c3';
           }
         },
-        tableWidth: tableWidth,
-        margin: { left: chartAndTableX }
     });
-    const tableFinalY = (doc as any).lastAutoTable.finalY;
+
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+    
+    if (yPos > pageHeight - 100) {
+        doc.addPage();
+        yPos = 20;
+    }
 
     const chartId = `${type.replace(/\s+/g, '-')}-chart`;
     
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text("Grading Curve", chartX, chartAndTableY);
+    doc.text("Grading Curve", pageMargin, yPos);
+    yPos += 6;
     
     const chartImage = await getChartImage(chartId);
+    const chartWidth = pageWidth * 0.7; // Use 70% of page width for the chart
+    const chartHeight = 80;
+    const chartX = pageMargin + (pageWidth - chartWidth) / 2; // Center the chart
+
     if(chartImage) {
-        doc.addImage(chartImage, 'PNG', chartX, chartAndTableY + 6, chartWidth, 80);
+        doc.addImage(chartImage, 'PNG', chartX, yPos, chartWidth, chartHeight);
     } else {
         doc.setFontSize(10);
-        doc.text("Chart could not be rendered.", chartX, chartAndTableY + 10);
+        doc.text("Chart could not be rendered.", chartX, yPos + 10);
     }
-    yPos = Math.max(tableFinalY, chartAndTableY + 90) + 10;
+    yPos += chartHeight + 10;
   }
 
   if (data.fineResults) {
@@ -258,16 +261,9 @@ export async function generatePdf(data: PdfData) {
     doc.text(blendText, pageMargin, yPos);
     yPos += 10;
     
-    const chartAndTableX = pageMargin;
-    let chartAndTableY = yPos;
-    const availableWidth = pageWidth;
-    const tableWidth = availableWidth * 0.55;
-    const chartWidth = availableWidth * 0.4;
-    const chartX = chartAndTableX + tableWidth + (availableWidth * 0.05);
-
-    if (chartAndTableY > pageHeight - 110) {
+    if (yPos > pageHeight - 60) {
       doc.addPage();
-      chartAndTableY = 20;
+      yPos = 20;
     }
 
     const sortedData = [...data.combinedChartData].sort((a, b) => b.sieveSize - a.sieveSize);
@@ -283,8 +279,9 @@ export async function generatePdf(data: PdfData) {
                 isOutOfSpec ? 'Out of Spec' : 'In Spec'
             ]
         }),
-        startY: chartAndTableY,
+        startY: yPos,
         theme: 'striped',
+        tableWidth: pageWidth,
         headStyles: { fillColor: [41, 128, 185], textColor: 'white' },
         didParseCell: (hookData) => {
             if (hookData.section === 'body' && hookData.column.index === 4) {
@@ -294,13 +291,22 @@ export async function generatePdf(data: PdfData) {
                 }
             }
         },
-        tableWidth: tableWidth,
-        margin: { left: chartAndTableX }
     });
+
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+
+    if (yPos > pageHeight - 100) {
+        doc.addPage();
+        yPos = 20;
+    }
+
+    const chartWidth = pageWidth * 0.7; // Use 70% of page width for the chart
+    const chartHeight = 80;
+    const chartX = pageMargin + (pageWidth - chartWidth) / 2; // Center the chart
 
     const combinedChartImage = await getChartImage('combined-gradation-chart');
     if(combinedChartImage) {
-        doc.addImage(combinedChartImage, 'PNG', chartX, chartAndTableY, chartWidth, 80);
+        doc.addImage(combinedChartImage, 'PNG', chartX, yPos, chartWidth, chartHeight);
     }
   }
 
