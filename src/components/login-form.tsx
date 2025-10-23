@@ -134,7 +134,7 @@ export function LoginForm() {
                 <FormItem>
                   <FormLabel htmlFor="email">Email</FormLabel>
                   <FormControl>
-                    <Input id="email" type="email" placeholder="you@example.com" {...field} autoComplete="email" />
+                    <Input id="email" type="email" placeholder="tejasmishra.dev@gmail.com" {...field} autoComplete="email" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

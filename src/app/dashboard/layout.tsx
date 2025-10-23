@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Header } from "@/components/header";
@@ -5,6 +6,7 @@ import { Logo } from "@/components/logo";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarHeader,
   SidebarInset,
@@ -12,13 +14,33 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarProvider,
+  SidebarSeparator,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useUser } from "@/firebase";
-import { LayoutDashboard, Loader2 } from "lucide-react";
+import { LayoutDashboard, Linkedin, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";
+
+const InstagramIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+    </svg>
+  );
 
 export default function DashboardLayout({
   children,
@@ -72,6 +94,22 @@ export default function DashboardLayout({
             </SidebarMenu>
           </SidebarGroup>
         </SidebarContent>
+        <SidebarFooter>
+            <SidebarSeparator />
+            <SidebarGroup>
+                <div className="px-2 text-xs text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
+                    Created by TEJAS MISHRA
+                </div>
+                <div className="flex items-center justify-center gap-2 group-data-[collapsible=icon]:flex-col">
+                    <a href="https://www.linkedin.com/in/tejasmishra-/" target="_blank" rel="noopener noreferrer" className="text-sidebar-foreground/70 hover:text-sidebar-foreground">
+                        <Linkedin className="h-5 w-5" />
+                    </a>
+                    <a href="https://www.instagram.com/_tejasmishra_/" target="_blank" rel="noopener noreferrer" className="text-sidebar-foreground/70 hover:text-sidebar-foreground">
+                        <InstagramIcon className="h-5 w-5" />
+                    </a>
+                </div>
+            </SidebarGroup>
+        </SidebarFooter>
       </Sidebar>
       <SidebarInset>
         <Header />
