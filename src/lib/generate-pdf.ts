@@ -95,8 +95,7 @@ export async function generatePdf(data: PdfData) {
   const pageHeight = doc.internal.pageSize.getHeight();
   const headerHeight = 20;
   const footerHeight = 15;
-  const contentHeight = pageHeight - headerHeight - footerHeight;
-
+  
   let yPos = headerHeight;
 
   const addPageHeader = (pageNumber: number, totalPages: number) => {
@@ -143,9 +142,11 @@ export async function generatePdf(data: PdfData) {
   };
 
   const addSection = async (title: string, results: AnalysisResults, weights: number[], type: ExtendedAggregateType, sieves: number[]) => {
-      // Check if a new page is needed before starting the section
-      if (yPos > headerHeight) { // Don't add a new page on the very first section
+      const neededHeight = 160; // Approximate height for table + chart
+      if (yPos + neededHeight > pageHeight - footerHeight) {
         startNewPage();
+      } else if (yPos > headerHeight) { // Add space between sections on the same page
+        yPos += 10;
       }
 
       doc.setFontSize(14);
@@ -153,48 +154,44 @@ export async function generatePdf(data: PdfData) {
       doc.text(title, pageMargin, yPos);
       yPos += 8;
 
-      autoTable(doc, {
-          startY: yPos,
-          body: [
-              [
-                  { content: type === 'Fine' ? 'Zone' : 'Classification', styles: { fontStyle: 'bold' } },
-                  results.classification || 'N/A',
-                  { content: 'Fineness Modulus', styles: { fontStyle: 'bold' } },
-                  results.finenessModulus?.toFixed(2) || 'N/A'
-              ]
-          ],
-          theme: 'grid',
-          styles: { cellPadding: 2, fontSize: 9 },
-          columnStyles: { 0: { cellWidth: 40 }, 2: {cellWidth: 40}}
-      });
-      yPos = (doc as any).lastAutoTable.finalY + 8;
-      
       const specLimits = getSpecLimitsForType(type, results.classification);
       const tableBody = sieves.map((sieve, i) => {
         const limits = specLimits ? specLimits[sieve] : null;
         const isOutOfSpec = limits ? results.percentPassing[i] < limits.min || results.percentPassing[i] > limits.max : false;
         return [
             sieve.toString(), 
+            (weights?.[i] ?? 0).toFixed(1),
             results.percentRetained[i]?.toFixed(2) ?? '0.00', 
             results.cumulativeRetained[i]?.toFixed(2) ?? '0.00', 
             results.percentPassing[i]?.toFixed(2) ?? '0.00',
             limits ? limits.min.toFixed(0) : 'N/A',
             limits ? limits.max.toFixed(0) : 'N/A',
+            limits ? `${limits.min.toFixed(0)} - ${limits.max.toFixed(0)}` : 'N/A',
             limits ? (isOutOfSpec ? 'Out of Spec' : 'In Spec') : 'N/A'
         ];
       });
       
       autoTable(doc, {
-        head: [['Sieve (mm)', '% Retained', 'Cum. % Retained', '% Passing', 'Lower Limit (%)', 'Upper Limit (%)', 'Remark']],
+        head: [['Sieve (mm)', 'Wt. Ret (g)', '% Retained', 'Cum. % Retained', '% Passing', 'Lower Limit', 'Upper Limit', 'BIS Limits', 'Remark']],
         body: tableBody,
         startY: yPos,
         theme: 'striped',
-        tableWidth: 140, // Fixed width for results table
-        headStyles: { fillColor: [41, 128, 185], textColor: 'white', fontSize: 8 },
+        tableWidth: pageWidth,
+        headStyles: { fillColor: [41, 128, 185], textColor: 'white', fontSize: 8, cellPadding: 1.5 },
         styles: { fontSize: 8, cellPadding: 1.5 },
-        columnStyles: { 3: {fontStyle: 'bold'} },
+        columnStyles: { 
+            0: {cellWidth: 18}, // Sieve
+            1: {cellWidth: 18, halign: 'right'}, // Wt. Ret
+            2: {cellWidth: 22, halign: 'right'}, // % Retained
+            3: {cellWidth: 28, halign: 'right'}, // Cum. % Ret
+            4: {cellWidth: 22, halign: 'right', fontStyle: 'bold'}, // % Passing
+            5: {cellWidth: 20, halign: 'center'}, // Lower
+            6: {cellWidth: 20, halign: 'center'}, // Upper
+            7: {cellWidth: 22, halign: 'center'}, // BIS
+            8: {cellWidth: 22, halign: 'center'}, // Remark
+        },
         didParseCell: (hookData) => {
-          if (hookData.section === 'body' && hookData.column.index === 6 && hookData.cell.raw === 'Out of Spec') {
+          if (hookData.section === 'body' && hookData.column.index === 8 && hookData.cell.raw === 'Out of Spec') {
             hookData.cell.styles.textColor = [255, 0, 0];
           }
           if (hookData.section === 'body' && type === 'Fine' && sieves[hookData.row.index] === 0.6) {
@@ -206,22 +203,23 @@ export async function generatePdf(data: PdfData) {
         },
     });
 
-    const tableFinalY = (doc as any).lastAutoTable.finalY;
+    yPos = (doc as any).lastAutoTable.finalY + 5;
     
     // -- Chart Drawing --
     const chartId = `${type.replace(/\s+/g, '-')}-chart`;
     const chartImage = await getChartImage(chartId);
     
-    const chartWidth = 110;
-    const chartHeight = 90;
-    const chartX = pageMargin + 150; // Position chart to the right of the table
-    let chartY = yPos - 8; // Align top of chart with top of section title
+    const chartWidth = pageWidth * 0.8;
+    const chartHeight = (pageHeight - yPos - footerHeight - 5) > 80 ? 80 : (pageHeight - yPos - footerHeight - 5);
+    const chartX = pageMargin + (pageWidth - chartWidth) / 2;
     
     if (chartImage) {
-        doc.addImage(chartImage, 'PNG', chartX, chartY, chartWidth, chartHeight);
+        doc.addImage(chartImage, 'PNG', chartX, yPos, chartWidth, chartHeight);
+        yPos += chartHeight;
     } else {
         doc.setFontSize(10);
-        doc.text("Chart could not be rendered.", chartX, chartY + 10);
+        doc.text("Chart could not be rendered.", chartX, yPos + 10);
+        yPos += 20;
     }
   }
 
@@ -292,3 +290,5 @@ export async function generatePdf(data: PdfData) {
   addFooter();
   doc.save(`${data.testName || "sieve-analysis"}-${format(new Date(), "yyyy-MM-dd")}.pdf`);
 }
+
+    
