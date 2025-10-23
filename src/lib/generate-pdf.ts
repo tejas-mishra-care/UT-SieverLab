@@ -170,7 +170,7 @@ export async function generatePdf(data: PdfData) {
       });
 
       autoTable(doc, {
-        head: [['Sieve (mm)', 'Wt. Retained (g)', '% Wt. Retained', 'Cum. % Retained', '% Passing', 'BIS Limits', 'Remark']],
+        head: [['Sieve (mm)', 'Wt. Retained (g)', '% Retained', 'Cum. % Retained', '% Passing', 'BIS Limits', 'Remark']],
         body: tableBody,
         startY: yPos,
         theme: 'striped',
@@ -180,8 +180,8 @@ export async function generatePdf(data: PdfData) {
           if (hookData.section === 'body' && hookData.column.index === 6 && hookData.cell.raw === 'Out of Spec') {
             hookData.cell.styles.textColor = [255, 0, 0]; // Red
           }
-          if (hookData.section === 'body' && type === 'Fine' && hookData.row.section === 'body' && hookData.cell.raw === '0.6') {
-             hookData.row.styles.fillColor = [255, 255, 0]; // Yellow
+          if (hookData.section === 'body' && type === 'Fine' && sieves[hookData.row.index] === 0.6) {
+             hookData.row.styles.fillColor = '#fef9c3'; // Tailwind yellow-100
           }
         },
     });
