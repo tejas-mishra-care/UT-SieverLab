@@ -25,60 +25,65 @@ interface PdfData {
 }
 
 async function getChartImage(chartId: string): Promise<string | null> {
-  const reportTab = document.getElementById('pdf-content');
-  if (!reportTab) return null;
-  
-  const chartEl = document.getElementById(chartId);
-  if (!chartEl) {
-      console.error(`Chart element with ID '${chartId}' not found.`);
-      return null;
-  }
-
-  const svgEl = chartEl.querySelector("svg");
-  if (!svgEl) {
-      console.error(`SVG element not found within chart ID '${chartId}'.`);
-      return null;
-  }
-  
-  svgEl.querySelectorAll('path').forEach((path) => {
-    const classList = path.getAttribute('class') || '';
-    if (classList.includes('recharts-curve') || classList.includes('recharts-area-path') || classList.includes('recharts-line-path') || classList.includes('recharts-line')) {
-      const originalStroke = path.getAttribute('stroke');
-      if (!originalStroke || originalStroke === 'none' || originalStroke === 'transparent') {
-        path.setAttribute('stroke', '#333'); 
-      }
-      if (!path.getAttribute('stroke-width')) {
-        path.setAttribute('stroke-width', '1');
-      }
+    const chartEl = document.getElementById(chartId);
+    if (!chartEl) {
+        console.error(`Chart element with ID '${chartId}' not found.`);
+        return null;
     }
-  });
 
-
-  const svgData = new XMLSerializer().serializeToString(svgEl);
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  
-  const svgSize = svgEl.getBoundingClientRect();
-  canvas.width = svgSize.width * 2.5; 
-  canvas.height = svgSize.height * 2.5;
-  
-  ctx.fillStyle = 'white'; 
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  const img = new Image();
-  img.src = "data:image/svg+xml;charset=utf-8;base64," + btoa(unescape(encodeURIComponent(svgData)));
-
-  return new Promise((resolve) => {
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/png", 1.0));
-    };
-    img.onerror = (e) => {
-        console.error("Image loading for PDF chart failed.", e);
-        resolve(null);
+    const svgEl = chartEl.querySelector("svg");
+    if (!svgEl) {
+        console.error(`SVG element not found within chart ID '${chartId}'.`);
+        return null;
     }
-  });
+    
+    // Deep clone the SVG to avoid altering the live DOM
+    const svgClone = svgEl.cloneNode(true) as SVGSVGElement;
+
+    // Force styles onto paths to ensure they render in PDF
+    svgClone.querySelectorAll('path').forEach((path) => {
+        const classList = path.getAttribute('class') || '';
+        // Target all relevant recharts paths for lines and areas
+        if (classList.includes('recharts-curve') || classList.includes('recharts-line-path') || classList.includes('recharts-area-path')) {
+            const originalStroke = path.style.stroke || path.getAttribute('stroke');
+            if (!originalStroke || originalStroke === 'none' || originalStroke === 'transparent') {
+                // If no stroke, it might be an area, but we'll give it a default border
+                path.style.stroke = '#888888'; 
+            }
+            if (!path.style.strokeWidth && !path.getAttribute('stroke-width')) {
+                path.style.strokeWidth = '1';
+            }
+        }
+    });
+
+    const svgData = new XMLSerializer().serializeToString(svgClone);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    const svgSize = svgEl.getBoundingClientRect();
+    const scale = 2.5; // Increase scale for better resolution
+    canvas.width = svgSize.width * scale;
+    canvas.height = svgSize.height * scale;
+    
+    // Fill background with white
+    ctx.fillStyle = 'white'; 
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const img = new Image();
+    // Use btoa for Base64 encoding which is more robust
+    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+
+    return new Promise((resolve) => {
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL("image/png", 1.0));
+        };
+        img.onerror = (e) => {
+            console.error("Image loading for PDF chart failed.", e);
+            resolve(null);
+        }
+    });
 }
 
 export async function generatePdf(data: PdfData) {
@@ -140,15 +145,32 @@ export async function generatePdf(data: PdfData) {
   };
 
   const addSection = async (title: string, results: AnalysisResults, weights: number[], type: ExtendedAggregateType, sieves: number[]) => {
-      const neededHeight = 160; 
-      if (yPos + neededHeight > pageHeight - footerHeight && yPos > headerHeight) {
-        startNewPage();
+      // Start each section on a new page to ensure it fits
+      if ((doc as any).internal.getNumberOfPages() > 1 || doc.y > headerHeight + 5) {
+          startNewPage();
       }
 
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.text(title, pageMargin, yPos);
       yPos += 8;
+
+      // Add summary data
+      const summaryBody = [
+          ['Aggregate Type', type],
+          [type === 'Fine' ? 'Zone' : 'Classification', results.classification || 'N/A'],
+          ['Fineness Modulus', results.finenessModulus?.toFixed(2) || 'N/A']
+      ];
+      autoTable(doc, {
+          body: summaryBody,
+          startY: yPos,
+          theme: 'plain',
+          tableWidth: pageWidth / 2,
+          styles: { fontSize: 9, cellPadding: 1 },
+          columnStyles: { 0: { fontStyle: 'bold' } },
+      });
+      yPos = (doc as any).lastAutoTable.finalY + 5;
+
 
       const specLimits = getSpecLimitsForType(type, results.classification);
       const tableBody = sieves.map((sieve, i) => {
@@ -191,9 +213,7 @@ export async function generatePdf(data: PdfData) {
             hookData.cell.styles.textColor = [255, 0, 0];
           }
           if (hookData.section === 'body' && type === 'Fine' && sieves[hookData.row.index] === 0.6) {
-            if (!hookData.row.styles) {
-              hookData.row.styles = {};
-            }
+            if (!hookData.row.styles) hookData.row.styles = {};
             (hookData.row.styles as any).fillColor = '#fef9c3';
           }
         },
@@ -204,16 +224,12 @@ export async function generatePdf(data: PdfData) {
     const chartId = `${type.replace(/\s+/g, '-')}-chart`;
     const chartImage = await getChartImage(chartId);
     
-    const chartWidth = pageWidth * 0.8;
     const remainingSpace = pageHeight - yPos - footerHeight - 5;
     const chartHeight = remainingSpace > 80 ? remainingSpace : 80;
+    const chartWidth = pageWidth * 0.8;
     const chartX = pageMargin + (pageWidth - chartWidth) / 2;
     
     if (chartImage) {
-        if (yPos + chartHeight > pageHeight - footerHeight) {
-          startNewPage();
-          yPos = headerHeight;
-        }
         doc.addImage(chartImage, 'PNG', chartX, yPos, chartWidth, chartHeight);
         yPos += chartHeight;
     } else {
@@ -228,15 +244,12 @@ export async function generatePdf(data: PdfData) {
     await addSection('Fine Aggregate Results', data.fineResults, data.fineWeights, 'Fine', SIEVE_SIZES.FINE);
   }
   if (data.coarseGradedResults) {
-    if(data.fineResults) startNewPage();
     await addSection('Coarse Aggregate (Graded) Results', data.coarseGradedResults, data.coarseGradedWeights, 'Coarse - Graded', SIEVE_SIZES.COARSE_GRADED);
   }
   if (data.coarseSingle20mmResults) {
-    if(data.fineResults || data.coarseGradedResults) startNewPage();
     await addSection('Coarse Aggregate (20mm) Results', data.coarseSingle20mmResults, data.coarseSingle20mmWeights, 'Coarse - 20mm', SIEVE_SIZES.COARSE_SINGLE_20MM);
   }
   if (data.coarseSingle10mmResults) {
-    if(data.fineResults || data.coarseGradedResults || data.coarseSingle20mmResults) startNewPage();
     await addSection('Coarse Aggregate (10mm) Results', data.coarseSingle10mmResults, data.coarseSingle10mmWeights, 'Coarse - 10mm', SIEVE_SIZES.COARSE_SINGLE_10MM);
   }
 
@@ -295,3 +308,5 @@ export async function generatePdf(data: PdfData) {
   addFooter();
   doc.save(`${data.testName || "sieve-analysis"}-${format(new Date(), "yyyy-MM-dd")}.pdf`);
 }
+
+    
