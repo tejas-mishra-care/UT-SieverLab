@@ -40,13 +40,12 @@ async function getChartImage(chartId: string): Promise<string | null> {
       return null;
   }
   
-  // Explicitly set styles for SVG elements to ensure they are captured in PDF
   svgEl.querySelectorAll('path').forEach((path) => {
     const classList = path.getAttribute('class') || '';
     if (classList.includes('recharts-curve') || classList.includes('recharts-area-path') || classList.includes('recharts-line-path') || classList.includes('recharts-line')) {
       const originalStroke = path.getAttribute('stroke');
       if (!originalStroke || originalStroke === 'none' || originalStroke === 'transparent') {
-        path.setAttribute('stroke', '#333'); // A visible default color
+        path.setAttribute('stroke', '#333'); 
       }
       if (!path.getAttribute('stroke-width')) {
         path.setAttribute('stroke-width', '1');
@@ -68,7 +67,6 @@ async function getChartImage(chartId: string): Promise<string | null> {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const img = new Image();
-  // Use unescape and encodeURIComponent to handle special characters in SVG
   img.src = "data:image/svg+xml;charset=utf-8;base64," + btoa(unescape(encodeURIComponent(svgData)));
 
   return new Promise((resolve) => {
@@ -119,7 +117,7 @@ export async function generatePdf(data: PdfData) {
     const pageCount = (doc as any).internal.getNumberOfPages();
     for(let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        addPageHeader(i, pageCount); // Add header to each page
+        addPageHeader(i, pageCount); 
         doc.setFontSize(8);
         doc.text(
             `Generated on: ${format(new Date(), "PPpp")}`, 
@@ -142,11 +140,9 @@ export async function generatePdf(data: PdfData) {
   };
 
   const addSection = async (title: string, results: AnalysisResults, weights: number[], type: ExtendedAggregateType, sieves: number[]) => {
-      const neededHeight = 160; // Approximate height for table + chart
-      if (yPos + neededHeight > pageHeight - footerHeight) {
+      const neededHeight = 160; 
+      if (yPos + neededHeight > pageHeight - footerHeight && yPos > headerHeight) {
         startNewPage();
-      } else if (yPos > headerHeight) { // Add space between sections on the same page
-        yPos += 10;
       }
 
       doc.setFontSize(14);
@@ -180,15 +176,15 @@ export async function generatePdf(data: PdfData) {
         headStyles: { fillColor: [41, 128, 185], textColor: 'white', fontSize: 8, cellPadding: 1.5 },
         styles: { fontSize: 8, cellPadding: 1.5 },
         columnStyles: { 
-            0: {cellWidth: 18}, // Sieve
-            1: {cellWidth: 18, halign: 'right'}, // Wt. Ret
-            2: {cellWidth: 22, halign: 'right'}, // % Retained
-            3: {cellWidth: 28, halign: 'right'}, // Cum. % Ret
-            4: {cellWidth: 22, halign: 'right', fontStyle: 'bold'}, // % Passing
-            5: {cellWidth: 20, halign: 'center'}, // Lower
-            6: {cellWidth: 20, halign: 'center'}, // Upper
-            7: {cellWidth: 22, halign: 'center'}, // BIS
-            8: {cellWidth: 22, halign: 'center'}, // Remark
+            0: {cellWidth: 18},
+            1: {cellWidth: 18, halign: 'right'},
+            2: {cellWidth: 22, halign: 'right'},
+            3: {cellWidth: 28, halign: 'right'},
+            4: {cellWidth: 22, halign: 'right', fontStyle: 'bold'},
+            5: {cellWidth: 20, halign: 'center'},
+            6: {cellWidth: 20, halign: 'center'},
+            7: {cellWidth: 22, halign: 'center'},
+            8: {cellWidth: 22, halign: 'center'},
         },
         didParseCell: (hookData) => {
           if (hookData.section === 'body' && hookData.column.index === 8 && hookData.cell.raw === 'Out of Spec') {
@@ -205,15 +201,19 @@ export async function generatePdf(data: PdfData) {
 
     yPos = (doc as any).lastAutoTable.finalY + 5;
     
-    // -- Chart Drawing --
     const chartId = `${type.replace(/\s+/g, '-')}-chart`;
     const chartImage = await getChartImage(chartId);
     
     const chartWidth = pageWidth * 0.8;
-    const chartHeight = (pageHeight - yPos - footerHeight - 5) > 80 ? 80 : (pageHeight - yPos - footerHeight - 5);
+    const remainingSpace = pageHeight - yPos - footerHeight - 5;
+    const chartHeight = remainingSpace > 80 ? remainingSpace : 80;
     const chartX = pageMargin + (pageWidth - chartWidth) / 2;
     
     if (chartImage) {
+        if (yPos + chartHeight > pageHeight - footerHeight) {
+          startNewPage();
+          yPos = headerHeight;
+        }
         doc.addImage(chartImage, 'PNG', chartX, yPos, chartWidth, chartHeight);
         yPos += chartHeight;
     } else {
@@ -228,12 +228,15 @@ export async function generatePdf(data: PdfData) {
     await addSection('Fine Aggregate Results', data.fineResults, data.fineWeights, 'Fine', SIEVE_SIZES.FINE);
   }
   if (data.coarseGradedResults) {
+    if(data.fineResults) startNewPage();
     await addSection('Coarse Aggregate (Graded) Results', data.coarseGradedResults, data.coarseGradedWeights, 'Coarse - Graded', SIEVE_SIZES.COARSE_GRADED);
   }
   if (data.coarseSingle20mmResults) {
+    if(data.fineResults || data.coarseGradedResults) startNewPage();
     await addSection('Coarse Aggregate (20mm) Results', data.coarseSingle20mmResults, data.coarseSingle20mmWeights, 'Coarse - 20mm', SIEVE_SIZES.COARSE_SINGLE_20MM);
   }
   if (data.coarseSingle10mmResults) {
+    if(data.fineResults || data.coarseGradedResults || data.coarseSingle20mmResults) startNewPage();
     await addSection('Coarse Aggregate (10mm) Results', data.coarseSingle10mmResults, data.coarseSingle10mmWeights, 'Coarse - 10mm', SIEVE_SIZES.COARSE_SINGLE_10MM);
   }
 
@@ -252,7 +255,9 @@ export async function generatePdf(data: PdfData) {
     
     const combinedChartImage = await getChartImage('combined-gradation-chart');
     const chartWidth = pageWidth * 0.7;
-    const chartHeight = 80;
+    let chartHeight = (pageHeight - yPos - footerHeight - 5) / 2;
+    if (chartHeight < 60) chartHeight = 60;
+    
     const chartX = pageMargin + (pageWidth - chartWidth) / 2;
     if(combinedChartImage) {
         doc.addImage(combinedChartImage, 'PNG', chartX, yPos, chartWidth, chartHeight);
@@ -290,5 +295,3 @@ export async function generatePdf(data: PdfData) {
   addFooter();
   doc.save(`${data.testName || "sieve-analysis"}-${format(new Date(), "yyyy-MM-dd")}.pdf`);
 }
-
-    
