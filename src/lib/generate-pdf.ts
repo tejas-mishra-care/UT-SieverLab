@@ -40,17 +40,30 @@ async function getChartImage(chartId: string): Promise<string | null> {
     // Deep clone the SVG to avoid altering the live DOM
     const svgClone = svgEl.cloneNode(true) as SVGSVGElement;
 
-    // Force styles onto paths to ensure they render in PDF
-    svgClone.querySelectorAll('path').forEach((path) => {
-        const classList = path.getAttribute('class') || '';
-        // Target all relevant recharts paths for lines and areas
-        if (classList.includes('recharts-curve') || classList.includes('recharts-line-path') || classList.includes('recharts-area-path')) {
-            const originalStroke = path.style.stroke || path.getAttribute('stroke');
-            path.style.stroke = originalStroke || '#888888';
-            path.style.strokeWidth = path.style.strokeWidth || path.getAttribute('stroke-width') || '1';
-            path.style.fill = path.style.fill || path.getAttribute('fill') || 'none';
+    // A more robust way to force styles. It finds the computed styles from the original
+    // element and applies them inline to the clone. This is much more reliable.
+    const styleMap = new Map<Element, Partial<CSSStyleDeclaration>>();
+
+    svgEl.querySelectorAll('path, line').forEach((originalPath, index) => {
+        const clonedPath = svgClone.querySelectorAll('path, line')[index];
+        if (clonedPath) {
+            const computedStyle = window.getComputedStyle(originalPath);
+            styleMap.set(clonedPath, {
+                stroke: computedStyle.stroke,
+                strokeWidth: computedStyle.strokeWidth,
+                fill: computedStyle.fill,
+                strokeDasharray: computedStyle.strokeDasharray,
+            });
         }
     });
+
+    styleMap.forEach((style, element) => {
+        (element as HTMLElement).style.stroke = style.stroke || 'none';
+        (element as HTMLElement).style.strokeWidth = style.strokeWidth || '1px';
+        (element as HTMLElement).style.fill = style.fill || 'none';
+        (element as HTMLElement).style.strokeDasharray = style.strokeDasharray || 'none';
+    });
+
 
     const svgData = new XMLSerializer().serializeToString(svgClone);
     const canvas = document.createElement("canvas");
@@ -189,7 +202,7 @@ export async function generatePdf(data: PdfData) {
       });
       
       autoTable(doc, {
-        head: [['Sieve (mm)', 'Wt. Ret (g)', '% Retained', 'Cum. % Retained', '% Passing', 'Lower Limit', 'Upper Limit', 'BIS Limits', 'Remark']],
+        head: [['Sieve (mm)', 'Wt. Ret (g)', '% Retained', 'Cum. % Retained', '% Passing', 'Lower Limit (%)', 'Upper Limit (%)', 'BIS Limits', 'Remark']],
         body: tableBody,
         startY: yPos,
         theme: 'striped',
@@ -273,15 +286,8 @@ export async function generatePdf(data: PdfData) {
     yPos += 10;
     
     const combinedChartImage = await getChartImage('combined-gradation-chart');
-    const chartWidth = pageWidth * 0.7;
-    let chartHeight = (pageHeight - yPos - footerHeight - 5) / 2;
-    if (chartHeight < 60) chartHeight = 60;
-    
-    const chartX = pageMargin + (pageWidth - chartWidth) / 2;
-    if(combinedChartImage) {
-        doc.addImage(combinedChartImage, 'PNG', chartX, yPos, chartWidth, chartHeight);
-    }
-    yPos += chartHeight + 5;
+    const tableStartY = yPos;
+    let tableFinalY = yPos;
 
     const sortedData = [...data.combinedChartData].sort((a, b) => b.sieveSize - a.sieveSize);
     autoTable(doc, {
@@ -296,7 +302,7 @@ export async function generatePdf(data: PdfData) {
                 isOutOfSpec ? 'Out of Spec' : 'In Spec'
             ]
         }),
-        startY: yPos,
+        startY: tableStartY,
         theme: 'striped',
         tableWidth: pageWidth,
         headStyles: { fillColor: [41, 128, 185], textColor: 'white' },
@@ -308,7 +314,30 @@ export async function generatePdf(data: PdfData) {
                 }
             }
         },
+        didDrawPage: (hookData) => {
+            tableFinalY = hookData.cursor?.y ?? tableFinalY;
+        }
     });
+
+    tableFinalY = (doc as any).lastAutoTable.finalY;
+    
+    const chartY = tableFinalY + 5;
+    const remainingChartSpace = pageHeight - chartY - footerHeight;
+    const chartHeight = remainingChartSpace > 60 ? remainingChartSpace : 60;
+    const chartWidth = pageWidth;
+    
+    if (chartY + chartHeight > pageHeight - footerHeight) {
+      doc.addPage();
+      yPos = headerHeight;
+      // Redraw table if needed on new page, or handle differently. For now, chart on new page.
+      if (combinedChartImage) {
+        doc.addImage(combinedChartImage, 'PNG', pageMargin, yPos, chartWidth, chartHeight);
+      }
+    } else {
+      if (combinedChartImage) {
+        doc.addImage(combinedChartImage, 'PNG', pageMargin, chartY, chartWidth, chartHeight);
+      }
+    }
   }
 
   addFooter();
