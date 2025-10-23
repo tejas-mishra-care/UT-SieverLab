@@ -181,7 +181,7 @@ export async function generatePdf(data: PdfData) {
             hookData.cell.styles.textColor = [255, 0, 0]; // Red
           }
           if (hookData.section === 'body' && type === 'Fine' && sieves[hookData.row.index] === 0.6) {
-             hookData.row.styles.fillColor = '#fef9c3'; // Tailwind yellow-100
+            if(!hookData.row.styles.fillColor) hookData.row.styles.fillColor = '#fef9c3'; // Tailwind yellow-100
           }
         },
     });
@@ -285,5 +285,3 @@ export async function generatePdf(data: PdfData) {
   addFooter();
   doc.save(`${data.testName || "sieve-analysis"}-${format(new Date(), "yyyy-MM-dd")}.pdf`);
 }
-
-    
