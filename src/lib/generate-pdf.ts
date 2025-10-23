@@ -83,7 +83,7 @@ async function getChartImage(chartId: string): Promise<string | null> {
 
 export async function generatePdf(data: PdfData) {
   const doc = new jsPDF({
-    orientation: "portrait",
+    orientation: "landscape",
     unit: "mm",
     format: "a4",
   });
@@ -130,7 +130,7 @@ export async function generatePdf(data: PdfData) {
   addHeader(data.testName || "Sieve Analysis Report");
 
   const addSection = async (title: string, results: AnalysisResults, weights: number[], type: ExtendedAggregateType, sieves: number[]) => {
-      if (yPos > 180) { 
+      if (yPos > pageHeight - 80) { 
           doc.addPage();
           yPos = 20;
       }
@@ -165,49 +165,68 @@ export async function generatePdf(data: PdfData) {
             results.percentRetained[i]?.toFixed(2) ?? '0.00', 
             results.cumulativeRetained[i]?.toFixed(2) ?? '0.00', 
             results.percentPassing[i]?.toFixed(2) ?? '0.00',
-            limits ? `${limits.min.toFixed(0)} - ${limits.max.toFixed(0)}` : 'N/A',
+            limits ? limits.min.toFixed(0) : 'N/A',
+            limits ? limits.max.toFixed(0) : 'N/A',
             limits ? (isOutOfSpec ? 'Out of Spec' : 'In Spec') : 'N/A'
         ];
       });
+       // Add the pan row data
+      tableBody.push([
+        'Pan',
+        (weights[sieves.length] ?? 0).toFixed(2),
+        '', '', '', '', '', ''
+      ]);
+
+      const chartAndTableX = pageMargin;
+      let chartAndTableY = yPos;
+      const availableWidth = pageWidth;
+      const tableWidth = availableWidth * 0.55;
+      const chartWidth = availableWidth * 0.4;
+      const chartX = chartAndTableX + tableWidth + (availableWidth * 0.05);
+
+      if (chartAndTableY > pageHeight - 110) {
+        doc.addPage();
+        chartAndTableY = 20;
+      }
 
       autoTable(doc, {
-        head: [['Sieve (mm)', 'Wt. Retained (g)', '% Retained', 'Cum. % Retained', '% Passing', 'BIS Limits', 'Remark']],
+        head: [['Sieve (mm)', 'Wt. Retained (g)', '% Retained', 'Cum. % Retained', '% Passing', 'Lower Limit', 'Upper Limit', 'Remark']],
         body: tableBody,
-        startY: yPos,
+        startY: chartAndTableY,
         theme: 'striped',
-        headStyles: { fillColor: [41, 128, 185], textColor: 'white' },
+        headStyles: { fillColor: [41, 128, 185], textColor: 'white', fontSize: 8 },
+        styles: { fontSize: 8, cellPadding: 1.5 },
         columnStyles: { 4: {fontStyle: 'bold'} },
         didParseCell: (hookData) => {
-          if (hookData.section === 'body' && hookData.column.index === 6 && hookData.cell.raw === 'Out of Spec') {
+          if (hookData.section === 'body' && hookData.column.index === 7 && hookData.cell.raw === 'Out of Spec') {
             hookData.cell.styles.textColor = [255, 0, 0]; // Red
           }
           if (hookData.section === 'body' && type === 'Fine' && sieves[hookData.row.index] === 0.6) {
-            hookData.cell.styles.fillColor = '#fef9c3'; // Tailwind yellow-100
+             if (!hookData.row.styles) {
+              hookData.row.styles = {};
+            }
+            (hookData.row.styles as any).fillColor = '#fef9c3'; // Tailwind yellow-100
           }
         },
+        tableWidth: tableWidth,
+        margin: { left: chartAndTableX }
     });
-    yPos = (doc as any).lastAutoTable.finalY + 10;
-    
+    const tableFinalY = (doc as any).lastAutoTable.finalY;
+
     const chartId = `${type.replace(/\s+/g, '-')}-chart`;
     
-    if (yPos > pageHeight - 110) {
-        doc.addPage();
-        yPos = 20;
-    }
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text("Grading Curve", pageMargin, yPos);
-    yPos += 6;
+    doc.text("Grading Curve", chartX, chartAndTableY);
     
     const chartImage = await getChartImage(chartId);
     if(chartImage) {
-        doc.addImage(chartImage, 'PNG', pageMargin, yPos, pageWidth, 80);
-        yPos += 90;
+        doc.addImage(chartImage, 'PNG', chartX, chartAndTableY + 6, chartWidth, 80);
     } else {
         doc.setFontSize(10);
-        doc.text("Chart could not be rendered.", pageMargin, yPos);
-        yPos += 10;
+        doc.text("Chart could not be rendered.", chartX, chartAndTableY + 10);
     }
+    yPos = Math.max(tableFinalY, chartAndTableY + 90) + 10;
   }
 
   if (data.fineResults) {
@@ -224,7 +243,7 @@ export async function generatePdf(data: PdfData) {
   }
 
   if(data.showCombined && data.combinedChartData.length > 0) {
-    if (yPos > 100) { 
+    if (yPos > pageHeight - 120) { 
         doc.addPage();
         yPos = 20;
     }
@@ -239,20 +258,16 @@ export async function generatePdf(data: PdfData) {
     doc.text(blendText, pageMargin, yPos);
     yPos += 10;
     
-    if (yPos > pageHeight - 110) {
-        doc.addPage();
-        yPos = 20;
-    }
-    
-    const combinedChartImage = await getChartImage('combined-gradation-chart');
-    if(combinedChartImage) {
-        doc.addImage(combinedChartImage, 'PNG', pageMargin, yPos, pageWidth, 80);
-        yPos += 90;
-    }
-    
-    if (yPos > pageHeight - 60) {
-        doc.addPage();
-        yPos = 20;
+    const chartAndTableX = pageMargin;
+    let chartAndTableY = yPos;
+    const availableWidth = pageWidth;
+    const tableWidth = availableWidth * 0.55;
+    const chartWidth = availableWidth * 0.4;
+    const chartX = chartAndTableX + tableWidth + (availableWidth * 0.05);
+
+    if (chartAndTableY > pageHeight - 110) {
+      doc.addPage();
+      chartAndTableY = 20;
     }
 
     const sortedData = [...data.combinedChartData].sort((a, b) => b.sieveSize - a.sieveSize);
@@ -268,7 +283,7 @@ export async function generatePdf(data: PdfData) {
                 isOutOfSpec ? 'Out of Spec' : 'In Spec'
             ]
         }),
-        startY: yPos,
+        startY: chartAndTableY,
         theme: 'striped',
         headStyles: { fillColor: [41, 128, 185], textColor: 'white' },
         didParseCell: (hookData) => {
@@ -278,9 +293,15 @@ export async function generatePdf(data: PdfData) {
                     hookData.cell.styles.fontStyle = 'bold';
                 }
             }
-        }
+        },
+        tableWidth: tableWidth,
+        margin: { left: chartAndTableX }
     });
 
+    const combinedChartImage = await getChartImage('combined-gradation-chart');
+    if(combinedChartImage) {
+        doc.addImage(combinedChartImage, 'PNG', chartX, chartAndTableY, chartWidth, 80);
+    }
   }
 
   addFooter();
