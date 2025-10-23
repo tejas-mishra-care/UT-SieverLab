@@ -40,12 +40,13 @@ async function getChartImage(chartId: string): Promise<string | null> {
       return null;
   }
   
+  // Explicitly set styles for SVG elements to ensure they are captured in PDF
   svgEl.querySelectorAll('path').forEach((path) => {
     const classList = path.getAttribute('class') || '';
     if (classList.includes('recharts-curve') || classList.includes('recharts-area-path') || classList.includes('recharts-line-path') || classList.includes('recharts-line')) {
       const originalStroke = path.getAttribute('stroke');
       if (!originalStroke || originalStroke === 'none' || originalStroke === 'transparent') {
-        path.setAttribute('stroke', '#333');
+        path.setAttribute('stroke', '#333'); // A visible default color
       }
       if (!path.getAttribute('stroke-width')) {
         path.setAttribute('stroke-width', '1');
@@ -67,6 +68,7 @@ async function getChartImage(chartId: string): Promise<string | null> {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const img = new Image();
+  // Use unescape and encodeURIComponent to handle special characters in SVG
   img.src = "data:image/svg+xml;charset=utf-8;base64," + btoa(unescape(encodeURIComponent(svgData)));
 
   return new Promise((resolve) => {
@@ -91,29 +93,37 @@ export async function generatePdf(data: PdfData) {
   const pageMargin = 15;
   const pageWidth = doc.internal.pageSize.getWidth() - pageMargin * 2;
   const pageHeight = doc.internal.pageSize.getHeight();
+  const headerHeight = 20;
   const footerHeight = 15;
+  const contentHeight = pageHeight - headerHeight - footerHeight;
 
-  let yPos = 20;
+  let yPos = headerHeight;
 
-  const addHeader = (title: string) => {
-    doc.setFontSize(22);
+  const addPageHeader = (pageNumber: number, totalPages: number) => {
+    doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text(title, pageMargin, yPos);
-    yPos += 8;
-  
-    doc.setFontSize(10);
+    doc.text(data.testName || "Sieve Analysis Report", pageMargin, 12);
+    
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text(`Generated on: ${format(new Date(), "PPpp")}`, pageMargin, yPos);
-    yPos += 12;
-  }
+    doc.text(
+      `Page ${pageNumber} of ${totalPages}`,
+      doc.internal.pageSize.getWidth() - pageMargin,
+      12,
+      { align: 'right' }
+    );
+    doc.setDrawColor(180);
+    doc.line(pageMargin, 15, doc.internal.pageSize.getWidth() - pageMargin, 15);
+  };
   
   const addFooter = () => {
     const pageCount = (doc as any).internal.getNumberOfPages();
     for(let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
+        addPageHeader(i, pageCount); // Add header to each page
         doc.setFontSize(8);
         doc.text(
-            `Page ${i} of ${pageCount}`, 
+            `Generated on: ${format(new Date(), "PPpp")}`, 
             pageMargin, 
             pageHeight - footerHeight / 2,
             { align: 'left'}
@@ -127,14 +137,18 @@ export async function generatePdf(data: PdfData) {
     }
   }
 
-  addHeader(data.testName || "Sieve Analysis Report");
+  const startNewPage = () => {
+    doc.addPage();
+    yPos = headerHeight;
+  };
 
   const addSection = async (title: string, results: AnalysisResults, weights: number[], type: ExtendedAggregateType, sieves: number[]) => {
-      if (yPos > pageHeight - 80) { 
-          doc.addPage();
-          yPos = 20;
+      // Check if a new page is needed before starting the section
+      if (yPos > headerHeight) { // Don't add a new page on the very first section
+        startNewPage();
       }
-      doc.setFontSize(16);
+
+      doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.text(title, pageMargin, yPos);
       yPos += 8;
@@ -150,10 +164,10 @@ export async function generatePdf(data: PdfData) {
               ]
           ],
           theme: 'grid',
-          styles: { cellPadding: 2, fontSize: 10 },
+          styles: { cellPadding: 2, fontSize: 9 },
           columnStyles: { 0: { cellWidth: 40 }, 2: {cellWidth: 40}}
       });
-      yPos = (doc as any).lastAutoTable.finalY + 10;
+      yPos = (doc as any).lastAutoTable.finalY + 8;
       
       const specLimits = getSpecLimitsForType(type, results.classification);
       const tableBody = sieves.map((sieve, i) => {
@@ -161,7 +175,6 @@ export async function generatePdf(data: PdfData) {
         const isOutOfSpec = limits ? results.percentPassing[i] < limits.min || results.percentPassing[i] > limits.max : false;
         return [
             sieve.toString(), 
-            (weights[i] ?? 0).toFixed(2),
             results.percentRetained[i]?.toFixed(2) ?? '0.00', 
             results.cumulativeRetained[i]?.toFixed(2) ?? '0.00', 
             results.percentPassing[i]?.toFixed(2) ?? '0.00',
@@ -170,30 +183,19 @@ export async function generatePdf(data: PdfData) {
             limits ? (isOutOfSpec ? 'Out of Spec' : 'In Spec') : 'N/A'
         ];
       });
-       // Add the pan row data
-      tableBody.push([
-        'Pan',
-        (weights[sieves.length] ?? 0).toFixed(2),
-        '', '', '', '', '', ''
-      ]);
       
-      if (yPos > pageHeight - 60) {
-        doc.addPage();
-        yPos = 20;
-      }
-
       autoTable(doc, {
-        head: [['Sieve (mm)', 'Wt. Retained (g)', '% Retained', 'Cum. % Retained', '% Passing', 'Lower Limit', 'Upper Limit', 'Remark']],
+        head: [['Sieve (mm)', '% Retained', 'Cum. % Retained', '% Passing', 'Lower Limit (%)', 'Upper Limit (%)', 'Remark']],
         body: tableBody,
         startY: yPos,
         theme: 'striped',
-        tableWidth: pageWidth,
+        tableWidth: 140, // Fixed width for results table
         headStyles: { fillColor: [41, 128, 185], textColor: 'white', fontSize: 8 },
         styles: { fontSize: 8, cellPadding: 1.5 },
-        columnStyles: { 4: {fontStyle: 'bold'} },
+        columnStyles: { 3: {fontStyle: 'bold'} },
         didParseCell: (hookData) => {
-          if (hookData.section === 'body' && hookData.column.index === 7 && hookData.cell.raw === 'Out of Spec') {
-            hookData.cell.styles.textColor = [255, 0, 0]; // Red
+          if (hookData.section === 'body' && hookData.column.index === 6 && hookData.cell.raw === 'Out of Spec') {
+            hookData.cell.styles.textColor = [255, 0, 0];
           }
           if (hookData.section === 'body' && type === 'Fine' && sieves[hookData.row.index] === 0.6) {
             if (!hookData.row.styles) {
@@ -204,34 +206,26 @@ export async function generatePdf(data: PdfData) {
         },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 10;
+    const tableFinalY = (doc as any).lastAutoTable.finalY;
     
-    if (yPos > pageHeight - 100) {
-        doc.addPage();
-        yPos = 20;
-    }
-
+    // -- Chart Drawing --
     const chartId = `${type.replace(/\s+/g, '-')}-chart`;
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Grading Curve", pageMargin, yPos);
-    yPos += 6;
-    
     const chartImage = await getChartImage(chartId);
-    const chartWidth = pageWidth * 0.7; // Use 70% of page width for the chart
-    const chartHeight = 80;
-    const chartX = pageMargin + (pageWidth - chartWidth) / 2; // Center the chart
-
-    if(chartImage) {
-        doc.addImage(chartImage, 'PNG', chartX, yPos, chartWidth, chartHeight);
+    
+    const chartWidth = 110;
+    const chartHeight = 90;
+    const chartX = pageMargin + 150; // Position chart to the right of the table
+    let chartY = yPos - 8; // Align top of chart with top of section title
+    
+    if (chartImage) {
+        doc.addImage(chartImage, 'PNG', chartX, chartY, chartWidth, chartHeight);
     } else {
         doc.setFontSize(10);
-        doc.text("Chart could not be rendered.", chartX, yPos + 10);
+        doc.text("Chart could not be rendered.", chartX, chartY + 10);
     }
-    yPos += chartHeight + 10;
   }
 
+  // Generate a section for each available result set
   if (data.fineResults) {
     await addSection('Fine Aggregate Results', data.fineResults, data.fineWeights, 'Fine', SIEVE_SIZES.FINE);
   }
@@ -246,10 +240,7 @@ export async function generatePdf(data: PdfData) {
   }
 
   if(data.showCombined && data.combinedChartData.length > 0) {
-    if (yPos > pageHeight - 120) { 
-        doc.addPage();
-        yPos = 20;
-    }
+    startNewPage();
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.text('Combined Gradation', pageMargin, yPos);
@@ -261,10 +252,14 @@ export async function generatePdf(data: PdfData) {
     doc.text(blendText, pageMargin, yPos);
     yPos += 10;
     
-    if (yPos > pageHeight - 60) {
-      doc.addPage();
-      yPos = 20;
+    const combinedChartImage = await getChartImage('combined-gradation-chart');
+    const chartWidth = pageWidth * 0.7;
+    const chartHeight = 80;
+    const chartX = pageMargin + (pageWidth - chartWidth) / 2;
+    if(combinedChartImage) {
+        doc.addImage(combinedChartImage, 'PNG', chartX, yPos, chartWidth, chartHeight);
     }
+    yPos += chartHeight + 5;
 
     const sortedData = [...data.combinedChartData].sort((a, b) => b.sieveSize - a.sieveSize);
     autoTable(doc, {
@@ -292,22 +287,6 @@ export async function generatePdf(data: PdfData) {
             }
         },
     });
-
-    yPos = (doc as any).lastAutoTable.finalY + 10;
-
-    if (yPos > pageHeight - 100) {
-        doc.addPage();
-        yPos = 20;
-    }
-
-    const chartWidth = pageWidth * 0.7; // Use 70% of page width for the chart
-    const chartHeight = 80;
-    const chartX = pageMargin + (pageWidth - chartWidth) / 2; // Center the chart
-
-    const combinedChartImage = await getChartImage('combined-gradation-chart');
-    if(combinedChartImage) {
-        doc.addImage(combinedChartImage, 'PNG', chartX, yPos, chartWidth, chartHeight);
-    }
   }
 
   addFooter();
