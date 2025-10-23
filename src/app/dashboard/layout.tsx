@@ -1,7 +1,7 @@
-
 "use client";
 
 import { Header } from "@/components/header";
+import { Logo } from "@/components/logo";
 import {
   Sidebar,
   SidebarContent,
@@ -15,7 +15,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useUser } from "@/firebase";
-import { HardHat, LayoutDashboard, Loader2 } from "lucide-react";
+import { LayoutDashboard, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";
@@ -49,8 +49,8 @@ export default function DashboardLayout({
           <div className="flex items-center gap-2">
             <SidebarTrigger className="size-8" />
             <div className="flex items-center gap-2 group-data-[collapsible=icon]:-ml-8 group-data-[collapsible=icon]:opacity-0 transition-all duration-200">
-                <div className="p-1.5 rounded-lg bg-primary text-primary-foreground">
-                    <HardHat className="h-5 w-5" />
+                <div className="h-8 w-8">
+                    <Logo />
                 </div>
                 <h1 className="font-headline text-xl font-bold text-sidebar-foreground">
                     SieveLab
