@@ -41,7 +41,8 @@ async function getChartImage(chartId: string): Promise<string | null> {
   }
   
   svgEl.querySelectorAll('path').forEach((path) => {
-    if (path.classList.contains('recharts-curve') || path.classList.contains('recharts-area-path') || path.classList.contains('recharts-line')) {
+    const classList = path.getAttribute('class') || '';
+    if (classList.includes('recharts-curve') || classList.includes('recharts-area-path') || classList.includes('recharts-line-path')) {
       const originalStroke = path.getAttribute('stroke');
       if (!originalStroke || originalStroke === 'none' || originalStroke === 'transparent') {
         path.setAttribute('stroke', '#333');
@@ -181,7 +182,7 @@ export async function generatePdf(data: PdfData) {
             hookData.cell.styles.textColor = [255, 0, 0]; // Red
           }
           if (hookData.section === 'body' && type === 'Fine' && sieves[hookData.row.index] === 0.6) {
-            if(!hookData.row.styles.fillColor) hookData.row.styles.fillColor = '#fef9c3'; // Tailwind yellow-100
+            hookData.cell.styles.fillColor = '#fef9c3'; // Tailwind yellow-100
           }
         },
     });
