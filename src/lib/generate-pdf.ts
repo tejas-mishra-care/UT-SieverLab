@@ -40,18 +40,14 @@ async function getChartImage(chartId: string): Promise<string | null> {
       return null;
   }
   
-  // Ensure lines have a stroke. This is critical for PDF rendering.
-  // The styles are sometimes lost when serializing, so we force them here.
   svgEl.querySelectorAll('path').forEach((path) => {
-    // Check if it's a line from the chart (recharts-curve or recharts-area-path)
-    if (path.classList.contains('recharts-curve') || path.classList.contains('recharts-area-path')) {
+    if (path.classList.contains('recharts-curve') || path.classList.contains('recharts-area-path') || path.classList.contains('recharts-line')) {
       const originalStroke = path.getAttribute('stroke');
-      // If stroke is none, transparent, or not set, it won't render. Give it a default.
       if (!originalStroke || originalStroke === 'none' || originalStroke === 'transparent') {
-        path.setAttribute('stroke', 'hsl(var(--foreground))'); // A sensible default
+        path.setAttribute('stroke', '#333');
       }
       if (!path.getAttribute('stroke-width')) {
-        path.setAttribute('stroke-width', '1.5');
+        path.setAttribute('stroke-width', '1');
       }
     }
   });
@@ -63,10 +59,10 @@ async function getChartImage(chartId: string): Promise<string | null> {
   if (!ctx) return null;
   
   const svgSize = svgEl.getBoundingClientRect();
-  canvas.width = svgSize.width * 2.5; // Render at higher resolution
+  canvas.width = svgSize.width * 2.5; 
   canvas.height = svgSize.height * 2.5;
   
-  ctx.fillStyle = 'white'; // Set background to white
+  ctx.fillStyle = 'white'; 
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const img = new Image();
@@ -133,7 +129,7 @@ export async function generatePdf(data: PdfData) {
   addHeader(data.testName || "Sieve Analysis Report");
 
   const addSection = async (title: string, results: AnalysisResults, weights: number[], type: ExtendedAggregateType, sieves: number[]) => {
-      if (yPos > 180) { // Check if enough space for a new section header and table
+      if (yPos > 180) { 
           doc.addPage();
           yPos = 20;
       }
@@ -142,12 +138,11 @@ export async function generatePdf(data: PdfData) {
       doc.text(title, pageMargin, yPos);
       yPos += 8;
 
-      // Summary Cards
       autoTable(doc, {
           startY: yPos,
           body: [
               [
-                  { content: 'Classification', styles: { fontStyle: 'bold' } },
+                  { content: type === 'Fine' ? 'Zone' : 'Classification', styles: { fontStyle: 'bold' } },
                   results.classification || 'N/A',
                   { content: 'Fineness Modulus', styles: { fontStyle: 'bold' } },
                   results.finenessModulus?.toFixed(2) || 'N/A'
@@ -159,27 +154,42 @@ export async function generatePdf(data: PdfData) {
       });
       yPos = (doc as any).lastAutoTable.finalY + 10;
       
-      // Results Table
-      autoTable(doc, {
-        head: [['Sieve (mm)', 'Wt. Retained (g)', '% Wt. Retained', 'Cum. % Retained', '% Passing']],
-        body: sieves.map((sieve, i) => [
+      const specLimits = getSpecLimitsForType(type, results.classification);
+      const tableBody = sieves.map((sieve, i) => {
+        const limits = specLimits ? specLimits[sieve] : null;
+        const isOutOfSpec = limits ? results.percentPassing[i] < limits.min || results.percentPassing[i] > limits.max : false;
+        return [
             sieve.toString(), 
             (weights[i] ?? 0).toFixed(2),
             results.percentRetained[i]?.toFixed(2) ?? '0.00', 
             results.cumulativeRetained[i]?.toFixed(2) ?? '0.00', 
-            results.percentPassing[i]?.toFixed(2) ?? '0.00'
-        ]),
+            results.percentPassing[i]?.toFixed(2) ?? '0.00',
+            limits ? `${limits.min.toFixed(0)} - ${limits.max.toFixed(0)}` : 'N/A',
+            limits ? (isOutOfSpec ? 'Out of Spec' : 'In Spec') : 'N/A'
+        ];
+      });
+
+      autoTable(doc, {
+        head: [['Sieve (mm)', 'Wt. Retained (g)', '% Wt. Retained', 'Cum. % Retained', '% Passing', 'BIS Limits', 'Remark']],
+        body: tableBody,
         startY: yPos,
         theme: 'striped',
         headStyles: { fillColor: [41, 128, 185], textColor: 'white' },
         columnStyles: { 4: {fontStyle: 'bold'} },
+        didParseCell: (hookData) => {
+          if (hookData.section === 'body' && hookData.column.index === 6 && hookData.cell.raw === 'Out of Spec') {
+            hookData.cell.styles.textColor = [255, 0, 0]; // Red
+          }
+          if (hookData.section === 'body' && type === 'Fine' && hookData.row.section === 'body' && hookData.cell.raw === '0.6') {
+             hookData.row.styles.fillColor = [255, 255, 0]; // Yellow
+          }
+        },
     });
     yPos = (doc as any).lastAutoTable.finalY + 10;
     
-    // Chart
     const chartId = `${type.replace(/\s+/g, '-')}-chart`;
     
-    if (yPos > pageHeight - 110) { // Check space for chart
+    if (yPos > pageHeight - 110) {
         doc.addPage();
         yPos = 20;
     }
@@ -197,54 +207,6 @@ export async function generatePdf(data: PdfData) {
         doc.text("Chart could not be rendered.", pageMargin, yPos);
         yPos += 10;
     }
-
-    // Specification Compliance Table
-    const specLimits = getSpecLimitsForType(type, results.classification);
-    if (specLimits) {
-        if (yPos > pageHeight - 60) {
-            doc.addPage();
-            yPos = 20;
-        }
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("Specification Compliance Details", pageMargin, yPos);
-        yPos += 6;
-
-        const specData = sieves.map((sieve, i) => {
-            const limits = specLimits[sieve];
-            const percentPassing = results.percentPassing[i];
-            if (!limits) return null;
-            const isOutOfSpec = percentPassing < limits.min || percentPassing > limits.max;
-            return {
-                sieve,
-                lowerLimit: limits.min,
-                upperLimit: limits.max,
-                percentPassing,
-                status: isOutOfSpec ? "Out of Spec" : "In Spec"
-            };
-        }).filter(Boolean) as { sieve: number; lowerLimit: number; upperLimit: number; percentPassing: number; status: string }[];
-        
-        autoTable(doc, {
-            head: [['Sieve (mm)', 'Lower Limit (%)', 'Upper Limit (%)', '% Passing', 'Status']],
-            body: specData.map(row => [
-                row.sieve.toFixed(2),
-                row.lowerLimit.toFixed(2),
-                row.upperLimit.toFixed(2),
-                row.percentPassing.toFixed(2),
-                row.status
-            ]),
-            startY: yPos,
-            theme: 'striped',
-            headStyles: { fillColor: [41, 128, 185], textColor: 'white' },
-            didParseCell: (hookData) => {
-                if (hookData.section === 'body' && hookData.column.index === 4 && hookData.cell.raw === 'Out of Spec') {
-                    hookData.cell.styles.textColor = 'red';
-                    hookData.cell.styles.fontStyle = 'bold';
-                }
-            }
-        });
-        yPos = (doc as any).lastAutoTable.finalY + 10;
-    }
   }
 
   if (data.fineResults) {
@@ -261,7 +223,7 @@ export async function generatePdf(data: PdfData) {
   }
 
   if(data.showCombined && data.combinedChartData.length > 0) {
-    if (yPos > 100) { // check space for combined chart and table
+    if (yPos > 100) { 
         doc.addPage();
         yPos = 20;
     }
@@ -311,7 +273,7 @@ export async function generatePdf(data: PdfData) {
         didParseCell: (hookData) => {
             if (hookData.section === 'body' && hookData.column.index === 4) {
                 if (hookData.cell.raw === 'Out of Spec') {
-                    hookData.cell.styles.textColor = 'red';
+                    hookData.cell.styles.textColor = [255, 0, 0];
                     hookData.cell.styles.fontStyle = 'bold';
                 }
             }

@@ -18,7 +18,8 @@ import {
 } from "@/components/ui/table";
 import type { ExtendedAggregateType, AnalysisResults } from "@/lib/definitions";
 import { getSpecLimitsForType } from "@/lib/sieve-analysis";
-import { AnalysisDetailsTable } from "./analysis-details-table";
+import { cn } from "@/lib/utils";
+
 
 interface SieveResultsDisplayProps extends AnalysisResults {
   sieves: number[];
@@ -58,7 +59,7 @@ export function SieveResultsDisplay({
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Classification</CardTitle>
+            <CardTitle className="text-sm font-medium">{type === 'Fine' ? 'Zone' : 'Classification'}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -103,41 +104,54 @@ export function SieveResultsDisplay({
                 <Table>
                 <TableHeader>
                     <TableRow>
-                    <TableHead className="font-bold">Sieve Size (mm)</TableHead>
-                    <TableHead className="font-bold text-right">% Retained</TableHead>
-                    <TableHead className="font-bold text-right">Cumulative % Retained</TableHead>
-                    <TableHead className="font-bold text-right">% Passing</TableHead>
+                        <TableHead className="font-bold">Sieve Size (mm)</TableHead>
+                        <TableHead className="font-bold text-right">% Retained</TableHead>
+                        <TableHead className="font-bold text-right">Cumulative % Retained</TableHead>
+                        <TableHead className="font-bold text-right">% Passing</TableHead>
+                        <TableHead className="font-bold text-center">BIS Limits (%)</TableHead>
+                        <TableHead className="font-bold text-center">Remark</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {sieves.map((sieve, index) => (
-                    <TableRow key={sieve}>
-                        <TableCell className="font-medium">{sieve}</TableCell>
-                        <TableCell className="text-right">
-                        {percentRetained?.[index]?.toFixed(2) ?? '0.00'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                        {cumulativeRetained?.[index]?.toFixed(2) ?? '0.00'}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold">
-                        {percentPassing?.[index]?.toFixed(2) ?? '0.00'}
-                        </TableCell>
-                    </TableRow>
-                    ))}
+                    {sieves.map((sieve, index) => {
+                       const limits = specLimits ? specLimits[sieve] : null;
+                       const isOutOfSpec = limits ? 
+                          percentPassing[index] < limits.min || percentPassing[index] > limits.max 
+                          : false;
+                       const is600Micron = type === 'Fine' && sieve === 0.6;
+
+                       return (
+                        <TableRow 
+                          key={sieve} 
+                          className={cn(
+                            is600Micron && "bg-yellow-100 dark:bg-yellow-900/50",
+                            isOutOfSpec && "bg-destructive/10"
+                          )}
+                        >
+                            <TableCell className="font-medium">{sieve}</TableCell>
+                            <TableCell className="text-right">
+                                {percentRetained?.[index]?.toFixed(2) ?? '0.00'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                                {cumulativeRetained?.[index]?.toFixed(2) ?? '0.00'}
+                            </TableCell>
+                            <TableCell className={cn("text-right font-semibold", isOutOfSpec && "text-destructive")}>
+                                {percentPassing?.[index]?.toFixed(2) ?? '0.00'}
+                            </TableCell>
+                            <TableCell className="text-center">
+                                {limits ? `${limits.min.toFixed(0)} - ${limits.max.toFixed(0)}` : "N/A"}
+                            </TableCell>
+                            <TableCell className={cn("text-center font-medium", isOutOfSpec ? "text-destructive" : "text-green-600")}>
+                                {limits ? (isOutOfSpec ? 'Out of Spec' : 'In Spec') : 'N/A'}
+                            </TableCell>
+                        </TableRow>
+                       )
+                    })}
                 </TableBody>
                 </Table>
             </div>
             </CardContent>
         </Card>
-
-        {specLimits && (
-            <AnalysisDetailsTable 
-                data={chartData}
-                specLimits={specLimits}
-                title="Specification Compliance Details"
-                description={`Comparison against IS 383 limits for ${classification ? classification : type}.`}
-            />
-        )}
         </div>
     </div>
   );
