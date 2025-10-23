@@ -46,13 +46,9 @@ async function getChartImage(chartId: string): Promise<string | null> {
         // Target all relevant recharts paths for lines and areas
         if (classList.includes('recharts-curve') || classList.includes('recharts-line-path') || classList.includes('recharts-area-path')) {
             const originalStroke = path.style.stroke || path.getAttribute('stroke');
-            if (!originalStroke || originalStroke === 'none' || originalStroke === 'transparent') {
-                // If no stroke, it might be an area, but we'll give it a default border
-                path.style.stroke = '#888888'; 
-            }
-            if (!path.style.strokeWidth && !path.getAttribute('stroke-width')) {
-                path.style.strokeWidth = '1';
-            }
+            path.style.stroke = originalStroke || '#888888';
+            path.style.strokeWidth = path.style.strokeWidth || path.getAttribute('stroke-width') || '1';
+            path.style.fill = path.style.fill || path.getAttribute('fill') || 'none';
         }
     });
 
@@ -139,15 +135,18 @@ export async function generatePdf(data: PdfData) {
     }
   }
 
-  const startNewPage = () => {
-    doc.addPage();
-    yPos = headerHeight;
+  const startNewPageIfNeeded = (requiredHeight: number) => {
+    if (yPos + requiredHeight > pageHeight - footerHeight) {
+      doc.addPage();
+      yPos = headerHeight;
+    }
   };
 
   const addSection = async (title: string, results: AnalysisResults, weights: number[], type: ExtendedAggregateType, sieves: number[]) => {
       // Start each section on a new page to ensure it fits
-      if ((doc as any).internal.getNumberOfPages() > 1 || doc.y > headerHeight + 5) {
-          startNewPage();
+      if ((doc as any).internal.getNumberOfPages() > 1 || yPos > headerHeight + 5) {
+          doc.addPage();
+          yPos = headerHeight;
       }
 
       doc.setFontSize(14);
@@ -175,7 +174,7 @@ export async function generatePdf(data: PdfData) {
       const specLimits = getSpecLimitsForType(type, results.classification);
       const tableBody = sieves.map((sieve, i) => {
         const limits = specLimits ? specLimits[sieve] : null;
-        const isOutOfSpec = limits ? results.percentPassing[i] < limits.min || results.percentPassing[i] > limits.max : false;
+        const isOutOfSpec = limits ? results.percentPassing[i] < limits.min || results.percentPassing[i] > results.max : false;
         return [
             sieve.toString(), 
             (weights?.[i] ?? 0).toFixed(1),
@@ -198,23 +197,23 @@ export async function generatePdf(data: PdfData) {
         headStyles: { fillColor: [41, 128, 185], textColor: 'white', fontSize: 8, cellPadding: 1.5 },
         styles: { fontSize: 8, cellPadding: 1.5 },
         columnStyles: { 
-            0: {cellWidth: 18},
-            1: {cellWidth: 18, halign: 'right'},
-            2: {cellWidth: 22, halign: 'right'},
-            3: {cellWidth: 28, halign: 'right'},
-            4: {cellWidth: 22, halign: 'right', fontStyle: 'bold'},
-            5: {cellWidth: 20, halign: 'center'},
-            6: {cellWidth: 20, halign: 'center'},
-            7: {cellWidth: 22, halign: 'center'},
-            8: {cellWidth: 22, halign: 'center'},
+            0: {cellWidth: 'auto'},
+            1: {cellWidth: 'auto', halign: 'right'},
+            2: {cellWidth: 'auto', halign: 'right'},
+            3: {cellWidth: 'auto', halign: 'right'},
+            4: {cellWidth: 'auto', halign: 'right', fontStyle: 'bold'},
+            5: {cellWidth: 'auto', halign: 'center'},
+            6: {cellWidth: 'auto', halign: 'center'},
+            7: {cellWidth: 'auto', halign: 'center'},
+            8: {cellWidth: 'auto', halign: 'center'},
         },
         didParseCell: (hookData) => {
           if (hookData.section === 'body' && hookData.column.index === 8 && hookData.cell.raw === 'Out of Spec') {
             hookData.cell.styles.textColor = [255, 0, 0];
           }
           if (hookData.section === 'body' && type === 'Fine' && sieves[hookData.row.index] === 0.6) {
-            if (!hookData.row.styles) hookData.row.styles = {};
-            (hookData.row.styles as any).fillColor = '#fef9c3';
+             if (!hookData.row.styles) hookData.row.styles = {};
+             (hookData.row.styles as any).fillColor = '#fef9c3';
           }
         },
     });
@@ -225,9 +224,14 @@ export async function generatePdf(data: PdfData) {
     const chartImage = await getChartImage(chartId);
     
     const remainingSpace = pageHeight - yPos - footerHeight - 5;
-    const chartHeight = remainingSpace > 80 ? remainingSpace : 80;
-    const chartWidth = pageWidth * 0.8;
-    const chartX = pageMargin + (pageWidth - chartWidth) / 2;
+    const chartHeight = remainingSpace > 60 ? remainingSpace : 60; // Make chart height responsive
+    const chartWidth = pageWidth;
+    const chartX = pageMargin;
+
+    if (yPos + chartHeight > pageHeight - footerHeight) {
+        doc.addPage();
+        yPos = headerHeight;
+    }
     
     if (chartImage) {
         doc.addImage(chartImage, 'PNG', chartX, yPos, chartWidth, chartHeight);
@@ -254,7 +258,9 @@ export async function generatePdf(data: PdfData) {
   }
 
   if(data.showCombined && data.combinedChartData.length > 0) {
-    startNewPage();
+    doc.addPage();
+    yPos = headerHeight;
+
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.text('Combined Gradation', pageMargin, yPos);
@@ -308,5 +314,3 @@ export async function generatePdf(data: PdfData) {
   addFooter();
   doc.save(`${data.testName || "sieve-analysis"}-${format(new Date(), "yyyy-MM-dd")}.pdf`);
 }
-
-    
