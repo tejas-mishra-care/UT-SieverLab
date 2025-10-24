@@ -136,7 +136,7 @@ export async function generatePdf(data: PdfData) {
             { align: 'left'}
         );
         doc.text(
-            'SieveLab Analysis Report',
+            'UltraTech Sieve Test Master Analysis Report',
             doc.internal.pageSize.getWidth() - pageMargin,
             pageHeight - footerHeight / 2,
             { align: 'right' }

@@ -10,7 +10,7 @@ export default function LoginPage() {
             <Logo />
           </div>
           <h1 className="font-headline text-4xl font-bold tracking-tight text-foreground">
-            SieveLab
+            UltraTech Sieve Test Master
           </h1>
           <p className="mt-2 text-muted-foreground">
             Analyze your aggregate data with precision.

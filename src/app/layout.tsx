@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export const metadata: Metadata = {
-  title: 'SieveLab',
+  title: 'UltraTech Sieve Test Master',
   description: 'Fine & Coarse Aggregate Testing as per IS 383 Standard',
 };
 

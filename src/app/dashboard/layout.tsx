@@ -75,7 +75,7 @@ export default function DashboardLayout({
                     <Logo />
                 </div>
                 <h1 className="font-headline text-xl font-bold text-sidebar-foreground">
-                    SieveLab
+                    UltraTech Sieve Test Master
                 </h1>
             </div>
           </div>

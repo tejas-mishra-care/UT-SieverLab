@@ -1,11 +1,11 @@
 
-# SieveLab: Advanced Sieve Analysis Calculator
+# UltraTech Sieve Test Master: Advanced Sieve Analysis Calculator
 
 ## Project Overview
 
-SieveLab is a modern, web-based application designed for civil engineers, lab technicians, and construction professionals to perform and analyze aggregate sieve analysis data with precision and efficiency. The application automates the complex calculations required by Indian Standard **IS 383:2016**, providing instant results, interactive visualizations, and professional-grade PDF reports.
+UltraTech Sieve Test Master is a modern, web-based application designed for civil engineers, lab technicians, and construction professionals to perform and analyze aggregate sieve analysis data with precision and efficiency. The application automates the complex calculations required by Indian Standard **IS 383:2016**, providing instant results, interactive visualizations, and professional-grade PDF reports.
 
-The primary goal of SieveLab is to replace cumbersome manual calculations and spreadsheets with an intuitive, fast, and standard-compliant digital tool, reducing errors and saving valuable time.
+The primary goal of UltraTech Sieve Test Master is to replace cumbersome manual calculations and spreadsheets with an intuitive, fast, and standard-compliant digital tool, reducing errors and saving valuable time.
 
 ---
 

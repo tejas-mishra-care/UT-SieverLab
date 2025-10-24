@@ -131,7 +131,7 @@ export function SignupForm() {
       <CardHeader>
         <CardTitle>Create an Account</CardTitle>
         <CardDescription>
-          Enter your details below to create your SieveLab account.
+          Enter your details below to create your UltraTech Sieve Test Master account.
         </CardDescription>
       </CardHeader>
       <CardContent>

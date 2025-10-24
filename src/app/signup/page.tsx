@@ -10,7 +10,7 @@ export default function SignupPage() {
             <Logo />
           </div>
           <h1 className="font-headline text-4xl font-bold tracking-tight text-foreground">
-            Join SieveLab
+            Join UltraTech Sieve Test Master
           </h1>
           <p className="mt-2 text-muted-foreground">
             Start analyzing your aggregate data today.

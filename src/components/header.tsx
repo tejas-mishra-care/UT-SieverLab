@@ -8,7 +8,7 @@ export function Header() {
       <div className="flex items-center gap-2">
         <SidebarTrigger className="flex md:hidden" />
         <SidebarTrigger className="hidden md:flex" />
-        <h1 className="font-headline text-xl font-semibold">SieveLab</h1>
+        <h1 className="font-headline text-xl font-semibold">UltraTech Sieve Test Master</h1>
       </div>
       <UserNav />
     </header>
