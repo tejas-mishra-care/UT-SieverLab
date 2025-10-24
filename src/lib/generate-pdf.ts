@@ -39,10 +39,10 @@ async function getChartImage(chartId: string): Promise<string | null> {
     
     const svgClone = svgEl.cloneNode(true) as SVGSVGElement;
 
+    // Force application of styles to the cloned SVG
     const styleMap = new Map<Element, Partial<CSSStyleDeclaration>>();
-
-    const originalElements = svgEl.querySelectorAll('path, line, circle, rect');
-    const clonedElements = svgClone.querySelectorAll('path, line, circle, rect');
+    const originalElements = svgEl.querySelectorAll('path, line, circle, rect, text, .recharts-text');
+    const clonedElements = svgClone.querySelectorAll('path, line, circle, rect, text, .recharts-text');
 
     originalElements.forEach((originalEl, index) => {
         const clonedEl = clonedElements[index];
@@ -54,15 +54,10 @@ async function getChartImage(chartId: string): Promise<string | null> {
                 fill: computedStyle.fill,
                 strokeDasharray: computedStyle.strokeDasharray,
                 opacity: computedStyle.opacity,
+                fontFamily: computedStyle.fontFamily,
+                fontSize: computedStyle.fontSize,
+                fontWeight: computedStyle.fontWeight,
             };
-
-            // For text elements, also copy font styles
-            if (originalEl.tagName.toLowerCase() === 'text' || originalEl.parentElement?.tagName.toLowerCase() === 'text') {
-                styleToApply.fontFamily = computedStyle.fontFamily;
-                styleToApply.fontSize = computedStyle.fontSize;
-                styleToApply.fontWeight = computedStyle.fontWeight;
-            }
-
             styleMap.set(clonedEl, styleToApply);
         }
     });
@@ -70,6 +65,7 @@ async function getChartImage(chartId: string): Promise<string | null> {
     styleMap.forEach((style, element) => {
         Object.assign((element as HTMLElement).style, style);
     });
+
 
     const svgData = new XMLSerializer().serializeToString(svgClone);
     const canvas = document.createElement("canvas");
@@ -156,6 +152,8 @@ export async function generatePdf(data: PdfData) {
       if ((doc as any).internal.getNumberOfPages() > 1 || yPos > headerHeight + 5) {
           doc.addPage();
           yPos = headerHeight;
+      } else if (yPos > headerHeight) {
+          yPos += 10; // Add some space between sections on the same page
       }
 
       doc.setFontSize(14);
@@ -172,7 +170,7 @@ export async function generatePdf(data: PdfData) {
           body: summaryBody,
           startY: yPos,
           theme: 'plain',
-          tableWidth: pageWidth / 3, // Make summary table smaller
+          tableWidth: pageWidth / 3.5,
           styles: { fontSize: 9, cellPadding: 1 },
           columnStyles: { 0: { fontStyle: 'bold' } },
       });
@@ -232,7 +230,7 @@ export async function generatePdf(data: PdfData) {
     const chartImage = await getChartImage(chartId);
     
     const remainingSpace = pageHeight - yPos - footerHeight - 5;
-    const chartHeight = remainingSpace > 60 ? remainingSpace : 60;
+    const chartHeight = remainingSpace > 60 ? remainingSpace : 60; // Use at least 60mm
     const chartWidth = pageWidth;
     const chartX = pageMargin;
 
@@ -299,7 +297,7 @@ export async function generatePdf(data: PdfData) {
         }),
         startY: tableStartY,
         theme: 'striped',
-        tableWidth: pageWidth,
+        tableWidth: pageWidth / 1.5, // Make table smaller to fit next to chart
         headStyles: { fillColor: [41, 128, 185], textColor: 'white' },
         didParseCell: (hookData) => {
             if (hookData.section === 'body' && hookData.column.index === 4) {
@@ -316,21 +314,13 @@ export async function generatePdf(data: PdfData) {
 
     tableFinalY = (doc as any).lastAutoTable.finalY;
     
-    const chartY = tableFinalY + 5;
-    const remainingChartSpace = pageHeight - chartY - footerHeight;
-    const chartHeight = remainingChartSpace > 60 ? remainingChartSpace : 60;
-    const chartWidth = pageWidth;
-    
-    if (chartY + chartHeight > pageHeight - footerHeight) {
-      doc.addPage();
-      yPos = headerHeight;
-      if (combinedChartImage) {
-        doc.addImage(combinedChartImage, 'PNG', pageMargin, yPos, chartWidth, chartHeight);
-      }
-    } else {
-      if (combinedChartImage) {
-        doc.addImage(combinedChartImage, 'PNG', pageMargin, chartY, chartWidth, chartHeight);
-      }
+    const chartY = headerHeight + 28;
+    const chartX = pageMargin + pageWidth / 1.5 + 5;
+    const chartWidth = pageWidth - (pageWidth / 1.5) - 5;
+    const chartHeight = tableFinalY - chartY;
+
+    if (combinedChartImage) {
+      doc.addImage(combinedChartImage, 'PNG', chartX, chartY, chartWidth, chartHeight);
     }
   }
 
