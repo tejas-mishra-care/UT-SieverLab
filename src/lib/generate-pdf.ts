@@ -105,6 +105,7 @@ export async function generatePdf(data: PdfData) {
   let yPos = headerHeight;
 
   const addPageHeader = (pageNumber: number, totalPages: number) => {
+    doc.setTextColor(0, 0, 0);
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.text(data.testName || "Sieve Analysis Report", pageMargin, 12);
@@ -126,6 +127,7 @@ export async function generatePdf(data: PdfData) {
     for(let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         addPageHeader(i, pageCount); 
+        doc.setTextColor(0, 0, 0);
         doc.setFontSize(8);
         doc.text(
             `Generated on: ${format(new Date(), "PPpp")}`, 
@@ -156,6 +158,7 @@ export async function generatePdf(data: PdfData) {
           yPos += 5;
       }
 
+      doc.setTextColor(0, 0, 0);
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.text(title, pageMargin, yPos);
@@ -172,7 +175,7 @@ export async function generatePdf(data: PdfData) {
           startY: yPos,
           theme: 'plain',
           tableWidth: pageWidth / 2,
-          styles: { fontSize: 9, cellPadding: 1 },
+          styles: { fontSize: 9, cellPadding: 1, textColor: [0, 0, 0] },
           columnStyles: { 0: { fontStyle: 'bold' } },
       });
       yPos = (doc as any).lastAutoTable.finalY + 5;
@@ -180,6 +183,7 @@ export async function generatePdf(data: PdfData) {
       checkAndAddPage();
 
       // --- Input Table ---
+      doc.setTextColor(0, 0, 0);
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
       doc.text("Test Inputs", pageMargin, yPos);
@@ -192,14 +196,16 @@ export async function generatePdf(data: PdfData) {
           foot: [['Total', totalWeight.toFixed(1)]],
           startY: yPos,
           theme: 'grid',
-          headStyles: { fillColor: [230, 230, 230], textColor: 20 },
-          footStyles: { fillColor: [230, 230, 230], textColor: 20, fontStyle: 'bold' }
+          headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
+          footStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: 'bold' },
+          styles: { textColor: [0, 0, 0] }
       });
       yPos = (doc as any).lastAutoTable.finalY + 8;
 
       checkAndAddPage();
 
       // --- Results Table ---
+      doc.setTextColor(0, 0, 0);
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
       doc.text("Tabulated Results", pageMargin, yPos);
@@ -228,7 +234,7 @@ export async function generatePdf(data: PdfData) {
         startY: yPos,
         theme: 'striped',
         headStyles: { fillColor: [41, 128, 185], textColor: 'white', fontSize: 8, cellPadding: 1.5 },
-        styles: { fontSize: 8, cellPadding: 1.5 },
+        styles: { fontSize: 8, cellPadding: 1.5, textColor: [0, 0, 0] },
         columnStyles: { 4: {fontStyle: 'bold'}, 6: {halign: 'center'}},
         didParseCell: (hookData) => {
             if (hookData.section === 'body' && hookData.column.dataKey === 6 && hookData.cell.raw === 'FAIL') {
@@ -245,6 +251,7 @@ export async function generatePdf(data: PdfData) {
     // --- Verification Table for Fine Aggregate ---
     if (type === 'Fine' && results.classification !== bestFitZone && bestFitZone) {
       checkAndAddPage();
+      doc.setTextColor(0, 0, 0);
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
       doc.text("Zone Classification Verification", pageMargin, yPos);
@@ -267,7 +274,8 @@ export async function generatePdf(data: PdfData) {
         body: verificationBody,
         startY: yPos,
         theme: 'grid',
-        headStyles: { fillColor: [230, 230, 230], textColor: 20 },
+        headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
+        styles: { textColor: [0, 0, 0] },
         didParseCell: (hookData) => {
           if (hookData.section === 'body' && hookData.column.index === 3 && hookData.cell.raw === 'FAIL') {
             hookData.cell.styles.textColor = [255, 0, 0];
@@ -276,6 +284,7 @@ export async function generatePdf(data: PdfData) {
         },
       });
       yPos = (doc as any).lastAutoTable.finalY + 5;
+      doc.setTextColor(0, 0, 0);
       doc.setFontSize(9);
       doc.setFont("helvetica", "italic");
       const conclusionText = `Conclusion: Because the % Passing for one or more sieves falls outside the required range for ${bestFitZone}, the sample cannot be classified as such.`;
@@ -302,6 +311,7 @@ export async function generatePdf(data: PdfData) {
         doc.addImage(chartImage, 'PNG', pageMargin, yPos, chartWidth, chartHeight);
         yPos += chartHeight + 10;
     } else {
+        doc.setTextColor(0, 0, 0);
         doc.setFontSize(10);
         doc.text("Chart could not be rendered.", pageMargin, yPos + 10);
         yPos += 20;
@@ -334,6 +344,7 @@ export async function generatePdf(data: PdfData) {
   if(data.showCombined && data.combinedChartData.length > 0) {
     addPageBreakIfNeeded();
 
+    doc.setTextColor(0, 0, 0);
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.text('Combined Gradation Results', pageMargin, yPos);
@@ -364,6 +375,7 @@ export async function generatePdf(data: PdfData) {
         startY: yPos,
         theme: 'striped',
         headStyles: { fillColor: [41, 128, 185], textColor: 'white' },
+        styles: { textColor: [0, 0, 0] },
         didParseCell: (hookData) => {
             if (hookData.section === 'body' && hookData.column.index === 4 && hookData.cell.raw === 'FAIL') {
                 hookData.cell.styles.textColor = [255, 0, 0];
