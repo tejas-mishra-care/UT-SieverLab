@@ -18,8 +18,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ExtendedAggregateType, AnalysisResults } from "@/lib/definitions";
-import { getSpecLimitsForType } from "@/lib/sieve-analysis";
+import { getSpecLimitsForType, findBestFitZone } from "@/lib/sieve-analysis";
 import { cn } from "@/lib/utils";
+import { ZoneVerificationTable } from "./zone-verification-table";
 
 
 interface SieveResultsDisplayProps extends AnalysisResults {
@@ -47,7 +48,9 @@ export function SieveResultsDisplay({
   // Ensure a unique ID for each chart
   const chartId = `${type.replace(/\s+/g, '-')}-chart`;
 
-  const specLimits = getSpecLimitsForType(type, classification);
+  const bestFitZone = type === 'Fine' ? findBestFitZone(percentPassing, sieves) : null;
+  const specLimits = getSpecLimitsForType(type, type === 'Fine' ? bestFitZone : classification);
+  const showsVerification = type === 'Fine' && classification !== bestFitZone;
 
   return (
     <div className="space-y-6">
@@ -135,7 +138,7 @@ export function SieveResultsDisplay({
                                 {limits ? `${limits.min.toFixed(0)} - ${limits.max.toFixed(0)}` : "N/A"}
                             </TableCell>
                             <TableCell className={cn("text-center font-medium", isOutOfSpec ? "text-destructive" : "text-green-600")}>
-                                {limits ? (isOutOfSpec ? 'Out of Spec' : 'In Spec') : 'N/A'}
+                                {limits ? (isOutOfSpec ? 'FAIL' : 'Pass') : 'N/A'}
                             </TableCell>
                         </TableRow>
                        )
@@ -145,6 +148,14 @@ export function SieveResultsDisplay({
             </div>
             </CardContent>
         </Card>
+        
+        {showsVerification && bestFitZone && (
+          <ZoneVerificationTable
+            sieves={sieves}
+            percentPassing={percentPassing}
+            bestFitZone={bestFitZone}
+          />
+        )}
         
         <Card id={chartId}>
             <CardHeader>

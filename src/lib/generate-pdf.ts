@@ -3,7 +3,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import type { AnalysisResults, ExtendedAggregateType } from "./definitions";
-import { getSievesForType, getSpecLimitsForType, SIEVE_SIZES } from "./sieve-analysis";
+import { getSievesForType, getSpecLimitsForType, SIEVE_SIZES, findBestFitZone, ZONING_LIMITS } from "./sieve-analysis";
 
 type CoarseForCombination = 'Graded' | 'Coarse - 20mm' | 'Coarse - 10mm';
 
@@ -205,7 +205,9 @@ export async function generatePdf(data: PdfData) {
       doc.text("Tabulated Results", pageMargin, yPos);
       yPos += 5;
 
-      const specLimits = getSpecLimitsForType(type, results.classification);
+      const bestFitZone = type === 'Fine' ? findBestFitZone(results.percentPassing, sieves) : null;
+      const specLimits = getSpecLimitsForType(type, type === 'Fine' ? bestFitZone : results.classification);
+      
       const tableBody = sieves.map((sieve, i) => {
         const limits = specLimits ? specLimits[sieve] : null;
         const isOutOfSpec = limits ? results.percentPassing[i] < limits.min || results.percentPassing[i] > limits.max : false;
@@ -216,7 +218,7 @@ export async function generatePdf(data: PdfData) {
             results.cumulativeRetained[i]?.toFixed(2) ?? '0.00',
             results.percentPassing[i]?.toFixed(2) ?? '0.00',
             limits ? `${limits.min.toFixed(0)} - ${limits.max.toFixed(0)}` : 'N/A',
-            limits ? (isOutOfSpec ? 'Out of Spec' : 'In Spec') : 'N/A'
+            limits ? (isOutOfSpec ? 'FAIL' : 'Pass') : 'N/A'
         ];
       });
       
@@ -229,7 +231,7 @@ export async function generatePdf(data: PdfData) {
         styles: { fontSize: 8, cellPadding: 1.5 },
         columnStyles: { 4: {fontStyle: 'bold'}, 6: {halign: 'center'}},
         didParseCell: (hookData) => {
-            if (hookData.section === 'body' && hookData.column.dataKey === 6 && hookData.cell.raw === 'Out of Spec') {
+            if (hookData.section === 'body' && hookData.column.dataKey === 6 && hookData.cell.raw === 'FAIL') {
                 hookData.cell.styles.textColor = [255, 0, 0];
             }
             if (hookData.section === 'body' && type === 'Fine' && sieves[hookData.row.index] === 0.6) {
@@ -239,6 +241,48 @@ export async function generatePdf(data: PdfData) {
     });
 
     yPos = (doc as any).lastAutoTable.finalY + 8;
+    
+    // --- Verification Table for Fine Aggregate ---
+    if (type === 'Fine' && results.classification !== bestFitZone && bestFitZone) {
+      checkAndAddPage();
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text("Zone Classification Verification", pageMargin, yPos);
+      yPos += 5;
+
+      const verificationBody = sieves.map((sieve, i) => {
+        const limits = ZONING_LIMITS[bestFitZone][sieve];
+        const passingValue = results.percentPassing[i];
+        const isOutOfSpec = limits ? passingValue < limits.min || passingValue > limits.max : false;
+        return [
+          `${sieve} mm`,
+          `${passingValue.toFixed(2)}%`,
+          limits ? `${limits.min} - ${limits.max}` : "N/A",
+          isOutOfSpec ? 'FAIL' : 'Pass'
+        ];
+      });
+
+      autoTable(doc, {
+        head: [['IS Sieve', 'Sample % Passing', `${bestFitZone} Limits (% Passing)`, 'Remark']],
+        body: verificationBody,
+        startY: yPos,
+        theme: 'grid',
+        headStyles: { fillColor: [230, 230, 230], textColor: 20 },
+        didParseCell: (hookData) => {
+          if (hookData.section === 'body' && hookData.column.index === 3 && hookData.cell.raw === 'FAIL') {
+            hookData.cell.styles.textColor = [255, 0, 0];
+            hookData.cell.styles.fontStyle = 'bold';
+          }
+        },
+      });
+      yPos = (doc as any).lastAutoTable.finalY + 5;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "italic");
+      const conclusionText = `Conclusion: Because the % Passing for one or more sieves falls outside the required range for ${bestFitZone}, the sample cannot be classified as such.`;
+      const splitText = doc.splitTextToSize(conclusionText, pageWidth);
+      doc.text(splitText, pageMargin, yPos);
+      yPos = yPos + (splitText.length * 4) + 5;
+    }
     
     checkAndAddPage();
 
