@@ -91,7 +91,7 @@ async function getChartImage(chartId: string): Promise<string | null> {
 
 export async function generatePdf(data: PdfData) {
   const doc = new jsPDF({
-    orientation: "landscape",
+    orientation: "portrait",
     unit: "mm",
     format: "a4",
   });
@@ -142,19 +142,26 @@ export async function generatePdf(data: PdfData) {
     }
   }
 
+  const checkAndAddPage = () => {
+    if (yPos > pageHeight - footerHeight - 40) { // Add a buffer
+        doc.addPage();
+        yPos = headerHeight;
+    }
+  }
+  
   const addSection = async (title: string, results: AnalysisResults, weights: number[], type: ExtendedAggregateType, sieves: number[]) => {
-      if ((doc as any).internal.getNumberOfPages() > 1 || yPos > headerHeight + 5) {
-          doc.addPage();
-          yPos = headerHeight;
-      } else if (yPos > headerHeight) {
-          yPos += 10;
+      checkAndAddPage();
+      
+      if (yPos > headerHeight) {
+          yPos += 5;
       }
 
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.text(title, pageMargin, yPos);
-      yPos += 8;
+      yPos += 6;
 
+      // --- Summary Cards ---
       const summaryBody = [
           ['Aggregate Type', type],
           [type === 'Fine' ? 'Zone' : 'Classification', results.classification || 'N/A'],
@@ -164,12 +171,39 @@ export async function generatePdf(data: PdfData) {
           body: summaryBody,
           startY: yPos,
           theme: 'plain',
-          tableWidth: pageWidth / 3.5,
+          tableWidth: pageWidth / 2,
           styles: { fontSize: 9, cellPadding: 1 },
           columnStyles: { 0: { fontStyle: 'bold' } },
       });
       yPos = (doc as any).lastAutoTable.finalY + 5;
+      
+      checkAndAddPage();
 
+      // --- Input Table ---
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text("Test Inputs", pageMargin, yPos);
+      yPos += 5;
+      
+      const totalWeight = weights.reduce((acc, w) => acc + (w || 0), 0);
+      autoTable(doc, {
+          head: [['Sieve Size (mm)', 'Weight Retained (g)']],
+          body: [...sieves.map((sieve, index) => [sieve.toString(), (weights?.[index] ?? 0).toFixed(1)]), ['Pan', (weights?.[sieves.length] ?? 0).toFixed(1)]],
+          foot: [['Total', totalWeight.toFixed(1)]],
+          startY: yPos,
+          theme: 'grid',
+          headStyles: { fillColor: [230, 230, 230], textColor: 20 },
+          footStyles: { fillColor: [230, 230, 230], textColor: 20, fontStyle: 'bold' }
+      });
+      yPos = (doc as any).lastAutoTable.finalY + 8;
+
+      checkAndAddPage();
+
+      // --- Results Table ---
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text("Tabulated Results", pageMargin, yPos);
+      yPos += 5;
 
       const specLimits = getSpecLimitsForType(type, results.classification);
       const tableBody = sieves.map((sieve, i) => {
@@ -191,18 +225,9 @@ export async function generatePdf(data: PdfData) {
         body: tableBody,
         startY: yPos,
         theme: 'striped',
-        tableWidth: pageWidth,
         headStyles: { fillColor: [41, 128, 185], textColor: 'white', fontSize: 8, cellPadding: 1.5 },
         styles: { fontSize: 8, cellPadding: 1.5 },
-        columnStyles: { 
-            0: {cellWidth: 'auto'},
-            1: {cellWidth: 'auto', halign: 'right'},
-            2: {cellWidth: 'auto', halign: 'right'},
-            3: {cellWidth: 'auto', halign: 'right'},
-            4: {cellWidth: 'auto', halign: 'right', fontStyle: 'bold'},
-            5: {cellWidth: 'auto', halign: 'center'},
-            6: {cellWidth: 'auto', halign: 'center'},
-        },
+        columnStyles: { 4: {fontStyle: 'bold'}, 6: {halign: 'center'}},
         didParseCell: (hookData) => {
             if (hookData.section === 'body' && hookData.column.dataKey === 6 && hookData.cell.raw === 'Out of Spec') {
                 hookData.cell.styles.textColor = [255, 0, 0];
@@ -213,15 +238,16 @@ export async function generatePdf(data: PdfData) {
         },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 5;
+    yPos = (doc as any).lastAutoTable.finalY + 8;
     
+    checkAndAddPage();
+
+    // --- Chart ---
     const chartId = `${type.replace(/\s+/g, '-')}-chart`;
     const chartImage = await getChartImage(chartId);
     
-    const remainingSpace = pageHeight - yPos - footerHeight - 5;
-    const chartHeight = remainingSpace > 60 ? remainingSpace : 60; // Use at least 60mm
+    const chartHeight = 70;
     const chartWidth = pageWidth;
-    const chartX = pageMargin;
 
     if (yPos + chartHeight > pageHeight - footerHeight) {
         doc.addPage();
@@ -229,44 +255,55 @@ export async function generatePdf(data: PdfData) {
     }
     
     if (chartImage) {
-        doc.addImage(chartImage, 'PNG', chartX, yPos, chartWidth, chartHeight);
-        yPos += chartHeight;
+        doc.addImage(chartImage, 'PNG', pageMargin, yPos, chartWidth, chartHeight);
+        yPos += chartHeight + 10;
     } else {
         doc.setFontSize(10);
-        doc.text("Chart could not be rendered.", chartX, yPos + 10);
+        doc.text("Chart could not be rendered.", pageMargin, yPos + 10);
         yPos += 20;
     }
   }
 
-  // Generate a section for each available result set
+  const addPageBreakIfNeeded = () => {
+    if ((doc as any).internal.getNumberOfPages() > 1 || yPos > headerHeight + 5) {
+        doc.addPage();
+        yPos = headerHeight;
+    }
+  }
+
   if (data.fineResults) {
     await addSection('Fine Aggregate Results', data.fineResults, data.fineWeights, 'Fine', SIEVE_SIZES.FINE);
   }
   if (data.coarseGradedResults) {
+    addPageBreakIfNeeded();
     await addSection('Coarse Aggregate (Graded) Results', data.coarseGradedResults, data.coarseGradedWeights, 'Coarse - Graded', SIEVE_SIZES.COARSE_GRADED);
   }
   if (data.coarseSingle20mmResults) {
+    addPageBreakIfNeeded();
     await addSection('Coarse Aggregate (20mm) Results', data.coarseSingle20mmResults, data.coarseSingle20mmWeights, 'Coarse - 20mm', SIEVE_SIZES.COARSE_SINGLE_20MM);
   }
   if (data.coarseSingle10mmResults) {
+    addPageBreakIfNeeded();
     await addSection('Coarse Aggregate (10mm) Results', data.coarseSingle10mmResults, data.coarseSingle10mmWeights, 'Coarse - 10mm', SIEVE_SIZES.COARSE_SINGLE_10MM);
   }
 
   if(data.showCombined && data.combinedChartData.length > 0) {
-    doc.addPage();
-    yPos = headerHeight;
+    addPageBreakIfNeeded();
 
-    doc.setFontSize(16);
+    doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text('Combined Gradation', pageMargin, yPos);
-    yPos += 8;
+    doc.text('Combined Gradation Results', pageMargin, yPos);
+    yPos += 6;
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     const blendText = `Blend: ${data.fineAggregatePercentage}% Fine, ${data.coarseAggregatePercentage}% Coarse (using ${data.coarseForCombination})`;
     doc.text(blendText, pageMargin, yPos);
-    yPos += 10;
+    yPos += 8;
     
+    checkAndAddPage();
+    
+    // --- Combined Table ---
     const sortedData = [...data.combinedChartData].sort((a, b) => b.sieveSize - a.sieveSize);
     autoTable(doc, {
         head: [['Sieve (mm)', 'Lower Limit (%)', 'Upper Limit (%)', 'Combined Passing (%)', 'Status']],
@@ -282,32 +319,33 @@ export async function generatePdf(data: PdfData) {
         }),
         startY: yPos,
         theme: 'striped',
-        tableWidth: pageWidth,
         headStyles: { fillColor: [41, 128, 185], textColor: 'white' },
         didParseCell: (hookData) => {
-            if (hookData.section === 'body' && hookData.column.index === 4) {
-                if (hookData.cell.raw === 'Out of Spec') {
-                    hookData.cell.styles.textColor = [255, 0, 0];
-                    hookData.cell.styles.fontStyle = 'bold';
-                }
+            if (hookData.section === 'body' && hookData.column.index === 4 && hookData.cell.raw === 'Out of Spec') {
+                hookData.cell.styles.textColor = [255, 0, 0];
+                hookData.cell.styles.fontStyle = 'bold';
+            }
+             if (hookData.section === 'body' && parseFloat(hookData.row.cells[0].text[0]) === 0.6) {
+                hookData.cell.styles.fillColor = '#fef9c3';
             }
         },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 5;
+    yPos = (doc as any).lastAutoTable.finalY + 8;
     
-    const combinedChartImage = await getChartImage('combined-gradation-chart');
-    const remainingSpace = pageHeight - yPos - footerHeight - 5;
-    const chartHeight = remainingSpace > 80 ? remainingSpace : 80;
-    const chartWidth = pageWidth;
+    checkAndAddPage();
 
+    // --- Combined Chart ---
+    const combinedChartImage = await getChartImage('combined-gradation-chart');
+    const chartHeight = 80;
+    
     if (yPos + chartHeight > pageHeight - footerHeight) {
         doc.addPage();
         yPos = headerHeight;
     }
 
     if (combinedChartImage) {
-      doc.addImage(combinedChartImage, 'PNG', pageMargin, yPos, chartWidth, chartHeight);
+      doc.addImage(combinedChartImage, 'PNG', pageMargin, yPos, pageWidth, chartHeight);
     }
   }
 

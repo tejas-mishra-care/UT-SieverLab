@@ -56,8 +56,16 @@ export function CombinedGradationTable({ data }: CombinedGradationTableProps) {
                 const isOutOfSpec =
                   row.combinedPassing < row.lowerLimit ||
                   row.combinedPassing > row.upperLimit;
+                const is600Micron = row.sieveSize === 0.6;
+                
                 return (
-                  <TableRow key={row.sieveSize} className={cn(isOutOfSpec && "bg-destructive/10")}>
+                  <TableRow 
+                    key={row.sieveSize} 
+                    className={cn(
+                      is600Micron && "bg-yellow-100 dark:bg-yellow-900/50",
+                      isOutOfSpec && "bg-destructive/10"
+                    )}
+                  >
                     <TableCell className="font-medium">{row.sieveSize}</TableCell>
                     <TableCell className="text-right">{row.lowerLimit.toFixed(2)}</TableCell>
                     <TableCell className="text-right">{row.upperLimit.toFixed(2)}</TableCell>
