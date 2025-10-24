@@ -1,3 +1,4 @@
+
 "use client";
 
 import { SieveChart } from "@/components/sieve-chart";
@@ -24,11 +25,13 @@ import { cn } from "@/lib/utils";
 interface SieveResultsDisplayProps extends AnalysisResults {
   sieves: number[];
   type: ExtendedAggregateType;
+  weights: number[]; // Added weights here
 }
 
 export function SieveResultsDisplay({
   sieves,
   type,
+  weights,
   percentRetained,
   cumulativeRetained,
   percentPassing,
@@ -105,6 +108,7 @@ export function SieveResultsDisplay({
                 <TableHeader>
                     <TableRow>
                         <TableHead className="font-bold">Sieve Size (mm)</TableHead>
+                        <TableHead className="font-bold text-right">Wt. Ret (g)</TableHead>
                         <TableHead className="font-bold text-right">% Retained</TableHead>
                         <TableHead className="font-bold text-right">Cumulative % Retained</TableHead>
                         <TableHead className="font-bold text-right">% Passing</TableHead>
@@ -129,6 +133,7 @@ export function SieveResultsDisplay({
                           )}
                         >
                             <TableCell className="font-medium">{sieve}</TableCell>
+                            <TableCell className="text-right">{(weights?.[index] ?? 0).toFixed(1)}</TableCell>
                             <TableCell className="text-right">
                                 {percentRetained?.[index]?.toFixed(2) ?? '0.00'}
                             </TableCell>

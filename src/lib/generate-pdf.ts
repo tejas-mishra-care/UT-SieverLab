@@ -37,33 +37,39 @@ async function getChartImage(chartId: string): Promise<string | null> {
         return null;
     }
     
-    // Deep clone the SVG to avoid altering the live DOM
     const svgClone = svgEl.cloneNode(true) as SVGSVGElement;
 
-    // A more robust way to force styles. It finds the computed styles from the original
-    // element and applies them inline to the clone. This is much more reliable.
     const styleMap = new Map<Element, Partial<CSSStyleDeclaration>>();
 
-    svgEl.querySelectorAll('path, line').forEach((originalPath, index) => {
-        const clonedPath = svgClone.querySelectorAll('path, line')[index];
-        if (clonedPath) {
-            const computedStyle = window.getComputedStyle(originalPath);
-            styleMap.set(clonedPath, {
+    const originalElements = svgEl.querySelectorAll('path, line, circle, rect');
+    const clonedElements = svgClone.querySelectorAll('path, line, circle, rect');
+
+    originalElements.forEach((originalEl, index) => {
+        const clonedEl = clonedElements[index];
+        if (clonedEl) {
+            const computedStyle = window.getComputedStyle(originalEl);
+            const styleToApply: Partial<CSSStyleDeclaration> = {
                 stroke: computedStyle.stroke,
                 strokeWidth: computedStyle.strokeWidth,
                 fill: computedStyle.fill,
                 strokeDasharray: computedStyle.strokeDasharray,
-            });
+                opacity: computedStyle.opacity,
+            };
+
+            // For text elements, also copy font styles
+            if (originalEl.tagName.toLowerCase() === 'text' || originalEl.parentElement?.tagName.toLowerCase() === 'text') {
+                styleToApply.fontFamily = computedStyle.fontFamily;
+                styleToApply.fontSize = computedStyle.fontSize;
+                styleToApply.fontWeight = computedStyle.fontWeight;
+            }
+
+            styleMap.set(clonedEl, styleToApply);
         }
     });
 
     styleMap.forEach((style, element) => {
-        (element as HTMLElement).style.stroke = style.stroke || 'none';
-        (element as HTMLElement).style.strokeWidth = style.strokeWidth || '1px';
-        (element as HTMLElement).style.fill = style.fill || 'none';
-        (element as HTMLElement).style.strokeDasharray = style.strokeDasharray || 'none';
+        Object.assign((element as HTMLElement).style, style);
     });
-
 
     const svgData = new XMLSerializer().serializeToString(svgClone);
     const canvas = document.createElement("canvas");
@@ -71,16 +77,14 @@ async function getChartImage(chartId: string): Promise<string | null> {
     if (!ctx) return null;
 
     const svgSize = svgEl.getBoundingClientRect();
-    const scale = 2.5; // Increase scale for better resolution
+    const scale = 2.5; 
     canvas.width = svgSize.width * scale;
     canvas.height = svgSize.height * scale;
     
-    // Fill background with white
     ctx.fillStyle = 'white'; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const img = new Image();
-    // Use btoa for Base64 encoding which is more robust
     img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
 
     return new Promise((resolve) => {
@@ -148,15 +152,7 @@ export async function generatePdf(data: PdfData) {
     }
   }
 
-  const startNewPageIfNeeded = (requiredHeight: number) => {
-    if (yPos + requiredHeight > pageHeight - footerHeight) {
-      doc.addPage();
-      yPos = headerHeight;
-    }
-  };
-
   const addSection = async (title: string, results: AnalysisResults, weights: number[], type: ExtendedAggregateType, sieves: number[]) => {
-      // Start each section on a new page to ensure it fits
       if ((doc as any).internal.getNumberOfPages() > 1 || yPos > headerHeight + 5) {
           doc.addPage();
           yPos = headerHeight;
@@ -167,7 +163,6 @@ export async function generatePdf(data: PdfData) {
       doc.text(title, pageMargin, yPos);
       yPos += 8;
 
-      // Add summary data
       const summaryBody = [
           ['Aggregate Type', type],
           [type === 'Fine' ? 'Zone' : 'Classification', results.classification || 'N/A'],
@@ -177,7 +172,7 @@ export async function generatePdf(data: PdfData) {
           body: summaryBody,
           startY: yPos,
           theme: 'plain',
-          tableWidth: pageWidth / 2,
+          tableWidth: pageWidth / 3, // Make summary table smaller
           styles: { fontSize: 9, cellPadding: 1 },
           columnStyles: { 0: { fontStyle: 'bold' } },
       });
@@ -237,7 +232,7 @@ export async function generatePdf(data: PdfData) {
     const chartImage = await getChartImage(chartId);
     
     const remainingSpace = pageHeight - yPos - footerHeight - 5;
-    const chartHeight = remainingSpace > 60 ? remainingSpace : 60; // Make chart height responsive
+    const chartHeight = remainingSpace > 60 ? remainingSpace : 60;
     const chartWidth = pageWidth;
     const chartX = pageMargin;
 
@@ -329,7 +324,6 @@ export async function generatePdf(data: PdfData) {
     if (chartY + chartHeight > pageHeight - footerHeight) {
       doc.addPage();
       yPos = headerHeight;
-      // Redraw table if needed on new page, or handle differently. For now, chart on new page.
       if (combinedChartImage) {
         doc.addImage(combinedChartImage, 'PNG', pageMargin, yPos, chartWidth, chartHeight);
       }

@@ -62,7 +62,7 @@ export function ReportLayout({
           <div className="page-break space-y-4">
             <h2 className="mb-4 font-headline text-xl font-bold">Fine Aggregate Results</h2>
             <SieveInputsDisplay sieves={SIEVE_SIZES.FINE} weights={fineWeights} />
-            <SieveResultsDisplay sieves={SIEVE_SIZES.FINE} type="Fine" {...fineResults} />
+            <SieveResultsDisplay sieves={SIEVE_SIZES.FINE} type="Fine" weights={fineWeights} {...fineResults} />
           </div>
         )}
 
@@ -72,7 +72,7 @@ export function ReportLayout({
             <div className="page-break space-y-4">
               <h2 className="mb-4 font-headline text-xl font-bold">Coarse Aggregate (Graded) Results</h2>
               <SieveInputsDisplay sieves={SIEVE_SIZES.COARSE_GRADED} weights={coarseGradedWeights} />
-              <SieveResultsDisplay sieves={SIEVE_SIZES.COARSE_GRADED} type="Coarse - Graded" {...coarseGradedResults} />
+              <SieveResultsDisplay sieves={SIEVE_SIZES.COARSE_GRADED} type="Coarse - Graded" weights={coarseGradedWeights} {...coarseGradedResults} />
             </div>
           </>
         )}
@@ -83,7 +83,7 @@ export function ReportLayout({
             <div className="page-break space-y-4">
               <h2 className="mb-4 font-headline text-xl font-bold">Coarse Aggregate (20mm Single Size) Results</h2>
               <SieveInputsDisplay sieves={SIEVE_SIZES.COARSE_SINGLE_20MM} weights={coarseSingle20mmWeights} />
-              <SieveResultsDisplay sieves={SIEVE_SIZES.COARSE_SINGLE_20MM} type="Coarse - 20mm" {...coarseSingle20mmResults} />
+              <SieveResultsDisplay sieves={SIEVE_SIZES.COARSE_SINGLE_20MM} type="Coarse - 20mm" weights={coarseSingle20mmWeights} {...coarseSingle20mmResults} />
             </div>
           </>
         )}
@@ -94,7 +94,7 @@ export function ReportLayout({
             <div className="page-break space-y-4">
               <h2 className="mb-4 font-headline text-xl font-bold">Coarse Aggregate (10mm Single Size) Results</h2>
               <SieveInputsDisplay sieves={SIEVE_SIZES.COARSE_SINGLE_10MM} weights={coarseSingle10mmWeights} />
-              <SieveResultsDisplay sieves={SIEVE_SIZES.COARSE_SINGLE_10MM} type="Coarse - 10mm" {...coarseSingle10mmResults} />
+              <SieveResultsDisplay sieves={SIEVE_SIZES.COARSE_SINGLE_10MM} type="Coarse - 10mm" weights={coarseSingle10mmWeights} {...coarseSingle10mmResults} />
             </div>
           </>
         )}
