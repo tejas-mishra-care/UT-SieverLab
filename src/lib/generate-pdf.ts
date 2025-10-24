@@ -181,15 +181,13 @@ export async function generatePdf(data: PdfData) {
             results.percentRetained[i]?.toFixed(2) ?? '0.00',
             results.cumulativeRetained[i]?.toFixed(2) ?? '0.00',
             results.percentPassing[i]?.toFixed(2) ?? '0.00',
-            limits ? limits.min.toFixed(0) : 'N/A',
-            limits ? limits.max.toFixed(0) : 'N/A',
             limits ? `${limits.min.toFixed(0)} - ${limits.max.toFixed(0)}` : 'N/A',
             limits ? (isOutOfSpec ? 'Out of Spec' : 'In Spec') : 'N/A'
         ];
       });
       
       autoTable(doc, {
-        head: [['Sieve (mm)', 'Wt. Ret (g)', '% Retained', 'Cum. % Retained', '% Passing', 'Lower Limit (%)', 'Upper Limit (%)', 'BIS Limits', 'Remark']],
+        head: [['Sieve (mm)', 'Wt. Ret (g)', '% Retained', 'Cum. % Retained', '% Passing', 'BIS Limits (%)', 'Remark']],
         body: tableBody,
         startY: yPos,
         theme: 'striped',
@@ -204,11 +202,9 @@ export async function generatePdf(data: PdfData) {
             4: {cellWidth: 'auto', halign: 'right', fontStyle: 'bold'},
             5: {cellWidth: 'auto', halign: 'center'},
             6: {cellWidth: 'auto', halign: 'center'},
-            7: {cellWidth: 'auto', halign: 'center'},
-            8: {cellWidth: 'auto', halign: 'center'},
         },
         didParseCell: (hookData) => {
-            if (hookData.section === 'body' && hookData.column.dataKey === 8 && hookData.cell.raw === 'Out of Spec') {
+            if (hookData.section === 'body' && hookData.column.dataKey === 6 && hookData.cell.raw === 'Out of Spec') {
                 hookData.cell.styles.textColor = [255, 0, 0];
             }
             if (hookData.section === 'body' && type === 'Fine' && sieves[hookData.row.index] === 0.6) {
