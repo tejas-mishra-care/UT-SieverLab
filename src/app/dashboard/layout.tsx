@@ -2,7 +2,6 @@
 "use client";
 
 import { Header } from "@/components/header";
-import { Logo } from "@/components/logo";
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +21,7 @@ import { LayoutDashboard, Linkedin, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";
+import Image from "next/image";
 
 const InstagramIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg
@@ -72,9 +72,9 @@ export default function DashboardLayout({
             <SidebarTrigger className="size-8" />
             <div className="flex items-center gap-2 group-data-[collapsible=icon]:-ml-8 group-data-[collapsible=icon]:opacity-0 transition-all duration-200">
                 <div className="h-8 w-8">
-                    <Logo />
+                    <Image src="/UT.jpeg" alt="UT Logo" width={32} height={32} className="rounded-md" />
                 </div>
-                <h1 className="font-headline text-xl font-bold text-sidebar-foreground">
+                <h1 className="font-headline text-lg font-bold text-sidebar-foreground">
                     UltraTech Sieve Test Master
                 </h1>
             </div>

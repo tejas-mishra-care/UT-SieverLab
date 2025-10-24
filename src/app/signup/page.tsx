@@ -1,5 +1,6 @@
+
 import { SignupForm } from "@/components/signup-form";
-import { Logo } from "@/components/logo";
+import Image from "next/image";
 
 export default function SignupPage() {
   return (
@@ -7,7 +8,7 @@ export default function SignupPage() {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <div className="mb-4 inline-block h-20 w-20">
-            <Logo />
+             <Image src="/UT.jpeg" alt="UT Logo" width={80} height={80} className="rounded-full" />
           </div>
           <h1 className="font-headline text-4xl font-bold tracking-tight text-foreground">
             Join UltraTech Sieve Test Master

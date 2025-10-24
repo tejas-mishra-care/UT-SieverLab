@@ -24,6 +24,24 @@ interface PdfData {
   coarseForCombination: CoarseForCombination | null;
 }
 
+// Function to fetch an image and convert it to a Base64 data URI
+async function getImageAsBase64(url: string): Promise<string | null> {
+    try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (error) {
+        console.error(`Failed to fetch image from ${url}:`, error);
+        return null;
+    }
+}
+
+
 async function getChartImage(chartId: string): Promise<string | null> {
     const chartEl = document.getElementById(chartId);
     if (!chartEl) {
@@ -96,30 +114,41 @@ export async function generatePdf(data: PdfData) {
     format: "a4",
   });
 
+  const [utLogoBase64, abgLogoBase64] = await Promise.all([
+    getImageAsBase64('/UT.jpeg'),
+    getImageAsBase64('/ABG.jpeg')
+  ]);
+
   const pageMargin = 15;
   const pageWidth = doc.internal.pageSize.getWidth() - pageMargin * 2;
   const pageHeight = doc.internal.pageSize.getHeight();
-  const headerHeight = 20;
+  const headerHeight = 25; // Increased header height for logos
   const footerHeight = 15;
   
   let yPos = headerHeight;
 
   const addPageHeader = (pageNumber: number, totalPages: number) => {
+    // UT Logo
+    if (utLogoBase64) {
+        doc.addImage(utLogoBase64, 'JPEG', pageMargin, 5, 15, 15);
+    }
+    
+    // ABG Logo
+    if (abgLogoBase64) {
+        doc.addImage(abgLogoBase64, 'JPEG', doc.internal.pageSize.getWidth() - pageMargin - 18, 5, 18, 15);
+    }
+    
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text(data.testName || "Sieve Analysis Report", pageMargin, 12);
+    doc.text("UltraTech Sieve Test Master", doc.internal.pageSize.getWidth() / 2, 12, { align: 'center' });
     
-    doc.setFontSize(8);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(
-      `Page ${pageNumber} of ${totalPages}`,
-      doc.internal.pageSize.getWidth() - pageMargin,
-      12,
-      { align: 'right' }
-    );
+    doc.text(data.testName || "Sieve Analysis Report", doc.internal.pageSize.getWidth() / 2, 18, { align: 'center' });
+
     doc.setDrawColor(180);
-    doc.line(pageMargin, 15, doc.internal.pageSize.getWidth() - pageMargin, 15);
+    doc.line(pageMargin, 22, doc.internal.pageSize.getWidth() - pageMargin, 22);
   };
   
   const addFooter = () => {
@@ -130,13 +159,19 @@ export async function generatePdf(data: PdfData) {
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(8);
         doc.text(
+            `Page ${i} of ${pageCount}`,
+            doc.internal.pageSize.getWidth() / 2,
+            pageHeight - footerHeight / 2,
+            { align: 'center'}
+        );
+        doc.text(
             `Generated on: ${format(new Date(), "PPpp")}`, 
             pageMargin, 
             pageHeight - footerHeight / 2,
             { align: 'left'}
         );
         doc.text(
-            'UltraTech Sieve Test Master Analysis Report',
+            'UltraTech Sieve Test Master',
             doc.internal.pageSize.getWidth() - pageMargin,
             pageHeight - footerHeight / 2,
             { align: 'right' }
