@@ -350,7 +350,7 @@ export async function generatePdf(data: PdfData) {
     // --- Combined Table ---
     const sortedData = [...data.combinedChartData].sort((a, b) => b.sieveSize - a.sieveSize);
     autoTable(doc, {
-        head: [['Sieve (mm)', 'Lower Limit (%)', 'Upper Limit (%)', 'Combined Passing (%)', 'Status']],
+        head: [['Sieve (mm)', 'Lower Limit (%)', 'Upper Limit (%)', 'Combined Passing (%)', 'Remark']],
         body: sortedData.map(row => {
             const isOutOfSpec = row.combinedPassing < row.lowerLimit || row.combinedPassing > row.upperLimit;
             return [
@@ -358,14 +358,14 @@ export async function generatePdf(data: PdfData) {
                 row.lowerLimit.toFixed(2),
                 row.upperLimit.toFixed(2),
                 row.combinedPassing.toFixed(2),
-                isOutOfSpec ? 'Out of Spec' : 'In Spec'
+                isOutOfSpec ? 'FAIL' : 'Pass'
             ]
         }),
         startY: yPos,
         theme: 'striped',
         headStyles: { fillColor: [41, 128, 185], textColor: 'white' },
         didParseCell: (hookData) => {
-            if (hookData.section === 'body' && hookData.column.index === 4 && hookData.cell.raw === 'Out of Spec') {
+            if (hookData.section === 'body' && hookData.column.index === 4 && hookData.cell.raw === 'FAIL') {
                 hookData.cell.styles.textColor = [255, 0, 0];
                 hookData.cell.styles.fontStyle = 'bold';
             }

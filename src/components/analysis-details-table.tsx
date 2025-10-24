@@ -47,7 +47,7 @@ export function AnalysisDetailsTable({ data, specLimits, title, description }: A
                 {specLimits && <TableHead className="font-bold text-right">Lower Limit (%)</TableHead>}
                 {specLimits && <TableHead className="font-bold text-right">Upper Limit (%)</TableHead>}
                 <TableHead className="font-bold text-right">% Passing</TableHead>
-                {specLimits && <TableHead className="font-bold text-center">Status</TableHead>}
+                {specLimits && <TableHead className="font-bold text-center">Remark</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -66,12 +66,8 @@ export function AnalysisDetailsTable({ data, specLimits, title, description }: A
                       {row.percentPassing.toFixed(2)}
                     </TableCell>
                     {specLimits && (
-                      <TableCell className="text-center">
-                        {isOutOfSpec ? (
-                          <Badge variant="destructive">Out of Spec</Badge>
-                        ) : (
-                          <Badge variant="secondary">In Spec</Badge>
-                        )}
+                      <TableCell className={cn("text-center font-medium", isOutOfSpec ? "text-destructive" : "text-green-600")}>
+                        {isOutOfSpec ? 'FAIL' : 'Pass'}
                       </TableCell>
                     )}
                   </TableRow>

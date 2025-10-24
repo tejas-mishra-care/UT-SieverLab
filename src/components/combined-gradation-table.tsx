@@ -48,7 +48,7 @@ export function CombinedGradationTable({ data }: CombinedGradationTableProps) {
                 <TableHead className="font-bold text-right">Lower Limit (%)</TableHead>
                 <TableHead className="font-bold text-right">Upper Limit (%)</TableHead>
                 <TableHead className="font-bold text-right">Combined Passing (%)</TableHead>
-                <TableHead className="font-bold text-center">Status</TableHead>
+                <TableHead className="font-bold text-center">Remark</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -72,12 +72,8 @@ export function CombinedGradationTable({ data }: CombinedGradationTableProps) {
                     <TableCell className={cn("text-right font-semibold", isOutOfSpec && "text-destructive")}>
                       {row.combinedPassing.toFixed(2)}
                     </TableCell>
-                    <TableCell className="text-center">
-                      {isOutOfSpec ? (
-                        <Badge variant="destructive">Out of Spec</Badge>
-                      ) : (
-                        <Badge variant="secondary">In Spec</Badge>
-                      )}
+                    <TableCell className={cn("text-center font-medium", isOutOfSpec ? "text-destructive" : "text-green-600")}>
+                      {isOutOfSpec ? 'FAIL' : 'Pass'}
                     </TableCell>
                   </TableRow>
                 );
