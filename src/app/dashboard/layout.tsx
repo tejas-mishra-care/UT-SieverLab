@@ -71,8 +71,8 @@ export default function DashboardLayout({
           <div className="flex items-center gap-2">
             <SidebarTrigger className="size-8" />
             <div className="flex items-center gap-2 group-data-[collapsible=icon]:-ml-8 group-data-[collapsible=icon]:opacity-0 transition-all duration-200">
-                <div className="h-8 w-8">
-                    <Image src="/UT.jpeg" alt="UT Logo" width={32} height={32} className="rounded-md" />
+                <div className="h-10 w-10">
+                    <Image src="/UT.jpeg" alt="UT Logo" width={40} height={40} className="rounded-md" />
                 </div>
                 <h1 className="font-headline text-lg font-bold text-sidebar-foreground">
                     UltraTech Sieve Test Master
