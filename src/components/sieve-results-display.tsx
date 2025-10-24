@@ -42,7 +42,6 @@ export function SieveResultsDisplay({
   const chartData = sieves.map((sieve, index) => ({
     sieveSize: sieve,
     percentPassing: percentPassing[index],
-    percentRetained: percentRetained[index],
   })).filter(d => d.percentPassing !== undefined);
 
   // Ensure a unique ID for each chart
@@ -161,7 +160,7 @@ export function SieveResultsDisplay({
             <CardHeader>
             <CardTitle>Grading Curve</CardTitle>
             <CardDescription>
-                Percentage of material passing and retained on each sieve, compared against IS 383 specification limits.
+                Percentage of material passing each sieve, compared against IS 383 specification limits.
             </CardDescription>
             </CardHeader>
             <CardContent>
