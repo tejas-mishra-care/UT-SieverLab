@@ -93,6 +93,7 @@ export function SieveChart({ data, specLimits }: SieveChartProps) {
         />
         <YAxis
           domain={[0, 100]}
+          ticks={[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]}
           name="% Passing / % Retained"
           tickFormatter={(value) => `${value}%`}
           tick={{ fontSize: 12 }}
