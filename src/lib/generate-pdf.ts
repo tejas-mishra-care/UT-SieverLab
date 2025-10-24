@@ -115,8 +115,8 @@ export async function generatePdf(data: PdfData) {
   });
 
   const [utLogoBase64, abgLogoBase64] = await Promise.all([
-    getImageAsBase64('/UT.jpeg'),
-    getImageAsBase64('/ABG.jpeg')
+    getImageAsBase64('/UT.jpeg?v=2'),
+    getImageAsBase64('/ABG.jpeg?v=2')
   ]);
 
   const pageMargin = 15;

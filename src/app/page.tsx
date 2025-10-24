@@ -8,7 +8,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <div className="mb-4 inline-block h-20 w-20">
-            <Image src="/UT.jpeg" alt="UT Logo" width={80} height={80} className="rounded-full" />
+            <Image src="/UT.jpeg?v=2" alt="UT Logo" width={80} height={80} className="rounded-full" />
           </div>
           <h1 className="font-headline text-4xl font-bold tracking-tight text-foreground">
             UltraTech Sieve Test Master

@@ -9,11 +9,11 @@ export function Header() {
       <div className="flex items-center gap-2">
         <SidebarTrigger className="flex md:hidden" />
         <SidebarTrigger className="hidden md:flex" />
-        <Image src="/UT.jpeg" alt="UT Logo" width={40} height={40} className="rounded-md" />
+        <Image src="/UT.jpeg?v=2" alt="UT Logo" width={50} height={50} className="rounded-md" />
       </div>
       <h1 className="font-headline text-xl font-semibold whitespace-nowrap">UltraTech Sieve Test Master</h1>
       <div className="flex items-center gap-4">
-        <Image src="/ABG.jpeg" alt="ABG Logo" width={50} height={40} className="rounded-md" />
+        <Image src="/ABG.jpeg?v=2" alt="ABG Logo" width={50} height={40} className="rounded-md" />
         <UserNav />
       </div>
     </header>
