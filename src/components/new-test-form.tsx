@@ -10,6 +10,7 @@ import {
   classifyCoarseAggregate,
   classifyFineAggregate,
   getSievesForType,
+  calculateFinenessModulus,
 } from "@/lib/sieve-analysis";
 import type { ExtendedAggregateType, AnalysisResults } from "@/lib/definitions";
 import { Button } from "@/components/ui/button";
@@ -80,13 +81,14 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: Sie
       const calculated = calculateSieveAnalysis(weights, currentSieves);
       
       let classification: string;
+      let fm: number | null = null;
+      
       if (aggregateType === 'Fine') {
         classification = classifyFineAggregate(calculated.percentPassing, currentSieves);
+        fm = calculateFinenessModulus(calculated.cumulativeRetained, currentSieves);
       } else {
         classification = classifyCoarseAggregate(calculated.percentPassing, currentSieves);
       }
-      
-      const fm = aggregateType === "Fine" ? (calculated.cumulativeRetained.reduce((a, b) => a + b, 0) / 100) : null;
       
       const finalResults: AnalysisResults = {
         ...calculated,

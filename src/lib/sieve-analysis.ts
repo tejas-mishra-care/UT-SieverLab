@@ -125,43 +125,27 @@ export function calculateSieveAnalysis(
 
   if (totalWeight === 0) {
     const zeros = Array(sieves.length).fill(0);
-    const passing = Array(sieves.length).fill(100);
     return {
       percentRetained: zeros,
       cumulativeRetained: zeros,
-      percentPassing: passing,
+      percentPassing: zeros,
     };
   }
 
   const weightsOnSieves = weights.slice(0, sieves.length);
   const percentRetained = weightsOnSieves.map((w) => (w / totalWeight) * 100);
-
-  const cumulativeRetained: number[] = [];
-  percentRetained.reduce((acc, val, index) => {
-    // Only accumulate for standard sieves for FM calculation later
-    if (STANDARD_SIEVES_FM.includes(sieves[index])) {
-      const newTotal = acc + val;
-      cumulativeRetained.push(newTotal);
-      return newTotal;
-    }
-    const newTotal = acc + val;
-    cumulativeRetained.push(newTotal);
-    return newTotal;
-  }, 0);
-
-  // This should fill up the cumulative retained for all sieves.
+  
   let cumulativeTotal = 0;
-  const fullCumulativeRetained = weightsOnSieves.map(w => {
-    cumulativeTotal += (w/totalWeight) * 100;
+  const cumulativeRetained = percentRetained.map(pr => {
+    cumulativeTotal += pr;
     return cumulativeTotal;
-  })
+  });
 
-
-  const percentPassing = fullCumulativeRetained.map((cr) => 100 - cr);
+  const percentPassing = cumulativeRetained.map((cr) => 100 - cr);
 
   return {
-    percentRetained: percentRetained,
-    cumulativeRetained: fullCumulativeRetained,
+    percentRetained,
+    cumulativeRetained,
     percentPassing,
   };
 }
@@ -227,4 +211,29 @@ export function classifyCoarseAggregate(
     }
 
     return "Custom/Non-Standard";
+}
+
+/**
+ * Calculates the Fineness Modulus for fine aggregate.
+ * @param cumulativeRetained The array of cumulative percent retained.
+ * @param sieves The array of corresponding sieve sizes.
+ * @returns The calculated Fineness Modulus.
+ */
+export function calculateFinenessModulus(
+  cumulativeRetained: number[],
+  sieves: number[]
+): number | null {
+  const sumOfCumulativeRetainedOnStandardSieves = sieves.reduce((sum, sieve, index) => {
+    // Only include sieves from 4.75mm down to 150 micron (0.15mm)
+    if (STANDARD_SIEVES_FM.includes(sieve)) {
+      return sum + cumulativeRetained[index];
+    }
+    return sum;
+  }, 0);
+
+  if (sumOfCumulativeRetainedOnStandardSieves > 0) {
+    return sumOfCumulativeRetainedOnStandardSieves / 100;
+  }
+
+  return null;
 }
