@@ -151,37 +151,52 @@ export function calculateSieveAnalysis(
 }
 
 /**
- * Classifies fine aggregate into zones based on IS 383.
+ * Classifies fine aggregate into zones based ONLY on the 600 micron sieve.
  * @param percentPassing - Array of percent passing values.
  * @param sieves - Array of sieve sizes.
  * @returns The classification zone or a descriptive string.
  */
 export function classifyFineAggregate(
-  percentPassing: number[],
-  sieves: number[]
-): string {
-  const passingMap = new Map(sieves.map((s, i) => [s, percentPassing[i]]));
-
-  for (const zone in ZONING_LIMITS) {
-    let isMatch = true;
-    for (const sieveSize in ZONING_LIMITS[zone]) {
-      const sieve = parseFloat(sieveSize);
-      if (passingMap.has(sieve)) {
-        const passingValue = passingMap.get(sieve)!;
-        const { min, max } = ZONING_LIMITS[zone][sieve];
-        if (passingValue < min || passingValue > max) {
-          isMatch = false;
-          break;
-        }
+    percentPassing: number[],
+    sieves: number[]
+  ): string {
+    const micron600SieveIndex = sieves.indexOf(0.6);
+    if (micron600SieveIndex === -1) {
+      return "600 micron sieve not found";
+    }
+  
+    const passingValue600 = percentPassing[micron600SieveIndex];
+  
+    for (const zone in ZONING_LIMITS) {
+      const limits600 = ZONING_LIMITS[zone][0.6];
+      if (passingValue600 >= limits600.min && passingValue600 <= limits600.max) {
+        return zone; // Match found based on 600 micron sieve
       }
     }
-    if (isMatch) {
-      return zone;
-    }
-  }
+    
+    // If it doesn't fit any zone based on the 600 micron sieve, check for full conformity
+    const passingMap = new Map(sieves.map((s, i) => [s, percentPassing[i]]));
+    for (const zone in ZONING_LIMITS) {
+        let isMatch = true;
+        for (const sieveSize in ZONING_LIMITS[zone]) {
+          const sieve = parseFloat(sieveSize);
+          if (passingMap.has(sieve)) {
+            const passingValue = passingMap.get(sieve)!;
+            const { min, max } = ZONING_LIMITS[zone][sieve];
+            if (passingValue < min || passingValue > max) {
+              isMatch = false;
+              break;
+            }
+          }
+        }
+        if (isMatch) {
+          return zone;
+        }
+      }
 
-  return "Does not conform to any zone";
+    return "Does not conform to any zone";
 }
+  
 
 export function findBestFitZone(
     percentPassing: number[],
