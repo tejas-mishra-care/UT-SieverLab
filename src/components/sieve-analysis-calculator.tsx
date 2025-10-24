@@ -4,13 +4,13 @@
 import * as React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Download, Loader2 } from 'lucide-react';
+import { Download, Loader2, Sparkles } from 'lucide-react';
 import { SieveAnalysisForm } from './sieve-analysis-form';
 import type { AnalysisResults, CoarseAggregateType, SingleSizeType, ExtendedAggregateType } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Slider } from './ui/slider';
 import { CombinedSieveChart } from './combined-sieve-chart';
-import { SIEVE_SIZES, SPEC_LIMITS_COARSE_GRADED_20MM, getSievesForType, getSpecLimitsForType } from '@/lib/sieve-analysis';
+import { SIEVE_SIZES, SPEC_LIMITS_COARSE_GRADED_20MM, getSievesForType, getSpecLimitsForType, calculateOptimalBlend } from '@/lib/sieve-analysis';
 import { ReportLayout } from './report-layout';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from './ui/input';
@@ -40,6 +40,8 @@ export function SieveAnalysisCalculator() {
     const [testName, setTestName] = React.useState('');
 
     const [fineAggregatePercentage, setFineAggregatePercentage] = React.useState(35);
+    const [recommendedBlend, setRecommendedBlend] = React.useState<any[] | null>(null);
+
     const coarseAggregatePercentage = 100 - fineAggregatePercentage;
     const reportRef = React.useRef<HTMLDivElement>(null);
     
@@ -57,6 +59,7 @@ export function SieveAnalysisCalculator() {
             setIsCalculating(true);
             resultsSetter(results);
             weightsSetter(weights);
+            setRecommendedBlend(null); // Reset recommendation when inputs change
             toast({ title: "Calculation complete!" });
             setIsCalculating(false);
         };
@@ -120,8 +123,37 @@ export function SieveAnalysisCalculator() {
         }
         if (!isCombinedTabActive) {
             setCoarseForCombination(null);
+            setRecommendedBlend(null);
         }
     }, [isCombinedTabActive, availableCoarseForCombination, coarseForCombination]);
+
+    const handleRecommendBlend = () => {
+        if (!isCombinedTabActive || !fineResults || !coarseForCombination) return;
+    
+        let coarseResults: AnalysisResults | null = null;
+        let coarseSieves: number[] = [];
+    
+        if (coarseForCombination === 'Graded' && coarseGradedResults) {
+            coarseResults = coarseGradedResults;
+            coarseSieves = getSievesForType('Coarse - Graded');
+        } else if (coarseForCombination === 'Coarse - 20mm' && coarseSingle20mmResults) {
+            coarseResults = coarseSingle20mmResults;
+            coarseSieves = getSievesForType('Coarse - 20mm');
+        } else if (coarseForCombination === 'Coarse - 10mm' && coarseSingle10mmResults) {
+            coarseResults = coarseSingle10mmResults;
+            coarseSieves = getSievesForType('Coarse - 10mm');
+        }
+        
+        if (!coarseResults) return;
+    
+        const optimalFAPercentage = calculateOptimalBlend(fineResults, coarseResults, getSievesForType('Fine'), coarseSieves);
+        setFineAggregatePercentage(optimalFAPercentage);
+        
+        toast({
+            title: "Recommendation Updated",
+            description: `Slider set to optimal blend: ${optimalFAPercentage}% Fine Aggregate.`,
+        });
+    };
 
     const combinedChartData = React.useMemo(() => {
         if (!isCombinedTabActive || !fineResults || !coarseForCombination) return [];
@@ -160,7 +192,7 @@ export function SieveAnalysisCalculator() {
                 combinedPassing: combinedPassing,
                 upperLimit: specLimits?.[sieve]?.max ?? 100,
                 lowerLimit: specLimits?.[sieve]?.min ?? 0,
-                recommendedPassing: null, 
+                recommendedPassing: null, // This can be populated by the recommendation logic
             };
         }).sort((a,b) => a.sieveSize - b.sieveSize);
     }, [fineResults, coarseGradedResults, coarseSingle10mmResults, coarseSingle20mmResults, coarseForCombination, fineAggregatePercentage, coarseAggregatePercentage, isCombinedTabActive]);
@@ -317,6 +349,12 @@ export function SieveAnalysisCalculator() {
                                             step={1}
                                         />
                                     </div>
+                                </div>
+                                <div className="flex justify-end">
+                                    <Button onClick={handleRecommendBlend}>
+                                        <Sparkles className="mr-2 h-4 w-4" />
+                                        Recommend Blend
+                                    </Button>
                                 </div>
                             </div>
                             <CombinedSieveChart data={combinedChartData} />

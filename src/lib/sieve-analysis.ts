@@ -222,18 +222,75 @@ export function classifyCoarseAggregate(
 export function calculateFinenessModulus(
   cumulativeRetained: number[],
   sieves: number[]
-): number | null {
+): number {
   const sumOfCumulativeRetainedOnStandardSieves = sieves.reduce((sum, sieve, index) => {
-    // Only include sieves from 4.75mm down to 150 micron (0.15mm)
     if (STANDARD_SIEVES_FM.includes(sieve)) {
       return sum + cumulativeRetained[index];
     }
     return sum;
   }, 0);
 
-  if (sumOfCumulativeRetainedOnStandardSieves > 0) {
-    return sumOfCumulativeRetainedOnStandardSieves / 100;
-  }
+  return sumOfCumulativeRetainedOnStandardSieves / 100;
+}
 
-  return null;
+
+/**
+ * Calculates the optimal blend of fine and coarse aggregates.
+ * @returns The optimal percentage of fine aggregate.
+ */
+export function calculateOptimalBlend(
+    fineResults: AnalysisResults,
+    coarseResults: AnalysisResults,
+    fineSieves: number[],
+    coarseSieves: number[]
+  ): number {
+    let bestFit = { percentage: 0, score: Infinity };
+  
+    // Get the target curve (midpoint of the spec limits)
+    const targetCurve = new Map<number, number>();
+    for (const sieveStr in SPEC_LIMITS_COARSE_GRADED_20MM) {
+      const sieve = parseFloat(sieveStr);
+      const { min, max } = SPEC_LIMITS_COARSE_GRADED_20MM[sieve];
+      targetCurve.set(sieve, (min + max) / 2);
+    }
+  
+    const finePassingMap = new Map(fineSieves.map((s, i) => [s, fineResults.percentPassing[i]]));
+    const coarsePassingMap = new Map(coarseSieves.map((s, i) => [s, coarseResults.percentPassing[i]]));
+    const allSieves = [...new Set([...fineSieves, ...coarseSieves])].sort((a,b) => b-a);
+  
+    // Iterate from 1% to 99% fine aggregate
+    for (let faPerc = 1; faPerc < 100; faPerc++) {
+      let currentScore = 0;
+      const caPerc = 100 - faPerc;
+  
+      for (const sieve of allSieves) {
+        const target = targetCurve.get(sieve);
+        if (target === undefined) continue; // Only score against sieves in the spec
+  
+        const fineP = finePassingMap.get(sieve) ?? (sieve > Math.max(...fineSieves) ? 100 : 0);
+        const coarseP = coarsePassingMap.get(sieve) ?? (sieve > Math.max(...coarseSieves) ? 100 : 0);
+        
+        const combinedPassing = (fineP * (faPerc / 100)) + (coarseP * (caPerc / 100));
+        
+        // Check if the combined value is within spec
+        const { min, max } = SPEC_LIMITS_COARSE_GRADED_20MM[sieve];
+        if (combinedPassing < min || combinedPassing > max) {
+          currentScore += 1_000_000; // Heavy penalty for being out of spec
+        } else {
+            // Score is the squared difference from the ideal midpoint
+            currentScore += Math.pow(combinedPassing - target, 2);
+        }
+      }
+  
+      if (currentScore < bestFit.score) {
+        bestFit = { percentage: faPerc, score: currentScore };
+      }
+    }
+  
+    // If no blend was found within spec, return a common default
+    if (bestFit.score >= 1_000_000) {
+        return 35; 
+    }
+
+    return bestFit.percentage;
 }
