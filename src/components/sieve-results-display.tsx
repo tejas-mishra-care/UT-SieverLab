@@ -83,18 +83,6 @@ export function SieveResultsDisplay({
       </div>
 
       <div className="space-y-6 mt-4">
-        <Card id={chartId}>
-            <CardHeader>
-            <CardTitle>Grading Curve</CardTitle>
-            <CardDescription>
-                Percentage of material passing and retained on each sieve, compared against IS 383 specification limits.
-            </CardDescription>
-            </CardHeader>
-            <CardContent>
-            <SieveChart data={chartData} specLimits={specLimits} />
-            </CardContent>
-        </Card>
-
         <Card>
             <CardHeader>
             <CardTitle>Tabulated Results</CardTitle>
@@ -155,6 +143,18 @@ export function SieveResultsDisplay({
                 </TableBody>
                 </Table>
             </div>
+            </CardContent>
+        </Card>
+        
+        <Card id={chartId}>
+            <CardHeader>
+            <CardTitle>Grading Curve</CardTitle>
+            <CardDescription>
+                Percentage of material passing and retained on each sieve, compared against IS 383 specification limits.
+            </CardDescription>
+            </CardHeader>
+            <CardContent>
+            <SieveChart data={chartData} specLimits={specLimits} />
             </CardContent>
         </Card>
         </div>

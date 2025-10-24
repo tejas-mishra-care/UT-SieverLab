@@ -106,18 +106,25 @@ export function ReportLayout({
               <h2 className="mb-4 font-headline text-xl font-bold">Combined Gradation Results</h2>
               <Card>
                 <CardHeader>
-                  <CardTitle>Combined Gradation Curve</CardTitle>
+                  <CardTitle>Combined Gradation Details</CardTitle>
                   <CardDescription>
                     Analysis for a mix of {fineAggregatePercentage}% Fine Aggregate and {coarseAggregatePercentage}% Coarse Aggregate (Blend with: <span className="font-semibold">{coarseForCombination}</span>) against specification limits for 20mm nominal size graded aggregate.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <CombinedSieveChart data={combinedChartData} />
+                  <div id="combined-gradation-table-container">
+                    <CombinedGradationTable data={combinedChartData} />
+                  </div>
                 </CardContent>
               </Card>
-              <div id="combined-gradation-table-container">
-                <CombinedGradationTable data={combinedChartData} />
-              </div>
+              <Card>
+                <CardHeader>
+                    <CardTitle>Combined Gradation Curve</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <CombinedSieveChart data={combinedChartData} />
+                </CardContent>
+              </Card>
             </div>
           </>
         )}
