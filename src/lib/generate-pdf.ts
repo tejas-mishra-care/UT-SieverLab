@@ -40,9 +40,8 @@ async function getChartImage(chartId: string): Promise<string | null> {
     const svgClone = svgEl.cloneNode(true) as SVGSVGElement;
 
     // Force application of styles to the cloned SVG
-    const styleMap = new Map<Element, Partial<CSSStyleDeclaration>>();
-    const originalElements = svgEl.querySelectorAll('path, line, circle, rect, text, .recharts-text');
-    const clonedElements = svgClone.querySelectorAll('path, line, circle, rect, text, .recharts-text');
+    const originalElements = svgEl.querySelectorAll('path, line, circle, rect, text, .recharts-text, .recharts-legend-item-text');
+    const clonedElements = svgClone.querySelectorAll('path, line, circle, rect, text, .recharts-text, .recharts-legend-item-text');
 
     originalElements.forEach((originalEl, index) => {
         const clonedEl = clonedElements[index];
@@ -58,14 +57,9 @@ async function getChartImage(chartId: string): Promise<string | null> {
                 fontSize: computedStyle.fontSize,
                 fontWeight: computedStyle.fontWeight,
             };
-            styleMap.set(clonedEl, styleToApply);
+             Object.assign((clonedEl as HTMLElement).style, styleToApply);
         }
     });
-
-    styleMap.forEach((style, element) => {
-        Object.assign((element as HTMLElement).style, style);
-    });
-
 
     const svgData = new XMLSerializer().serializeToString(svgClone);
     const canvas = document.createElement("canvas");
@@ -153,7 +147,7 @@ export async function generatePdf(data: PdfData) {
           doc.addPage();
           yPos = headerHeight;
       } else if (yPos > headerHeight) {
-          yPos += 10; // Add some space between sections on the same page
+          yPos += 10;
       }
 
       doc.setFontSize(14);
@@ -180,12 +174,12 @@ export async function generatePdf(data: PdfData) {
       const specLimits = getSpecLimitsForType(type, results.classification);
       const tableBody = sieves.map((sieve, i) => {
         const limits = specLimits ? specLimits[sieve] : null;
-        const isOutOfSpec = limits ? results.percentPassing[i] < limits.min || results.percentPassing[i] > results.max : false;
+        const isOutOfSpec = limits ? results.percentPassing[i] < limits.min || results.percentPassing[i] > limits.max : false;
         return [
-            sieve.toString(), 
+            sieve.toString(),
             (weights?.[i] ?? 0).toFixed(1),
-            results.percentRetained[i]?.toFixed(2) ?? '0.00', 
-            results.cumulativeRetained[i]?.toFixed(2) ?? '0.00', 
+            results.percentRetained[i]?.toFixed(2) ?? '0.00',
+            results.cumulativeRetained[i]?.toFixed(2) ?? '0.00',
             results.percentPassing[i]?.toFixed(2) ?? '0.00',
             limits ? limits.min.toFixed(0) : 'N/A',
             limits ? limits.max.toFixed(0) : 'N/A',
@@ -214,13 +208,12 @@ export async function generatePdf(data: PdfData) {
             8: {cellWidth: 'auto', halign: 'center'},
         },
         didParseCell: (hookData) => {
-          if (hookData.section === 'body' && hookData.column.index === 8 && hookData.cell.raw === 'Out of Spec') {
-            hookData.cell.styles.textColor = [255, 0, 0];
-          }
-          if (hookData.section === 'body' && type === 'Fine' && sieves[hookData.row.index] === 0.6) {
-             if (!hookData.row.styles) hookData.row.styles = {};
-             (hookData.row.styles as any).fillColor = '#fef9c3';
-          }
+            if (hookData.section === 'body' && hookData.column.dataKey === 8 && hookData.cell.raw === 'Out of Spec') {
+                hookData.cell.styles.textColor = [255, 0, 0];
+            }
+            if (hookData.section === 'body' && type === 'Fine' && sieves[hookData.row.index] === 0.6) {
+                hookData.cell.styles.fillColor = '#fef9c3';
+            }
         },
     });
 
@@ -278,10 +271,6 @@ export async function generatePdf(data: PdfData) {
     doc.text(blendText, pageMargin, yPos);
     yPos += 10;
     
-    const combinedChartImage = await getChartImage('combined-gradation-chart');
-    const tableStartY = yPos;
-    let tableFinalY = yPos;
-
     const sortedData = [...data.combinedChartData].sort((a, b) => b.sieveSize - a.sieveSize);
     autoTable(doc, {
         head: [['Sieve (mm)', 'Lower Limit (%)', 'Upper Limit (%)', 'Combined Passing (%)', 'Status']],
@@ -295,9 +284,9 @@ export async function generatePdf(data: PdfData) {
                 isOutOfSpec ? 'Out of Spec' : 'In Spec'
             ]
         }),
-        startY: tableStartY,
+        startY: yPos,
         theme: 'striped',
-        tableWidth: pageWidth / 1.5, // Make table smaller to fit next to chart
+        tableWidth: pageWidth,
         headStyles: { fillColor: [41, 128, 185], textColor: 'white' },
         didParseCell: (hookData) => {
             if (hookData.section === 'body' && hookData.column.index === 4) {
@@ -307,20 +296,22 @@ export async function generatePdf(data: PdfData) {
                 }
             }
         },
-        didDrawPage: (hookData) => {
-            tableFinalY = hookData.cursor?.y ?? tableFinalY;
-        }
     });
 
-    tableFinalY = (doc as any).lastAutoTable.finalY;
+    yPos = (doc as any).lastAutoTable.finalY + 5;
     
-    const chartY = headerHeight + 28;
-    const chartX = pageMargin + pageWidth / 1.5 + 5;
-    const chartWidth = pageWidth - (pageWidth / 1.5) - 5;
-    const chartHeight = tableFinalY - chartY;
+    const combinedChartImage = await getChartImage('combined-gradation-chart');
+    const remainingSpace = pageHeight - yPos - footerHeight - 5;
+    const chartHeight = remainingSpace > 80 ? remainingSpace : 80;
+    const chartWidth = pageWidth;
+
+    if (yPos + chartHeight > pageHeight - footerHeight) {
+        doc.addPage();
+        yPos = headerHeight;
+    }
 
     if (combinedChartImage) {
-      doc.addImage(combinedChartImage, 'PNG', chartX, chartY, chartWidth, chartHeight);
+      doc.addImage(combinedChartImage, 'PNG', pageMargin, yPos, chartWidth, chartHeight);
     }
   }
 
