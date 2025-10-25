@@ -85,7 +85,7 @@ async function getChartImage(chartId: string): Promise<string | null> {
     if (!ctx) return null;
 
     const svgSize = svgEl.getBoundingClientRect();
-    const scale = 2.5; 
+    const scale = 1.5; // Reduced scale for smaller file size
     canvas.width = svgSize.width * scale;
     canvas.height = svgSize.height * scale;
     
@@ -98,7 +98,7 @@ async function getChartImage(chartId: string): Promise<string | null> {
     return new Promise((resolve) => {
         img.onload = () => {
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            resolve(canvas.toDataURL("image/png", 1.0));
+            resolve(canvas.toDataURL("image/jpeg", 0.9)); // Use JPEG with quality for smaller file size
         };
         img.onerror = (e) => {
             console.error("Image loading for PDF chart failed.", e);
@@ -268,7 +268,7 @@ export async function generatePdf(data: PdfData) {
         body: tableBody,
         startY: yPos,
         theme: 'striped',
-        headStyles: { fillColor: [41, 128, 185], textColor: 'white', fontSize: 8, cellPadding: 1.5 },
+        headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255], fontSize: 8, cellPadding: 1.5 },
         styles: { fontSize: 8, cellPadding: 1.5, textColor: [0, 0, 0] },
         columnStyles: { 4: {fontStyle: 'bold'}, 6: {halign: 'center'}},
         didParseCell: (hookData) => {
@@ -343,7 +343,7 @@ export async function generatePdf(data: PdfData) {
     }
     
     if (chartImage) {
-        doc.addImage(chartImage, 'PNG', pageMargin, yPos, chartWidth, chartHeight);
+        doc.addImage(chartImage, 'JPEG', pageMargin, yPos, chartWidth, chartHeight);
         yPos += chartHeight + 10;
     } else {
         doc.setTextColor(0, 0, 0);
@@ -409,7 +409,7 @@ export async function generatePdf(data: PdfData) {
         }),
         startY: yPos,
         theme: 'striped',
-        headStyles: { fillColor: [41, 128, 185], textColor: 'white' },
+        headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255] },
         styles: { textColor: [0, 0, 0] },
         didParseCell: (hookData) => {
             if (hookData.section === 'body' && hookData.column.index === 4 && hookData.cell.raw === 'FAIL') {
@@ -436,7 +436,7 @@ export async function generatePdf(data: PdfData) {
     }
 
     if (combinedChartImage) {
-      doc.addImage(combinedChartImage, 'PNG', pageMargin, yPos, pageWidth, chartHeight);
+      doc.addImage(combinedChartImage, 'JPEG', pageMargin, yPos, pageWidth, chartHeight);
     }
   }
 
