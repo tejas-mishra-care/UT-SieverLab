@@ -7,9 +7,9 @@ import { CombinedSieveChart } from "@/components/combined-sieve-chart";
 import type { AnalysisResults } from "@/lib/definitions";
 import { SIEVE_SIZES } from "@/lib/sieve-analysis";
 import { SieveInputsDisplay } from "./sieve-inputs-display";
-import { CombinedGradationTable } from "./combined-gradation-table";
+import { AnalysisDetailsTable } from "./analysis-details-table";
 
-type CoarseForCombination = 'Graded' | 'Coarse - 20mm' | 'Coarse - 10mm';
+type CoarseForCombination = 'Graded' | 'Coarse - 20mm' | 'Coarse - 10mm' | 'Single Size Blend';
 
 interface ReportLayoutProps {
   testName: string;
@@ -24,8 +24,11 @@ interface ReportLayoutProps {
   combinedChartData: any[]; // Adjust type as needed
   fineAggregatePercentage: number;
   coarseAggregatePercentage: number;
+  coarse20mmPercentage?: number;
+  coarse10mmPercentage?: number;
   showCombined: boolean;
   coarseForCombination: CoarseForCombination | null;
+  blendMode: 'two-material' | 'three-material';
 }
 
 export function ReportLayout({
@@ -41,9 +44,20 @@ export function ReportLayout({
   combinedChartData,
   fineAggregatePercentage,
   coarseAggregatePercentage,
+  coarse20mmPercentage,
+  coarse10mmPercentage,
   showCombined,
   coarseForCombination,
+  blendMode,
 }: ReportLayoutProps) {
+
+    const getBlendDescription = () => {
+        if (blendMode === 'three-material') {
+            return `Analysis for a mix of ${fineAggregatePercentage}% Fine Aggregate, ${coarse20mmPercentage}% Coarse 20mm, and ${coarse10mmPercentage}% Coarse 10mm.`;
+        }
+        return `Analysis for a mix of ${fineAggregatePercentage}% Fine Aggregate and ${coarseAggregatePercentage}% Coarse Aggregate (Blend with: <span className="font-semibold">${coarseForCombination}</span>)`;
+    }
+
   return (
     <Card>
       <CardHeader>
@@ -103,28 +117,30 @@ export function ReportLayout({
           <>
             {(fineResults || coarseGradedResults || coarseSingle10mmResults || coarseSingle20mmResults) && <hr className="my-6" />}
             <div id="combined-gradation-section" className="page-break space-y-6">
-              <h2 className="mb-4 font-headline text-xl font-bold">Combined Gradation Results</h2>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Combined Gradation Details</CardTitle>
-                  <CardDescription>
-                    Analysis for a mix of {fineAggregatePercentage}% Fine Aggregate and {coarseAggregatePercentage}% Coarse Aggregate (Blend with: <span className="font-semibold">{coarseForCombination}</span>) against specification limits for 20mm nominal size graded aggregate.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div id="combined-gradation-table-container">
-                    <CombinedGradationTable data={combinedChartData} />
-                  </div>
-                </CardContent>
-              </Card>
+                <div className="space-y-2">
+                    <h2 className="font-headline text-xl font-bold">Combined Gradation Results</h2>
+                    <p className="text-muted-foreground text-sm" dangerouslySetInnerHTML={{ __html: getBlendDescription() }} />
+                </div>
+              
               <Card>
                 <CardHeader>
                     <CardTitle>Combined Gradation Curve</CardTitle>
+                    <CardDescription>The combined gradation curve is plotted against the standard IS 383 limits for 20mm nominal size graded aggregate.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <CombinedSieveChart data={combinedChartData} />
                 </CardContent>
               </Card>
+
+              <AnalysisDetailsTable 
+                title="Combined Gradation Data"
+                description="Detailed data points for the combined aggregate blend."
+                data={combinedChartData.map(d => ({ sieveSize: d.sieveSize, percentPassing: d.combinedPassing }))}
+                specLimits={combinedChartData.reduce((acc, d) => {
+                    acc[d.sieveSize] = { min: d.lowerLimit, max: d.upperLimit };
+                    return acc;
+                }, {} as Record<number, { min: number, max: number }>)}
+              />
             </div>
           </>
         )}

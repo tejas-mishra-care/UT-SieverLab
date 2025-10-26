@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import type { AnalysisResults, ExtendedAggregateType } from "./definitions";
 import { getSievesForType, getSpecLimitsForType, SIEVE_SIZES, findBestFitZone, ZONING_LIMITS } from "./sieve-analysis";
 
-type CoarseForCombination = 'Graded' | 'Coarse - 20mm' | 'Coarse - 10mm';
+type CoarseForCombination = 'Graded' | 'Coarse - 20mm' | 'Coarse - 10mm' | 'Single Size Blend';
 
 interface PdfData {
   testName: string;
@@ -19,9 +19,12 @@ interface PdfData {
   coarseSingle20mmWeights: number[];
   combinedChartData: any[];
   fineAggregatePercentage: number;
-  coarseAggregatePercentage: number;
+  coarseAggregatePercentage: number; // For 2-material blend
+  coarse20mmPercentage?: number; // For 3-material blend
+  coarse10mmPercentage?: number; // For 3-material blend
   showCombined: boolean;
   coarseForCombination: CoarseForCombination | null;
+  blendMode: 'two-material' | 'three-material';
 }
 
 // Function to fetch an image and convert it to a Base64 data URI
@@ -85,7 +88,7 @@ async function getChartImage(chartId: string): Promise<string | null> {
     if (!ctx) return null;
 
     const svgSize = svgEl.getBoundingClientRect();
-    const scale = 1.5; // Reduced scale for smaller file size
+    const scale = 1.2; // Reduced scale for smaller file size
     canvas.width = svgSize.width * scale;
     canvas.height = svgSize.height * scale;
     
@@ -98,7 +101,7 @@ async function getChartImage(chartId: string): Promise<string | null> {
     return new Promise((resolve) => {
         img.onload = () => {
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            resolve(canvas.toDataURL("image/jpeg", 0.9)); // Use JPEG with quality for smaller file size
+            resolve(canvas.toDataURL("image/jpeg", 0.85)); // Use JPEG with quality for smaller file size
         };
         img.onerror = (e) => {
             console.error("Image loading for PDF chart failed.", e);
@@ -387,7 +390,14 @@ export async function generatePdf(data: PdfData) {
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    const blendText = `Blend: ${data.fineAggregatePercentage}% Fine, ${data.coarseAggregatePercentage}% Coarse (using ${data.coarseForCombination})`;
+    
+    let blendText = '';
+    if(data.blendMode === 'three-material'){
+        blendText = `Blend: ${data.fineAggregatePercentage}% Fine, ${data.coarse20mmPercentage}% Coarse 20mm, ${data.coarse10mmPercentage}% Coarse 10mm`;
+    } else {
+        blendText = `Blend: ${data.fineAggregatePercentage}% Fine, ${data.coarseAggregatePercentage}% Coarse (using ${data.coarseForCombination})`;
+    }
+
     doc.text(blendText, pageMargin, yPos);
     yPos += 8;
     

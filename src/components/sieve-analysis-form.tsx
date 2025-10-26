@@ -10,6 +10,7 @@ import {
   classifyCoarseAggregate,
   classifyFineAggregate,
   getSievesForType,
+  calculateFinenessModulus,
 } from "@/lib/sieve-analysis";
 import type { ExtendedAggregateType, AnalysisResults } from "@/lib/definitions";
 import { Button } from "@/components/ui/button";
@@ -35,37 +36,32 @@ interface SieveAnalysisFormProps {
   aggregateType: ExtendedAggregateType;
   onCalculate: (results: AnalysisResults, weights: number[]) => void;
   isLoading: boolean;
-  initialWeights: (number | null)[];
 }
 
-export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, initialWeights }: SieveAnalysisFormProps) {
+export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: SieveAnalysisFormProps) {
   const { toast } = useToast();
   const currentSieves = getSievesForType(aggregateType);
 
+  const defaultValues = {
+    weights: Array(currentSieves.length + 1).fill({ value: null }),
+  };
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      weights: Array(currentSieves.length + 1).fill({ value: null }),
-    },
-    reValidateMode: "onChange",
+    defaultValues: defaultValues,
   });
 
   const { fields, replace } = useFieldArray({
     control: form.control,
     name: "weights",
   });
-
+  
   React.useEffect(() => {
-      const newSieves = getSievesForType(aggregateType);
-      const newWeights = Array(newSieves.length + 1).fill(null);
-      
-      initialWeights.forEach((val, index) => {
-        if(index < newWeights.length) newWeights[index] = val;
-      })
-
-      replace(newWeights.map(v => ({ value: v })));
+    const newSieves = getSievesForType(aggregateType);
+    const newWeights = Array(newSieves.length + 1).fill({ value: null });
+    replace(newWeights);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aggregateType, initialWeights]);
+  }, [aggregateType, replace]);
 
 
   function handleCalculate(values: FormValues) {
@@ -84,13 +80,14 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, initi
       const calculated = calculateSieveAnalysis(weights, currentSieves);
       
       let classification: string;
+      let fm: number | null = null;
+      
       if (aggregateType === 'Fine') {
         classification = classifyFineAggregate(calculated.percentPassing, currentSieves);
+        fm = calculateFinenessModulus(calculated.cumulativeRetained, currentSieves);
       } else {
         classification = classifyCoarseAggregate(calculated.percentPassing, currentSieves);
       }
-      
-      const fm = aggregateType === "Fine" ? (calculated.cumulativeRetained.reduce((a, b) => a + b, 0) / 100) : null;
       
       const finalResults: AnalysisResults = {
         ...calculated,
