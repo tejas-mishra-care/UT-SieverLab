@@ -36,19 +36,19 @@ interface SieveAnalysisFormProps {
   aggregateType: ExtendedAggregateType;
   onCalculate: (results: AnalysisResults, weights: number[]) => void;
   isLoading: boolean;
+  weights: (number | null)[];
+  onWeightsChange: (weights: (number | null)[]) => void;
 }
 
-export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: SieveAnalysisFormProps) {
+export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, weights: parentWeights, onWeightsChange }: SieveAnalysisFormProps) {
   const { toast } = useToast();
   const currentSieves = getSievesForType(aggregateType);
 
-  const defaultValues = {
-    weights: Array(currentSieves.length + 1).fill({ value: null }),
-  };
-
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: defaultValues,
+    defaultValues: {
+      weights: Array(currentSieves.length + 1).fill(null).map((_, i) => ({ value: parentWeights[i] ?? null })),
+    },
   });
 
   const { fields, replace } = useFieldArray({
@@ -58,10 +58,15 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: Sie
   
   React.useEffect(() => {
     const newSieves = getSievesForType(aggregateType);
-    const newWeights = Array(newSieves.length + 1).fill({ value: null });
-    replace(newWeights);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aggregateType, replace]);
+    const newWeights = Array(newSieves.length + 1).fill(null).map((_, i) => ({ value: parentWeights[i] ?? null }));
+    
+    // Only replace if the array structure or type changes, not just values.
+    // This prevents cursor jumping.
+    if (newWeights.length !== fields.length) {
+      replace(newWeights);
+    }
+
+  }, [aggregateType, parentWeights, replace, fields.length]);
 
 
   function handleCalculate(values: FormValues) {
@@ -107,6 +112,13 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: Sie
     }
   }
 
+  const handleWeightChange = (index: number, value: number | null) => {
+    const newWeights = [...form.getValues().weights.map(w => w.value)];
+    newWeights[index] = value;
+    onWeightsChange(newWeights);
+  };
+
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleCalculate)}>
@@ -145,7 +157,11 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: Sie
                                   placeholder="Enter weight"
                                   {...controllerField}
                                   value={controllerField.value ?? ""}
-                                  onChange={event => controllerField.onChange(event.target.value === '' ? null : parseFloat(event.target.value))}
+                                  onChange={event => {
+                                      const val = event.target.value === '' ? null : parseFloat(event.target.value);
+                                      controllerField.onChange(val);
+                                      handleWeightChange(index, val);
+                                  }}
                                   className="max-w-sm"
                                   autoComplete="off"
                                 />

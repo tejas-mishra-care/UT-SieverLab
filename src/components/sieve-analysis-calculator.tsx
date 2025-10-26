@@ -21,6 +21,8 @@ import { Label } from './ui/label';
 type CoarseForCombination = 'Graded' | 'Coarse - 20mm' | 'Coarse - 10mm' | 'Single Size Blend';
 type BlendMode = 'two-material' | 'three-material';
 
+const getInitialWeights = (type: ExtendedAggregateType) => Array(getSievesForType(type).length + 1).fill(null);
+
 export function SieveAnalysisCalculator() {
     const { toast } = useToast();
 
@@ -31,10 +33,10 @@ export function SieveAnalysisCalculator() {
     const [coarseSingle20mmResults, setCoarseSingle20mmResults] = React.useState<AnalysisResults | null>(null);
     const [coarseSingle10mmResults, setCoarseSingle10mmResults] = React.useState<AnalysisResults | null>(null);
 
-    const [fineWeights, setFineWeights] = React.useState<(number | null)[]>([]);
-    const [coarseGradedWeights, setCoarseGradedWeights] = React.useState<(number | null)[]>([]);
-    const [coarseSingle20mmWeights, setCoarseSingle20mmWeights] = React.useState<(number | null)[]>([]);
-    const [coarseSingle10mmWeights, setCoarseSingle10mmWeights] = React.useState<(number | null)[]>([]);
+    const [fineWeights, setFineWeights] = React.useState<(number | null)[]>(getInitialWeights('Fine'));
+    const [coarseGradedWeights, setCoarseGradedWeights] = React.useState<(number | null)[]>(getInitialWeights('Coarse - Graded'));
+    const [coarseSingle20mmWeights, setCoarseSingle20mmWeights] = React.useState<(number | null)[]>(getInitialWeights('Coarse - 20mm'));
+    const [coarseSingle10mmWeights, setCoarseSingle10mmWeights] = React.useState<(number | null)[]>(getInitialWeights('Coarse - 10mm'));
 
     const [isCalculating, setIsCalculating] = React.useState(false);
     const [isDownloading, setIsDownloading] = React.useState(false);
@@ -54,13 +56,11 @@ export function SieveAnalysisCalculator() {
 
     const handleCalculation = (
         _type: ExtendedAggregateType, 
-        resultsSetter: React.Dispatch<React.SetStateAction<AnalysisResults | null>>,
-        weightsSetter: React.Dispatch<React.SetStateAction<(number | null)[]>>
+        resultsSetter: React.Dispatch<React.SetStateAction<AnalysisResults | null>>
     ) => {
-        return (results: AnalysisResults, weights: number[]) => {
+        return (results: AnalysisResults) => {
             setIsCalculating(true);
             resultsSetter(results);
-            weightsSetter(weights);
             toast({ title: "Calculation complete!" });
             setIsCalculating(false);
         };
@@ -339,8 +339,10 @@ export function SieveAnalysisCalculator() {
             <TabsContent value="fine">
                 <SieveAnalysisForm
                     aggregateType="Fine"
-                    onCalculate={handleCalculation("Fine", setFineResults, setFineWeights)}
+                    onCalculate={handleCalculation("Fine", setFineResults)}
                     isLoading={isCalculating}
+                    weights={fineWeights}
+                    onWeightsChange={setFineWeights}
                 />
             </TabsContent>
 
@@ -367,8 +369,10 @@ export function SieveAnalysisCalculator() {
                     {coarseAggType === 'Graded' && (
                         <SieveAnalysisForm
                             aggregateType="Coarse - Graded"
-                            onCalculate={handleCalculation('Coarse - Graded', setCoarseGradedResults, setCoarseGradedWeights)}
+                            onCalculate={handleCalculation('Coarse - Graded', setCoarseGradedResults)}
                             isLoading={isCalculating}
+                            weights={coarseGradedWeights}
+                            onWeightsChange={setCoarseGradedWeights}
                         />
                     )}
 
@@ -381,15 +385,19 @@ export function SieveAnalysisCalculator() {
                              <TabsContent value="20mm">
                                  <SieveAnalysisForm
                                      aggregateType="Coarse - 20mm"
-                                     onCalculate={handleCalculation('Coarse - 20mm', setCoarseSingle20mmResults, setCoarseSingle20mmWeights)}
+                                     onCalculate={handleCalculation('Coarse - 20mm', setCoarseSingle20mmResults)}
                                      isLoading={isCalculating}
+                                     weights={coarseSingle20mmWeights}
+                                     onWeightsChange={setCoarseSingle20mmWeights}
                                  />
                              </TabsContent>
                              <TabsContent value="10mm">
                                  <SieveAnalysisForm
                                      aggregateType="Coarse - 10mm"
-                                     onCalculate={handleCalculation('Coarse - 10mm', setCoarseSingle10mmResults, setCoarseSingle10mmWeights)}
+                                     onCalculate={handleCalculation('Coarse - 10mm', setCoarseSingle10mmResults)}
                                      isLoading={isCalculating}
+                                     weights={coarseSingle10mmWeights}
+                                     onWeightsChange={setCoarseSingle10mmWeights}
                                  />
                              </TabsContent>
                          </Tabs>

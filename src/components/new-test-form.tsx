@@ -18,7 +18,6 @@ import {
   Form,
   FormControl,
   FormItem,
-  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -37,32 +36,31 @@ interface SieveAnalysisFormProps {
   aggregateType: ExtendedAggregateType;
   onCalculate: (results: AnalysisResults, weights: number[]) => void;
   isLoading: boolean;
+  weights: (number | null)[];
+  onWeightsChange: (weights: (number | null)[]) => void;
 }
 
-export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: SieveAnalysisFormProps) {
+export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, weights: parentWeights, onWeightsChange }: SieveAnalysisFormProps) {
   const { toast } = useToast();
   const currentSieves = getSievesForType(aggregateType);
 
-  const defaultValues = {
-    weights: currentSieves.map(() => ({ value: null })),
-  };
-
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: defaultValues,
+    defaultValues: {
+      weights: parentWeights.map(w => ({ value: w })),
+    },
   });
 
   const { fields, replace } = useFieldArray({
     control: form.control,
     name: "weights",
   });
-  
+
   React.useEffect(() => {
     const newSieves = getSievesForType(aggregateType);
-    const newWeights = newSieves.map(() => ({ value: null }));
+    const newWeights = newSieves.map((_, i) => ({ value: parentWeights[i] ?? null }));
     replace(newWeights);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aggregateType, replace]);
+  }, [aggregateType, parentWeights, replace]);
 
 
   function handleCalculate(values: FormValues) {
@@ -108,6 +106,13 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: Sie
     }
   }
 
+  const handleWeightChange = (index: number, value: number | null) => {
+    const newWeights = [...form.getValues().weights.map(w => w.value)];
+    newWeights[index] = value;
+    onWeightsChange(newWeights);
+  };
+
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleCalculate)}>
@@ -144,7 +149,11 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading }: Sie
                                   placeholder="Enter weight"
                                   {...controllerField}
                                   value={controllerField.value ?? ""}
-                                  onChange={event => controllerField.onChange(event.target.value === '' ? null : parseFloat(event.target.value))}
+                                  onChange={event => {
+                                      const val = event.target.value === '' ? null : parseFloat(event.target.value);
+                                      controllerField.onChange(val);
+                                      handleWeightChange(index, val);
+                                  }}
                                   className="max-w-sm"
                                   autoComplete="off"
                                 />
