@@ -41,7 +41,7 @@ export function UserNav() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline">
+        <Button variant="outline" size="sm">
             <User className="mr-2 h-4 w-4" />
             Profile
             <ChevronDown className="ml-2 h-4 w-4" />
