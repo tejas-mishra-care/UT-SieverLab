@@ -151,10 +151,12 @@ export function calculateSieveAnalysis(
 }
 
 /**
- * Classifies fine aggregate into zones based ONLY on the 600 micron sieve.
+ * Classifies fine aggregate into a zone based ONLY on the 600 micron sieve's % passing.
+ * The function returns the name of the zone that the 600 micron sieve falls into.
+ * The UI will then use this zone to check pass/fail for all other sieves.
  * @param percentPassing - Array of percent passing values.
  * @param sieves - Array of sieve sizes.
- * @returns The classification zone or a descriptive string.
+ * @returns The classification zone (e.g., "Zone II") or "Does not conform".
  */
 export function classifyFineAggregate(
     percentPassing: number[],
@@ -167,29 +169,17 @@ export function classifyFineAggregate(
   
     const passingValue600 = percentPassing[micron600SieveIndex];
   
+    // Find the zone based only on the 600 micron sieve
     for (const zone in ZONING_LIMITS) {
       const limits600 = ZONING_LIMITS[zone][0.6];
       if (passingValue600 >= limits600.min && passingValue600 <= limits600.max) {
-        
-        // Now, check full conformity for the matched zone.
-        const passingMap = new Map(sieves.map((s, i) => [s, percentPassing[i]]));
-        let isFullyConforming = true;
-        for (const sieveSize in ZONING_LIMITS[zone]) {
-          const sieve = parseFloat(sieveSize);
-          if (passingMap.has(sieve)) {
-            const passingValue = passingMap.get(sieve)!;
-            const { min, max } = ZONING_LIMITS[zone][sieve];
-            if (passingValue < min || passingValue > max) {
-              isFullyConforming = false;
-              break;
-            }
-          }
-        }
-        return isFullyConforming ? zone : "Does not conform to any zone";
+        // Return the zone name immediately. The UI will handle displaying pass/fail for other sieves.
+        return zone; 
       }
     }
     
-    return "Does not conform to any zone";
+    // If the 600 micron value didn't fit in any zone
+    return "Does not conform";
 }
   
 
