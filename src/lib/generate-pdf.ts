@@ -3,7 +3,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import type { AnalysisResults, ExtendedAggregateType } from "./definitions";
-import { getSievesForType, getSpecLimitsForType, SIEVE_SIZES, findBestFitZone, ZONING_LIMITS } from "./sieve-analysis";
+import { getSievesForType, getSpecLimitsForType, SIEVE_SIZES } from "./sieve-analysis";
 
 type CoarseForCombination = 'Graded' | 'Coarse - 20mm' | 'Coarse - 10mm' | 'Single Size Blend';
 
@@ -248,9 +248,8 @@ export async function generatePdf(data: PdfData) {
       doc.setFont('helvetica', 'bold');
       doc.text("Tabulated Results", pageMargin, yPos);
       yPos += 5;
-
-      const bestFitZone = type === 'Fine' ? findBestFitZone(results.percentPassing, sieves) : null;
-      const specLimits = getSpecLimitsForType(type, type === 'Fine' ? bestFitZone : results.classification);
+      
+      const specLimits = getSpecLimitsForType(type, results.classification);
       
       const tableBody = sieves.map((sieve, i) => {
         const limits = specLimits ? specLimits[sieve] : null;
@@ -285,51 +284,6 @@ export async function generatePdf(data: PdfData) {
     });
 
     yPos = (doc as any).lastAutoTable.finalY + 8;
-    
-    // --- Verification Table for Fine Aggregate ---
-    if (type === 'Fine' && results.classification !== bestFitZone && bestFitZone) {
-      checkAndAddPage();
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text("Zone Classification Verification", pageMargin, yPos);
-      yPos += 5;
-
-      const verificationBody = sieves.map((sieve, i) => {
-        const limits = ZONING_LIMITS[bestFitZone][sieve];
-        const passingValue = results.percentPassing[i];
-        const isOutOfSpec = limits ? passingValue < limits.min || passingValue > limits.max : false;
-        return [
-          `${sieve} mm`,
-          `${passingValue.toFixed(2)}%`,
-          limits ? `${limits.min} - ${limits.max}` : "N/A",
-          isOutOfSpec ? 'FAIL' : 'Pass'
-        ];
-      });
-
-      autoTable(doc, {
-        head: [['IS Sieve', 'Sample % Passing', `${bestFitZone} Limits (% Passing)`, 'Remark']],
-        body: verificationBody,
-        startY: yPos,
-        theme: 'grid',
-        headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
-        styles: { textColor: [0, 0, 0] },
-        didParseCell: (hookData) => {
-          if (hookData.section === 'body' && hookData.column.index === 3 && hookData.cell.raw === 'FAIL') {
-            hookData.cell.styles.textColor = [255, 0, 0];
-            hookData.cell.styles.fontStyle = 'bold';
-          }
-        },
-      });
-      yPos = (doc as any).lastAutoTable.finalY + 5;
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "italic");
-      const conclusionText = `Conclusion: Because the % Passing for one or more sieves falls outside the required range for ${bestFitZone}, the sample cannot be classified as such.`;
-      const splitText = doc.splitTextToSize(conclusionText, pageWidth);
-      doc.text(splitText, pageMargin, yPos);
-      yPos = yPos + (splitText.length * 4) + 5;
-    }
     
     checkAndAddPage();
 

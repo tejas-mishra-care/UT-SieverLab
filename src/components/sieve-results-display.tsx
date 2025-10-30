@@ -18,9 +18,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ExtendedAggregateType, AnalysisResults } from "@/lib/definitions";
-import { getSpecLimitsForType, findBestFitZone } from "@/lib/sieve-analysis";
+import { getSpecLimitsForType } from "@/lib/sieve-analysis";
 import { cn } from "@/lib/utils";
-import { ZoneVerificationTable } from "./zone-verification-table";
 
 
 interface SieveResultsDisplayProps extends AnalysisResults {
@@ -47,9 +46,7 @@ export function SieveResultsDisplay({
   // Ensure a unique ID for each chart
   const chartId = `${type.replace(/\s+/g, '-')}-chart`;
 
-  const bestFitZone = type === 'Fine' ? findBestFitZone(percentPassing, sieves) : null;
-  const specLimits = getSpecLimitsForType(type, type === 'Fine' ? bestFitZone : classification);
-  const showsVerification = type === 'Fine' && classification !== bestFitZone;
+  const specLimits = getSpecLimitsForType(type, classification);
 
   return (
     <div className="space-y-6">
@@ -147,14 +144,6 @@ export function SieveResultsDisplay({
             </div>
             </CardContent>
         </Card>
-        
-        {showsVerification && bestFitZone && (
-          <ZoneVerificationTable
-            sieves={sieves}
-            percentPassing={percentPassing}
-            bestFitZone={bestFitZone}
-          />
-        )}
         
         <Card id={chartId}>
             <CardHeader>

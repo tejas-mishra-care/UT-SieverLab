@@ -193,32 +193,6 @@ export function classifyFineAggregate(
 }
   
 
-export function findBestFitZone(
-    percentPassing: number[],
-    sieves: number[]
-  ): string {
-    const passingMap = new Map(sieves.map((s, i) => [s, percentPassing[i]]));
-    let bestFit = { zone: "Zone I", score: 0 };
-  
-    for (const zone in ZONING_LIMITS) {
-      let currentScore = 0;
-      for (const sieveSize in ZONING_LIMITS[zone]) {
-        const sieve = parseFloat(sieveSize);
-        if (passingMap.has(sieve)) {
-          const passingValue = passingMap.get(sieve)!;
-          const { min, max } = ZONING_LIMITS[zone][sieve];
-          if (passingValue >= min && passingValue <= max) {
-            currentScore++;
-          }
-        }
-      }
-      if (currentScore > bestFit.score) {
-        bestFit = { zone, score: currentScore };
-      }
-    }
-    return bestFit.zone;
-  }
-
 /**
  * Provides a text-based grading for coarse aggregates.
  * @param percentPassing - Array of percent passing values.
