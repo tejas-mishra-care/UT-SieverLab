@@ -23,6 +23,7 @@ interface CombinedSieveChartProps {
     recommendedPassing: number | null;
     upperLimit: number;
     lowerLimit: number;
+    bisLimit: number;
   }[];
 }
 
@@ -35,12 +36,12 @@ const chartConfig = {
     label: "Recommended Blend",
     color: "hsl(140, 80%, 40%)", // A distinct green color
   },
-  upperSpecLimit: {
-    label: "Upper Limit",
-    color: "hsl(var(--muted-foreground) / 0.5)",
+  bisLimit: {
+    label: "BIS Ideal Limit",
+    color: "hsl(var(--destructive))",
   },
-  lowerSpecLimit: {
-    label: "Lower Limit",
+  specLimits: {
+    label: "Spec Limits",
     color: "hsl(var(--muted-foreground) / 0.5)",
   },
 };
@@ -62,8 +63,6 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
 
   const chartDataWithKeys = sortedData.map(d => ({
     ...d,
-    upperSpecLimit: d.upperLimit,
-    lowerSpecLimit: d.lowerLimit,
     specLimits: [d.lowerLimit, d.upperLimit],
   }))
 
@@ -133,25 +132,14 @@ export function CombinedSieveChart({ data }: CombinedSieveChartProps) {
             />
 
             <Line
-                key="line-upper"
-                dataKey="upperSpecLimit"
+                key="line-bis"
+                dataKey="bisLimit"
                 type="monotone"
-                stroke="hsl(var(--muted-foreground) / 0.5)"
+                stroke="hsl(var(--destructive))"
                 strokeDasharray="5 5"
                 dot={false}
                 strokeWidth={1.5}
-                name="upperSpecLimit"
-                legendType='line'
-            />
-            <Line
-                key="line-lower"
-                dataKey="lowerSpecLimit"
-                type="monotone"
-                stroke="hsl(var(--muted-foreground) / 0.5)"
-                strokeDasharray="5 5"
-                dot={false}
-                strokeWidth={1.5}
-                name="lowerSpecLimit"
+                name="bisLimit"
                 legendType='line'
             />
 

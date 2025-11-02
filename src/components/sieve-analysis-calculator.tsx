@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from 'react';
@@ -60,8 +59,7 @@ export function SieveAnalysisCalculator() {
     const [activeCoarseTab, setActiveCoarseTab] = React.useState<SingleSizeType | 'graded'>('graded');
 
     const handleCalculation = (
-        setter: React.Dispatch<React.SetStateAction<AnalysisResults | null>>,
-        weightsSetter: React.Dispatch<React.SetStateAction<(number|null)[]>>
+        setter: React.Dispatch<React.SetStateAction<AnalysisResults | null>>
     ) => {
         return (results: AnalysisResults) => {
             setIsCalculating(true);
@@ -90,11 +88,11 @@ export function SieveAnalysisCalculator() {
                 coarseGradedResults,
                 coarseSingle10mmResults,
                 coarseSingle20mmResults,
-                fineNaturalSandWeights: fineNaturalSandWeights.map(w => w || 0),
-                fineCrushedSandWeights: fineCrushedSandWeights.map(w => w || 0),
-                coarseGradedWeights: coarseGradedWeights.map(w => w || 0),
-                coarseSingle10mmWeights: coarseSingle10mmWeights.map(w => w || 0),
-                coarseSingle20mmWeights: coarseSingle20mmWeights.map(w => w || 0),
+                fineNaturalSandWeights: (fineNaturalSandWeights || []).map(w => w || 0),
+                fineCrushedSandWeights: (fineCrushedSandWeights || []).map(w => w || 0),
+                coarseGradedWeights: (coarseGradedWeights || []).map(w => w || 0),
+                coarseSingle10mmWeights: (coarseSingle10mmWeights || []).map(w => w || 0),
+                coarseSingle20mmWeights: (coarseSingle20mmWeights || []).map(w => w || 0),
                 combinedChartData,
                 blendSelection,
                 blendPercentages,
@@ -140,7 +138,7 @@ export function SieveAnalysisCalculator() {
                 handleCoarseSelectionChange(availableCoarseAggregates[0].name, true);
             }
         }
-    }, [isCombinedTabActive, blendSelection, availableFineAggregates, availableCoarseAggregates]);
+    }, [isCombinedTabActive, availableFineAggregates, availableCoarseAggregates]);
 
 
     React.useEffect(() => {
@@ -307,12 +305,15 @@ export function SieveAnalysisCalculator() {
             });
 
             const specLimits = getSpecLimitsForType('Coarse - Graded');
+            const upperLimit = specLimits?.[sieve]?.max ?? 100;
+            const lowerLimit = specLimits?.[sieve]?.min ?? 0;
             
             return {
                 sieveSize: sieve,
                 combinedPassing: combinedPassing,
-                upperLimit: specLimits?.[sieve]?.max ?? 100,
-                lowerLimit: specLimits?.[sieve]?.min ?? 0,
+                upperLimit: upperLimit,
+                lowerLimit: lowerLimit,
+                bisLimit: (upperLimit + lowerLimit) / 2,
                 recommendedPassing: null,
             };
         });
@@ -380,7 +381,7 @@ export function SieveAnalysisCalculator() {
                      <TabsContent value="Natural Sand">
                         <SieveAnalysisForm
                             aggregateType="Fine"
-                            onCalculate={handleCalculation(setFineNaturalSandResults, setFineNaturalSandWeights)}
+                            onCalculate={handleCalculation(setFineNaturalSandResults)}
                             isLoading={isCalculating}
                             weights={fineNaturalSandWeights}
                             onWeightsChange={setFineNaturalSandWeights}
@@ -390,7 +391,7 @@ export function SieveAnalysisCalculator() {
                      <TabsContent value="Crushed Sand">
                         <SieveAnalysisForm
                             aggregateType="Fine"
-                            onCalculate={handleCalculation(setFineCrushedSandResults, setFineCrushedSandWeights)}
+                            onCalculate={handleCalculation(setFineCrushedSandResults)}
                             isLoading={isCalculating}
                             weights={fineCrushedSandWeights}
                             onWeightsChange={setFineCrushedSandWeights}
@@ -423,7 +424,7 @@ export function SieveAnalysisCalculator() {
                     {coarseAggType === 'Graded' && (
                         <SieveAnalysisForm
                             aggregateType="Coarse - Graded"
-                            onCalculate={handleCalculation(setCoarseGradedResults, setCoarseGradedWeights)}
+                            onCalculate={handleCalculation(setCoarseGradedResults)}
                             isLoading={isCalculating}
                             weights={coarseGradedWeights}
                             onWeightsChange={setCoarseGradedWeights}
@@ -439,7 +440,7 @@ export function SieveAnalysisCalculator() {
                              <TabsContent value="20mm">
                                  <SieveAnalysisForm
                                      aggregateType="Coarse - 20mm"
-                                     onCalculate={handleCalculation(setCoarseSingle20mmResults, setCoarseSingle20mmWeights)}
+                                     onCalculate={handleCalculation(setCoarseSingle20mmResults)}
                                      isLoading={isCalculating}
                                      weights={coarseSingle20mmWeights}
                                      onWeightsChange={setCoarseSingle20mmWeights}
@@ -448,7 +449,7 @@ export function SieveAnalysisCalculator() {
                              <TabsContent value="10mm">
                                  <SieveAnalysisForm
                                      aggregateType="Coarse - 10mm"
-                                     onCalculate={handleCalculation(setCoarseSingle10mmResults, setCoarseSingle10mmWeights)}
+                                     onCalculate={handleCalculation(setCoarseSingle10mmResults)}
                                      isLoading={isCalculating}
                                      weights={coarseSingle10mmWeights}
                                      onWeightsChange={setCoarseSingle10mmWeights}
@@ -573,4 +574,3 @@ export function SieveAnalysisCalculator() {
         </Tabs>
     );
 }
-
