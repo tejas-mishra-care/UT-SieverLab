@@ -1,3 +1,4 @@
+
 import type { ExtendedAggregateType, AnalysisResults, FineAggregateType } from "./definitions";
 
 // IS 383: 2016
@@ -231,59 +232,6 @@ interface Material {
     passingCurve: Map<number, number>;
 }
 
-export function calculateOptimalBlend(
-    materials: Material[]
-  ): Record<string, number> | null {
-    
-    const targetCurve = new Map<number, number>();
-    const allSievesInSpec = Object.keys(SPEC_LIMITS_COARSE_GRADED_20MM).map(parseFloat);
-
-    for (const sieve of allSievesInSpec) {
-        const { min, max } = SPEC_LIMITS_COARSE_GRADED_20MM[sieve];
-        targetCurve.set(sieve, (min + max) / 2);
-    }
-
-    const allSievesInMaterials = new Set<number>();
-    materials.forEach(m => m.passingCurve.forEach((_, sieve) => allSievesInMaterials.add(sieve)));
-    
-    const combinedSieves = new Set([...allSievesInSpec, ...allSievesInMaterials]);
-    const sortedSieves = Array.from(combinedSieves).sort((a,b) => b-a);
-
-    let bestFit: { percentages: number[], score: number } | null = null;
-    const step = 2; // Finer step for better accuracy
-
-    const numMaterials = materials.length;
-    if (numMaterials < 2) return null;
-
-    // Recursive function to iterate through combinations
-    function findBest(index: number, currentPercentages: number[], remaining: number) {
-        if (index === numMaterials - 1) {
-            const finalPercentages = [...currentPercentages, remaining];
-            const { score, isWithinSpec } = calculateFitScore(finalPercentages, materials, sortedSieves);
-            if (isWithinSpec && (!bestFit || score < bestFit.score)) {
-                bestFit = { percentages: finalPercentages, score };
-            }
-            return;
-        }
-
-        for (let p = 0; p <= remaining; p += step) {
-            findBest(index + 1, [...currentPercentages, p], remaining - p);
-        }
-    }
-
-    findBest(0, [], 100);
-
-    if (bestFit) {
-        const result: Record<string, number> = {};
-        materials.forEach((m, i) => {
-            result[m.name] = bestFit!.percentages[i];
-        });
-        return result;
-    }
-
-    return null;
-}
-
 function calculateFitScore(
     percentages: number[],
     materials: Material[],
@@ -305,15 +253,69 @@ function calculateFitScore(
 
         if (combinedPassing < specLimits.min || combinedPassing > specLimits.max) {
             isWithinSpec = false;
-            // Apply a penalty based on how far out of spec it is
+            // Apply a heavy penalty for being out of spec
             const deviation = combinedPassing < specLimits.min 
                 ? specLimits.min - combinedPassing 
                 : combinedPassing - specLimits.max;
-            totalScore += 1000 + Math.pow(deviation, 2); // Heavy base penalty + squared deviation
+            totalScore += 1000 + Math.pow(deviation, 2); // Base penalty + squared deviation
         } else {
+            // Score based on distance from the ideal midpoint
             const targetPassing = (specLimits.min + specLimits.max) / 2;
             totalScore += Math.pow(combinedPassing - targetPassing, 2);
         }
     }
     return { score: totalScore, isWithinSpec };
+}
+
+
+export function calculateOptimalBlend(
+    materials: Material[]
+  ): Record<string, number> | null {
+    
+    if (materials.length < 2) return null;
+
+    const allSievesInMaterials = new Set<number>();
+    materials.forEach(m => m.passingCurve.forEach((_, sieve) => allSievesInMaterials.add(sieve)));
+    const allSievesInSpec = Object.keys(SPEC_LIMITS_COARSE_GRADED_20MM).map(parseFloat);
+    const combinedSieves = new Set([...allSievesInSpec, ...allSievesInMaterials]);
+    const sortedSieves = Array.from(combinedSieves).sort((a,b) => b-a);
+    
+    let bestFit: { percentages: number[], score: number } | null = null;
+    const step = 2; // Iteration step
+
+    if (materials.length === 2) {
+        for (let p1 = 0; p1 <= 100; p1 += step) {
+            const p2 = 100 - p1;
+            const percentages = [p1, p2];
+            const { score, isWithinSpec } = calculateFitScore(percentages, materials, sortedSieves);
+            if (isWithinSpec && (!bestFit || score < bestFit.score)) {
+                bestFit = { percentages, score };
+            }
+        }
+    } else if (materials.length === 3) {
+        for (let p1 = 0; p1 <= 100; p1 += step) {
+            for (let p2 = 0; p2 <= 100 - p1; p2 += step) {
+                const p3 = 100 - p1 - p2;
+                const percentages = [p1, p2, p3];
+                const { score, isWithinSpec } = calculateFitScore(percentages, materials, sortedSieves);
+                if (isWithinSpec && (!bestFit || score < bestFit.score)) {
+                    bestFit = { percentages, score };
+                }
+            }
+        }
+    } else {
+        // Fallback or error for unsupported number of materials
+        return null;
+    }
+
+
+    if (bestFit) {
+        const result: Record<string, number> = {};
+        materials.forEach((m, i) => {
+            result[m.name] = bestFit!.percentages[i];
+        });
+        return result;
+    }
+
+    return null;
 }
