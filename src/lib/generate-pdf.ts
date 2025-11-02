@@ -5,7 +5,7 @@ import type { AnalysisResults, ExtendedAggregateType, FineAggregateType } from "
 import { getSievesForType, getSpecLimitsForType, SIEVE_SIZES } from "./sieve-analysis";
 
 type BlendSelection = {
-    fine: { type: 'Fine', fineAggType: FineAggregateType } | null;
+    fine: { type: 'Fine', fineAggType: FineAggregateType, results: AnalysisResults }[];
     coarse: { type: ExtendedAggregateType, results: AnalysisResults }[];
 }
 
@@ -343,11 +343,10 @@ export async function generatePdf(data: PdfData) {
     doc.setFont("helvetica", "normal");
     
     let blendText = '';
-    if (data.blendSelection.fine) {
-        const parts = [
-            `${data.blendPercentages[data.blendSelection.fine.fineAggType]}% ${data.blendSelection.fine.fineAggType}`,
-            ...data.blendSelection.coarse.map(c => `${data.blendPercentages[c.type]}% ${c.type}`)
-        ];
+    if (data.blendSelection.fine.length > 0 || data.blendSelection.coarse.length > 0) {
+        const fineParts = data.blendSelection.fine.map(f => `${data.blendPercentages[f.fineAggType]}% ${f.fineAggType}`);
+        const coarseParts = data.blendSelection.coarse.map(c => `${data.blendPercentages[c.type]}% ${c.type}`);
+        const parts = [...fineParts, ...coarseParts];
         blendText = `Blend: ${parts.join(', ')}.`;
     }
 

@@ -9,7 +9,7 @@ import { SieveInputsDisplay } from "./sieve-inputs-display";
 import { AnalysisDetailsTable } from "./analysis-details-table";
 
 type BlendSelection = {
-    fine: { type: 'Fine', fineAggType: FineAggregateType } | null;
+    fine: { type: 'Fine', fineAggType: FineAggregateType, results: AnalysisResults }[];
     coarse: { type: ExtendedAggregateType, results: AnalysisResults }[];
 }
 
@@ -50,14 +50,14 @@ export function ReportLayout({
 }: ReportLayoutProps) {
 
     const getBlendDescription = () => {
-        if (!blendSelection.fine || blendSelection.coarse.length === 0) {
+        if (blendSelection.fine.length === 0 || blendSelection.coarse.length === 0) {
             return "No blend selected.";
         }
 
-        const parts = [
-            `${blendPercentages[blendSelection.fine.fineAggType]}% ${blendSelection.fine.fineAggType}`,
-            ...blendSelection.coarse.map(c => `${blendPercentages[c.type]}% ${c.type}`)
-        ];
+        const fineParts = blendSelection.fine.map(f => `${blendPercentages[f.fineAggType]}% ${f.fineAggType}`);
+        const coarseParts = blendSelection.coarse.map(c => `${blendPercentages[c.type]}% ${c.type}`);
+
+        const parts = [...fineParts, ...coarseParts];
 
         return `Analysis for a mix of: ${parts.join(', ')}.`;
     }

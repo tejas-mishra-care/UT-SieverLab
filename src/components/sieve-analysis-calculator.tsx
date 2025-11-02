@@ -19,7 +19,7 @@ import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
 
 type BlendSelection = {
-    fine: { type: 'Fine', fineAggType: FineAggregateType } | null;
+    fine: { type: 'Fine', fineAggType: FineAggregateType, results: AnalysisResults }[];
     coarse: { type: ExtendedAggregateType, results: AnalysisResults }[];
 }
 
@@ -49,7 +49,7 @@ export function SieveAnalysisCalculator() {
     const [testName, setTestName] = React.useState('');
     
     // State for blending
-    const [blendSelection, setBlendSelection] = React.useState<BlendSelection>({ fine: null, coarse: [] });
+    const [blendSelection, setBlendSelection] = React.useState<BlendSelection>({ fine: [], coarse: [] });
     const [blendPercentages, setBlendPercentages] = React.useState<Record<string, number>>({});
 
     const reportRef = React.useRef<HTMLDivElement>(null);
@@ -59,11 +59,13 @@ export function SieveAnalysisCalculator() {
     const [activeCoarseTab, setActiveCoarseTab] = React.useState<SingleSizeType | 'graded'>('graded');
 
     const handleCalculation = (
-        setter: React.Dispatch<React.SetStateAction<AnalysisResults | null>>
+        setter: React.Dispatch<React.SetStateAction<AnalysisResults | null>>,
+        weightsSetter: React.Dispatch<React.SetStateAction<(number|null)[]>>
     ) => {
-        return (results: AnalysisResults) => {
+        return (results: AnalysisResults, weights: number[]) => {
             setIsCalculating(true);
             setter(results);
+            weightsSetter(weights);
             toast({ title: "Calculation complete!" });
             setIsCalculating(false);
         };
@@ -81,10 +83,6 @@ export function SieveAnalysisCalculator() {
 
         setIsDownloading(true);
         try {
-            const fineResults = activeFineTab === 'Natural Sand' ? fineNaturalSandResults : fineCrushedSandResults;
-            const coarseForCombination = blendSelection.coarse.length > 1 ? 'Single Size Blend' : (blendSelection.coarse[0]?.type ?? null);
-            const blendMode = blendSelection.coarse.length > 1 ? 'three-material' : 'two-material';
-
             await generatePdf({
                 testName,
                 fineNaturalSandResults,
@@ -135,8 +133,8 @@ export function SieveAnalysisCalculator() {
     
     React.useEffect(() => {
         if (isCombinedTabActive) {
-            if (!blendSelection.fine && availableFineAggregates.length > 0) {
-                 handleFineSelectionChange(availableFineAggregates[0].value);
+            if (blendSelection.fine.length === 0 && availableFineAggregates.length > 0) {
+                 handleFineSelectionChange(availableFineAggregates[0].value, true);
             }
             if (blendSelection.coarse.length === 0 && availableCoarseAggregates.length > 0) {
                 handleCoarseSelectionChange(availableCoarseAggregates[0].name, true);
@@ -147,7 +145,7 @@ export function SieveAnalysisCalculator() {
 
     React.useEffect(() => {
         const selectedItems = [
-            ...(blendSelection.fine ? [{type: blendSelection.fine.fineAggType}] : []),
+            ...blendSelection.fine.map(f => ({ type: f.fineAggType})),
             ...blendSelection.coarse
         ];
         
@@ -173,11 +171,25 @@ export function SieveAnalysisCalculator() {
         }
     }, [blendSelection]);
 
-    const handleFineSelectionChange = (fineAggType: FineAggregateType) => {
-        setBlendSelection(prev => ({
-            ...prev,
-            fine: { type: 'Fine', fineAggType }
-        }));
+    const handleFineSelectionChange = (fineAggType: FineAggregateType, isChecked: boolean) => {
+        const fineResult = availableFineAggregates.find(agg => agg.value === fineAggType);
+        if(!fineResult) return;
+
+        setBlendSelection(prev => {
+            const currentFine = prev.fine;
+            const existing = currentFine.find(f => f.fineAggType === fineAggType);
+            let newFine: { type: 'Fine', fineAggType: FineAggregateType, results: AnalysisResults }[];
+
+            if (isChecked && !existing) {
+                newFine = [...currentFine, { type: 'Fine', fineAggType, results: fineResult.results }];
+            } else if (!isChecked && existing) {
+                newFine = currentFine.filter(f => f.fineAggType !== fineAggType);
+            } else {
+                newFine = currentFine;
+            }
+
+            return { ...prev, fine: newFine };
+        });
     };
 
     const handleCoarseSelectionChange = (coarseType: ExtendedAggregateType, isChecked: boolean) => {
@@ -241,16 +253,13 @@ export function SieveAnalysisCalculator() {
     };
 
     const handleRecommendBlend = () => {
-        if (!blendSelection.fine || blendSelection.coarse.length === 0) {
+        if (blendSelection.fine.length === 0 || blendSelection.coarse.length === 0) {
             toast({ variant: 'destructive', title: "Cannot Recommend Blend", description: "Select at least one fine and one coarse aggregate." });
             return;
         }
 
-        const fineResults = blendSelection.fine.fineAggType === 'Natural Sand' ? fineNaturalSandResults : fineCrushedSandResults;
-        if (!fineResults) return;
-
         const materials = [
-            { name: blendSelection.fine.fineAggType, passingCurve: new Map(getSievesForType('Fine').map((s, i) => [s, fineResults.percentPassing[i]])) },
+            ...blendSelection.fine.map(f => ({ name: f.fineAggType, passingCurve: new Map(getSievesForType('Fine').map((s, i) => [s, f.results.percentPassing[i]])) })),
             ...blendSelection.coarse.map(c => ({ name: c.type, passingCurve: new Map(getSievesForType(c.type).map((s, i) => [s, c.results.percentPassing[i]])) }))
         ];
 
@@ -265,37 +274,36 @@ export function SieveAnalysisCalculator() {
     };
     
     const combinedChartData = React.useMemo(() => {
-        if (!isCombinedTabActive || !blendSelection.fine || blendSelection.coarse.length === 0) return [];
+        if (!isCombinedTabActive || blendSelection.fine.length === 0 || blendSelection.coarse.length === 0) return [];
         
-        const fineResults = blendSelection.fine.fineAggType === 'Natural Sand' ? fineNaturalSandResults : fineCrushedSandResults;
-        if (!fineResults) return [];
-
-        const fineSieves = getSievesForType('Fine');
-        const finePassingMap = new Map(fineSieves.map((s, i) => [s, fineResults.percentPassing[i]]));
-        const finePercentage = blendPercentages[blendSelection.fine.fineAggType] ?? 0;
-
-        let allSieves = new Set(fineSieves);
-        const coarseMaps = blendSelection.coarse.map(c => {
-            const sieves = getSievesForType(c.type);
-            sieves.forEach(s => allSieves.add(s));
-            return {
+        let allSieves = new Set<number>();
+        const materials = [
+            ...blendSelection.fine.map(f => ({
+                type: f.fineAggType,
+                results: f.results,
+                sieves: getSievesForType('Fine'),
+                maxSieve: Math.max(...getSievesForType('Fine')),
+            })),
+            ...blendSelection.coarse.map(c => ({
                 type: c.type,
-                map: new Map(sieves.map((s, i) => [s, c.results.percentPassing[i]])),
-                maxSieve: Math.max(...sieves)
-            };
-        });
+                results: c.results,
+                sieves: getSievesForType(c.type),
+                maxSieve: Math.max(...getSievesForType(c.type)),
+            }))
+        ];
+
+        materials.forEach(m => m.sieves.forEach(s => allSieves.add(s)));
 
         const sortedSieves = Array.from(allSieves).sort((a,b) => b-a);
         
         const data = sortedSieves.map(sieve => {
             let combinedPassing = 0;
-            const fineP = finePassingMap.get(sieve) ?? (sieve > Math.max(...fineSieves) ? 100 : 0);
-            combinedPassing += fineP * (finePercentage / 100);
-
-            coarseMaps.forEach(cm => {
-                const coarsePercentage = blendPercentages[cm.type] ?? 0;
-                const coarseP = cm.map.get(sieve) ?? (sieve > cm.maxSieve ? 100 : 0);
-                combinedPassing += coarseP * (coarsePercentage / 100);
+            
+            materials.forEach(mat => {
+                const percentage = blendPercentages[mat.type] ?? 0;
+                const passingMap = new Map(mat.sieves.map((s, i) => [s, mat.results.percentPassing[i]]));
+                const passing = passingMap.get(sieve) ?? (sieve > mat.maxSieve ? 100 : 0);
+                combinedPassing += passing * (percentage / 100);
             });
 
             const specLimits = getSpecLimitsForType('Coarse - Graded');
@@ -311,7 +319,7 @@ export function SieveAnalysisCalculator() {
 
         return data.sort((a,b) => a.sieveSize - b.sieveSize);
 
-    }, [blendSelection, blendPercentages, isCombinedTabActive, fineNaturalSandResults, fineCrushedSandResults]);
+    }, [blendSelection, blendPercentages, isCombinedTabActive]);
 
 
     const isReportReady = fineNaturalSandResults || fineCrushedSandResults || coarseGradedResults || coarseSingle10mmResults || coarseSingle20mmResults;
@@ -372,7 +380,7 @@ export function SieveAnalysisCalculator() {
                      <TabsContent value="Natural Sand">
                         <SieveAnalysisForm
                             aggregateType="Fine"
-                            onCalculate={handleCalculation(setFineNaturalSandResults)}
+                            onCalculate={handleCalculation(setFineNaturalSandResults, setFineNaturalSandWeights)}
                             isLoading={isCalculating}
                             weights={fineNaturalSandWeights}
                             onWeightsChange={setFineNaturalSandWeights}
@@ -382,7 +390,7 @@ export function SieveAnalysisCalculator() {
                      <TabsContent value="Crushed Sand">
                         <SieveAnalysisForm
                             aggregateType="Fine"
-                            onCalculate={handleCalculation(setFineCrushedSandResults)}
+                            onCalculate={handleCalculation(setFineCrushedSandResults, setFineCrushedSandWeights)}
                             isLoading={isCalculating}
                             weights={fineCrushedSandWeights}
                             onWeightsChange={setFineCrushedSandWeights}
@@ -415,7 +423,7 @@ export function SieveAnalysisCalculator() {
                     {coarseAggType === 'Graded' && (
                         <SieveAnalysisForm
                             aggregateType="Coarse - Graded"
-                            onCalculate={handleCalculation(setCoarseGradedResults)}
+                            onCalculate={handleCalculation(setCoarseGradedResults, setCoarseGradedWeights)}
                             isLoading={isCalculating}
                             weights={coarseGradedWeights}
                             onWeightsChange={setCoarseGradedWeights}
@@ -431,7 +439,7 @@ export function SieveAnalysisCalculator() {
                              <TabsContent value="20mm">
                                  <SieveAnalysisForm
                                      aggregateType="Coarse - 20mm"
-                                     onCalculate={handleCalculation(setCoarseSingle20mmResults)}
+                                     onCalculate={handleCalculation(setCoarseSingle20mmResults, setCoarseSingle20mmWeights)}
                                      isLoading={isCalculating}
                                      weights={coarseSingle20mmWeights}
                                      onWeightsChange={setCoarseSingle20mmWeights}
@@ -440,7 +448,7 @@ export function SieveAnalysisCalculator() {
                              <TabsContent value="10mm">
                                  <SieveAnalysisForm
                                      aggregateType="Coarse - 10mm"
-                                     onCalculate={handleCalculation(setCoarseSingle10mmResults)}
+                                     onCalculate={handleCalculation(setCoarseSingle10mmResults, setCoarseSingle10mmWeights)}
                                      isLoading={isCalculating}
                                      weights={coarseSingle10mmWeights}
                                      onWeightsChange={setCoarseSingle10mmWeights}
@@ -462,20 +470,21 @@ export function SieveAnalysisCalculator() {
                             <div className="space-y-6 rounded-lg border p-4">
                                 <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
                                     <div className='space-y-2'>
-                                        <h3 className="font-semibold">1. Select Fine Aggregate</h3>
-                                        <Select 
-                                            value={blendSelection.fine?.fineAggType} 
-                                            onValueChange={val => handleFineSelectionChange(val as FineAggregateType)}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Choose a fine aggregate..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {availableFineAggregates.map(opt => (
-                                                    <SelectItem key={opt.value} value={opt.value}>{opt.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <h3 className="font-semibold">1. Select Fine Aggregate(s)</h3>
+                                        <div className='space-y-2'>
+                                            {availableFineAggregates.map(opt => (
+                                                <div key={opt.value} className="flex items-center space-x-2">
+                                                    <Checkbox
+                                                        id={opt.value}
+                                                        checked={!!blendSelection.fine.find(f => f.fineAggType === opt.value)}
+                                                        onCheckedChange={(checked) => handleFineSelectionChange(opt.value, !!checked)}
+                                                    />
+                                                    <label htmlFor={opt.value} className="text-sm font-medium leading-none">
+                                                        {opt.name}
+                                                    </label>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                     <div className='space-y-2'>
                                         <h3 className="font-semibold">2. Select Coarse Aggregate(s)</h3>
@@ -498,7 +507,7 @@ export function SieveAnalysisCalculator() {
                                 
                                 <hr />
 
-                                {blendSelection.fine && blendSelection.coarse.length > 0 && (
+                                {blendSelection.fine.length > 0 && blendSelection.coarse.length > 0 && (
                                     <div className='space-y-4'>
                                         <h3 className="font-semibold">3. Adjust Proportions</h3>
                                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
