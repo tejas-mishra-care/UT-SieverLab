@@ -1,3 +1,4 @@
+
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
@@ -357,14 +358,13 @@ export async function generatePdf(data: PdfData) {
     
     const sortedData = [...data.combinedChartData].sort((a, b) => b.sieveSize - a.sieveSize);
     autoTable(doc, {
-        head: [['Sieve (mm)', 'Lower Limit (%)', 'Upper Limit (%)', 'Combined Passing (%)', 'Remark']],
+        head: [['Sieve (mm)', 'Combined Passing (%)', 'BIS Limit (%)', 'Remark']],
         body: sortedData.map(row => {
             const isOutOfSpec = row.combinedPassing < row.lowerLimit || row.combinedPassing > row.upperLimit;
             return [
                 row.sieveSize.toFixed(2),
-                row.lowerLimit.toFixed(2),
-                row.upperLimit.toFixed(2),
                 row.combinedPassing.toFixed(2),
+                row.bisLimit.toFixed(2),
                 isOutOfSpec ? 'FAIL' : 'Pass'
             ]
         }),
@@ -373,7 +373,7 @@ export async function generatePdf(data: PdfData) {
         headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255] },
         styles: { textColor: [0, 0, 0] },
         didParseCell: (hookData) => {
-            if (hookData.section === 'body' && hookData.column.index === 4 && hookData.cell.raw === 'FAIL') {
+            if (hookData.section === 'body' && hookData.column.index === 3 && hookData.cell.raw === 'FAIL') {
                 hookData.cell.styles.textColor = [255, 0, 0];
                 hookData.cell.styles.fontStyle = 'bold';
             }
