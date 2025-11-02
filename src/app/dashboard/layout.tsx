@@ -17,7 +17,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useUser } from "@/firebase";
-import { LayoutDashboard, Linkedin, Loader2 } from "lucide-react";
+import { LayoutDashboard, Linkedin, Loader2, User } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";
@@ -72,7 +72,7 @@ export default function DashboardLayout({
             <SidebarTrigger className="size-8" />
             <div className="flex items-center gap-2 group-data-[collapsible=icon]:-ml-8 group-data-[collapsible=icon]:opacity-0 transition-all duration-200">
                 <div className="h-10 w-10">
-                    <Image src="/UT.jpeg?v=2" alt="UT Logo" width={50} height={50} className="rounded-md" />
+                    <Image src="/UT.jpeg?v=3" alt="UT Logo" width={50} height={50} className="rounded-md" />
                 </div>
                 <h1 className="font-headline text-lg font-bold text-sidebar-foreground">
                     UltraTech Sieve Test Master
@@ -88,6 +88,14 @@ export default function DashboardLayout({
                   <Link href="/dashboard/new-test">
                     <LayoutDashboard />
                     <span>Calculator</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Profile">
+                  <Link href="/dashboard/profile">
+                    <User />
+                    <span>Profile</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -113,7 +121,7 @@ export default function DashboardLayout({
       </Sidebar>
       <SidebarInset>
         <Header />
-        <main className="flex-1 overflow-auto p-4 pt-6 sm:p-6 sm:pt-6">{children}</main>
+        <main className="flex-1 overflow-auto p-4 pt-8 sm:p-6 sm:pt-8">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );
