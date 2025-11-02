@@ -15,7 +15,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 interface CombinedGradationTableProps {
@@ -24,7 +23,6 @@ interface CombinedGradationTableProps {
     combinedPassing: number;
     upperLimit: number;
     lowerLimit: number;
-    bisLimit: number;
   }[];
 }
 
@@ -36,7 +34,7 @@ export function CombinedGradationTable({ data }: CombinedGradationTableProps) {
       <CardHeader>
         <CardTitle>Combined Gradation Data</CardTitle>
         <CardDescription>
-          Detailed data points for the combined aggregate blend.
+          Detailed data points for the combined aggregate blend, checked against IS 383:2016 for 20mm Graded Aggregate.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -46,7 +44,7 @@ export function CombinedGradationTable({ data }: CombinedGradationTableProps) {
               <TableRow>
                 <TableHead className="font-bold">Sieve (mm)</TableHead>
                 <TableHead className="font-bold text-right">Combined Passing (%)</TableHead>
-                <TableHead className="font-bold text-right">BIS Ideal Limit (%)</TableHead>
+                <TableHead className="font-bold text-center">BIS Limits (%)</TableHead>
                 <TableHead className="font-bold text-center">Remark</TableHead>
               </TableRow>
             </TableHeader>
@@ -61,11 +59,11 @@ export function CombinedGradationTable({ data }: CombinedGradationTableProps) {
                     key={row.sieveSize} 
                     className={cn(isOutOfSpec && "bg-destructive/10")}
                   >
-                    <TableCell className="font-medium">{row.sieveSize}</TableCell>
+                    <TableCell className="font-medium">{row.sieveSize.toFixed(2)}</TableCell>
                     <TableCell className={cn("text-right font-semibold", isOutOfSpec && "text-destructive")}>
                       {row.combinedPassing.toFixed(2)}
                     </TableCell>
-                    <TableCell className="text-right">{row.bisLimit.toFixed(2)}</TableCell>
+                    <TableCell className="text-center">{`${row.lowerLimit.toFixed(0)} - ${row.upperLimit.toFixed(0)}`}</TableCell>
                     <TableCell className={cn("text-center font-medium", isOutOfSpec ? "text-destructive" : "text-green-600")}>
                       {isOutOfSpec ? 'FAIL' : 'Pass'}
                     </TableCell>

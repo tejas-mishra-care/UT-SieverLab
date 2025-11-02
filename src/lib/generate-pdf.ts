@@ -358,13 +358,13 @@ export async function generatePdf(data: PdfData) {
     
     const sortedData = [...data.combinedChartData].sort((a, b) => b.sieveSize - a.sieveSize);
     autoTable(doc, {
-        head: [['Sieve (mm)', 'Combined Passing (%)', 'BIS Limit (%)', 'Remark']],
+        head: [['Sieve (mm)', 'Combined Passing (%)', 'BIS Limits (%)', 'Remark']],
         body: sortedData.map(row => {
             const isOutOfSpec = row.combinedPassing < row.lowerLimit || row.combinedPassing > row.upperLimit;
             return [
                 row.sieveSize.toFixed(2),
                 row.combinedPassing.toFixed(2),
-                row.bisLimit.toFixed(2),
+                `${row.lowerLimit.toFixed(0)} - ${row.upperLimit.toFixed(0)}`,
                 isOutOfSpec ? 'FAIL' : 'Pass'
             ]
         }),
