@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from 'react';
@@ -75,6 +76,15 @@ export function SieveAnalysisCalculator() {
                 variant: "destructive",
                 title: "Cannot generate PDF",
                 description: "Please calculate results for at least one aggregate type.",
+            });
+            return;
+        }
+
+        if (activeTab !== 'report') {
+            toast({
+                variant: "destructive",
+                title: "Switch to Report Tab",
+                description: "Please switch to the 'Report' tab before downloading the PDF to ensure all data is loaded.",
             });
             return;
         }
@@ -574,3 +584,5 @@ export function SieveAnalysisCalculator() {
         </Tabs>
     );
 }
+
+    
