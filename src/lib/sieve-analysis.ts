@@ -265,6 +265,20 @@ interface Material {
     passingCurve: Map<number, number>;
 }
 
+function getCombinedPassing(
+    percentages: number[],
+    materials: Material[],
+    sieve: number
+): number {
+    let combinedPassing = 0;
+    for (let i = 0; i < materials.length; i++) {
+        const material = materials[i];
+        const materialPassing = material.passingCurve.get(sieve) ?? (sieve > Math.max(...material.passingCurve.keys()) ? 100 : 0);
+        combinedPassing += materialPassing * (percentages[i] / 100);
+    }
+    return combinedPassing;
+}
+
 function calculateFitScore(
     percentages: number[],
     materials: Material[],
@@ -277,20 +291,15 @@ function calculateFitScore(
         const specLimits = SPEC_LIMITS_COARSE_GRADED_20MM[sieve];
         if (!specLimits) continue;
 
-        let combinedPassing = 0;
-        for (let i = 0; i < materials.length; i++) {
-            const material = materials[i];
-            const materialPassing = material.passingCurve.get(sieve) ?? (sieve > Math.max(...material.passingCurve.keys()) ? 100 : 0);
-            combinedPassing += materialPassing * (percentages[i] / 100);
-        }
+        const combinedPassing = getCombinedPassing(percentages, materials, sieve);
 
         if (combinedPassing < specLimits.min || combinedPassing > specLimits.max) {
             isWithinSpec = false;
-            // Apply a heavy penalty for being out of spec
+            // Heavy penalty for being out of spec
             const deviation = combinedPassing < specLimits.min 
                 ? specLimits.min - combinedPassing 
                 : combinedPassing - specLimits.max;
-            totalScore += 1000 + Math.pow(deviation, 2); // Base penalty + squared deviation
+            totalScore += 1000 + Math.pow(deviation, 2); 
         } else {
             // Score based on distance from the ideal midpoint
             const targetPassing = (specLimits.min + specLimits.max) / 2;
@@ -317,42 +326,55 @@ export function calculateOptimalBlend(
     const sortedSieves = Array.from(combinedSieves).sort((a,b) => b-a);
     
     let bestFit: { percentages: number[], score: number } | null = null;
-    const step = 5; // Use a larger step to manage performance
+    let bestCompliantFit: { percentages: number[], score: number } | null = null;
+
+    const step = 5; 
     const numMaterials = materials.length;
 
-    // This recursive function will generate the nested loops
-    function findBest(currentIndex: number, currentPercentages: number[]) {
-        const currentSum = currentPercentages.reduce((a, b) => a + b, 0);
+    // A generic recursive iterator
+    function iterate(index: number, percentages: number[]) {
+        const currentSum = percentages.reduce((a, b) => a + b, 0);
 
-        // If this is the second to last material
-        if (currentIndex === numMaterials - 2) {
-            for (let p = 0; p <= 100 - currentSum; p += step) {
-                const finalPercentages = [...currentPercentages, p, 100 - currentSum - p];
-                const { score, isWithinSpec } = calculateFitScore(finalPercentages, materials, sortedSieves);
-                if (isWithinSpec && (!bestFit || score < bestFit.score)) {
-                    bestFit = { percentages: finalPercentages, score };
+        // If this is the last material, its percentage is determined
+        if (index === numMaterials - 1) {
+            const finalPercentages = [...percentages, 100 - currentSum];
+            
+            const { score, isWithinSpec } = calculateFitScore(finalPercentages, materials, sortedSieves);
+
+            if (isWithinSpec) {
+                if (!bestCompliantFit || score < bestCompliantFit.score) {
+                    bestCompliantFit = { percentages: finalPercentages, score };
                 }
             }
-        } else { // If there are more materials to iterate through
-            for (let p = 0; p <= 100 - currentSum; p += step) {
-                findBest(currentIndex + 1, [...currentPercentages, p]);
+
+            if (!bestFit || score < bestFit.score) {
+                bestFit = { percentages: finalPercentages, score };
             }
+            return;
+        }
+
+        // For other materials, iterate from 0 up to what's left
+        for (let p = 0; p <= 100 - currentSum; p += step) {
+            iterate(index + 1, [...percentages, p]);
         }
     }
+    
+    iterate(0, []);
 
-    findBest(0, []);
+    // Prioritize a compliant blend over any non-compliant one.
+    const chosenBlend = bestCompliantFit || bestFit;
 
-    if (bestFit) {
+    if (chosenBlend) {
         const result: Record<string, number> = {};
         materials.forEach((m, i) => {
-            result[m.name] = bestFit!.percentages[i];
+            result[m.name] = chosenBlend!.percentages[i];
         });
         
-        // Normalize to ensure it sums to 100
+        // Normalize to ensure it sums to exactly 100
         const total = Object.values(result).reduce((sum, p) => sum + p, 0);
         if (total !== 100) {
             const lastKey = Object.keys(result)[Object.keys(result).length - 1];
-            result[lastKey] += 100 - total;
+            result[lastKey] = Math.max(0, result[lastKey] + (100 - total));
         }
 
         return result;
