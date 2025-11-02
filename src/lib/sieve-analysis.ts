@@ -14,13 +14,11 @@ export const STANDARD_SIEVES_FM = [4.75, 2.36, 1.18, 0.6, 0.3, 0.15];
 // Combined list of all unique sieve sizes, sorted.
 export const ALL_SIEVES = [...new Set([...SIEVE_SIZES.COARSE_GRADED, ...SIEVE_SIZES.FINE])].sort((a, b) => a - b);
 
-// IS 383: 2016, Table 7 for 20mm nominal size all-in aggregate
+// IS 383: 2016, Table 7 for 20mm nominal size graded aggregate
 export const SPEC_LIMITS_COARSE_GRADED_20MM: Record<number, { min: number; max: number }> = {
-    80: { min: 100, max: 100 },
-    63: { min: 100, max: 100 },
     40: { min: 95, max: 100 },
     20: { min: 95, max: 100 },
-    10: { min: 40, max: 85 }, // As per table 7, IS 383, for 20mm all-in aggregate.
+    10: { min: 40, max: 85 },
     4.75: { min: 25, max: 55 },
     2.36: { min: 15, max: 40 },
     1.18: { min: 8, max: 25 },
