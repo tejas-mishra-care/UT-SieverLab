@@ -6,7 +6,7 @@ import { CombinedSieveChart } from "@/components/combined-sieve-chart";
 import type { AnalysisResults, ExtendedAggregateType, FineAggregateType } from "@/lib/definitions";
 import { SIEVE_SIZES } from "@/lib/sieve-analysis";
 import { SieveInputsDisplay } from "./sieve-inputs-display";
-import { AnalysisDetailsTable } from "./analysis-details-table";
+import { CombinedGradationTable } from "./combined-gradation-table";
 
 type BlendSelection = {
     fine: { type: 'Fine', fineAggType: FineAggregateType, results: AnalysisResults }[];
@@ -147,15 +147,7 @@ export function ReportLayout({
                 </CardContent>
               </Card>
 
-              <AnalysisDetailsTable 
-                title="Combined Gradation Data"
-                description="Detailed data points for the combined aggregate blend."
-                data={combinedChartData.map(d => ({ sieveSize: d.sieveSize, percentPassing: d.combinedPassing }))}
-                specLimits={combinedChartData.reduce((acc, d) => {
-                    acc[d.sieveSize] = { min: d.lowerLimit, max: d.upperLimit };
-                    return acc;
-                }, {} as Record<number, { min: number, max: number }>)}
-              />
+              <CombinedGradationTable data={combinedChartData} />
             </div>
           </>
         )}
