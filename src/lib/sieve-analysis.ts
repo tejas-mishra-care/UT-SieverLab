@@ -1,5 +1,4 @@
-
-import type { ExtendedAggregateType, AnalysisResults } from "./definitions";
+import type { ExtendedAggregateType, AnalysisResults, FineAggregateType } from "./definitions";
 
 // IS 383: 2016
 export const SIEVE_SIZES = {
@@ -45,8 +44,8 @@ export const SPEC_LIMITS_COARSE_SINGLE_10MM: Record<number, { min: number; max: 
 };
 
 
-// IS 383: 2016, Table 9: Grading Zones for Fine Aggregates
-export const ZONING_LIMITS: Record<string, Record<number, { min: number; max: number }>> = {
+// IS 383: 2016, Table 9: Grading Zones for Fine Aggregates (NATURAL SAND)
+export const ZONING_LIMITS_NATURAL_SAND: Record<string, Record<number, { min: number; max: number }>> = {
   "Zone I": {
     4.75: { min: 90, max: 100 },
     2.36: { min: 60, max: 95 },
@@ -81,6 +80,14 @@ export const ZONING_LIMITS: Record<string, Record<number, { min: number; max: nu
   },
 };
 
+// IS 383: 2016, Table 9 with Note 2 for Crushed Stone Sand
+export const ZONING_LIMITS_CRUSHED_SAND: Record<string, Record<number, { min: number; max: number }>> = {
+    "Zone I": { ...ZONING_LIMITS_NATURAL_SAND["Zone I"], 0.15: { min: 0, max: 20 } },
+    "Zone II": { ...ZONING_LIMITS_NATURAL_SAND["Zone II"], 0.15: { min: 0, max: 20 } },
+    "Zone III": { ...ZONING_LIMITS_NATURAL_SAND["Zone III"], 0.15: { min: 0, max: 20 } },
+    "Zone IV": { ...ZONING_LIMITS_NATURAL_SAND["Zone IV"], 0.15: { min: 0, max: 25 } },
+};
+
 export function getSievesForType(type: ExtendedAggregateType): number[] {
     switch (type) {
         case 'Fine':
@@ -96,10 +103,12 @@ export function getSievesForType(type: ExtendedAggregateType): number[] {
     }
 }
 
-export function getSpecLimitsForType(type: ExtendedAggregateType, classification?: string | null): Record<number, {min: number, max: number}> | null {
+export function getSpecLimitsForType(type: ExtendedAggregateType, classification?: string | null, fineAggType?: FineAggregateType): Record<number, {min: number, max: number}> | null {
     switch (type) {
         case 'Fine':
-            return classification && ZONING_LIMITS[classification] ? ZONING_LIMITS[classification] : null;
+            if (!classification) return null;
+            const limits = fineAggType === 'Crushed Sand' ? ZONING_LIMITS_CRUSHED_SAND : ZONING_LIMITS_NATURAL_SAND;
+            return limits[classification] || null;
         case 'Coarse - Graded':
             return SPEC_LIMITS_COARSE_GRADED_20MM;
         case 'Coarse - 20mm':
@@ -156,11 +165,13 @@ export function calculateSieveAnalysis(
  * The UI will then use this zone to check pass/fail for all other sieves.
  * @param percentPassing - Array of percent passing values.
  * @param sieves - Array of sieve sizes.
+ * @param fineAggType - The type of fine aggregate.
  * @returns The classification zone (e.g., "Zone II") or "Does not conform".
  */
 export function classifyFineAggregate(
     percentPassing: number[],
-    sieves: number[]
+    sieves: number[],
+    fineAggType: FineAggregateType,
   ): string {
     const micron600SieveIndex = sieves.indexOf(0.6);
     if (micron600SieveIndex === -1) {
@@ -168,10 +179,12 @@ export function classifyFineAggregate(
     }
   
     const passingValue600 = percentPassing[micron600SieveIndex];
+
+    const limits = fineAggType === 'Crushed Sand' ? ZONING_LIMITS_CRUSHED_SAND : ZONING_LIMITS_NATURAL_SAND;
   
     // Find the zone based only on the 600 micron sieve
-    for (const zone in ZONING_LIMITS) {
-      const limits600 = ZONING_LIMITS[zone][0.6];
+    for (const zone in limits) {
+      const limits600 = limits[zone][0.6];
       if (passingValue600 >= limits600.min && passingValue600 <= limits600.max) {
         // Return the zone name immediately. The UI will handle displaying pass/fail for other sieves.
         return zone; 

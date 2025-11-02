@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -12,7 +11,7 @@ import {
   getSievesForType,
   calculateFinenessModulus,
 } from "@/lib/sieve-analysis";
-import type { ExtendedAggregateType, AnalysisResults } from "@/lib/definitions";
+import type { ExtendedAggregateType, AnalysisResults, FineAggregateType } from "@/lib/definitions";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -38,9 +37,10 @@ interface SieveAnalysisFormProps {
   isLoading: boolean;
   weights: (number | null)[];
   onWeightsChange: (weights: (number | null)[]) => void;
+  fineAggType?: FineAggregateType;
 }
 
-export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, weights: parentWeights, onWeightsChange }: SieveAnalysisFormProps) {
+export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, weights: parentWeights, onWeightsChange, fineAggType }: SieveAnalysisFormProps) {
   const { toast } = useToast();
   const currentSieves = getSievesForType(aggregateType);
 
@@ -87,8 +87,8 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, weigh
       let classification: string;
       let fm: number | null = null;
       
-      if (aggregateType === 'Fine') {
-        classification = classifyFineAggregate(calculated.percentPassing, currentSieves);
+      if (aggregateType === 'Fine' && fineAggType) {
+        classification = classifyFineAggregate(calculated.percentPassing, currentSieves, fineAggType);
         fm = calculateFinenessModulus(calculated.cumulativeRetained, currentSieves);
       } else {
         classification = classifyCoarseAggregate(calculated.percentPassing, currentSieves);
@@ -124,7 +124,7 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, weigh
       <form onSubmit={form.handleSubmit(handleCalculate)}>
         <Card>
           <CardHeader>
-            <CardTitle>{aggregateType} Aggregate Details</CardTitle>
+            <CardTitle>{aggregateType} Aggregate Details {aggregateType === 'Fine' && ` - ${fineAggType}`}</CardTitle>
             <CardDescription>
               Enter the weight (in grams) retained on each sieve and in the pan.
             </CardDescription>

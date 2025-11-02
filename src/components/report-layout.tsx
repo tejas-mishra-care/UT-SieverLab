@@ -1,10 +1,9 @@
-
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SieveResultsDisplay } from "@/components/sieve-results-display";
 import { CombinedSieveChart } from "@/components/combined-sieve-chart";
-import type { AnalysisResults } from "@/lib/definitions";
+import type { AnalysisResults, FineAggregateType } from "@/lib/definitions";
 import { SIEVE_SIZES } from "@/lib/sieve-analysis";
 import { SieveInputsDisplay } from "./sieve-inputs-display";
 import { AnalysisDetailsTable } from "./analysis-details-table";
@@ -29,6 +28,7 @@ interface ReportLayoutProps {
   showCombined: boolean;
   coarseForCombination: CoarseForCombination | null;
   blendMode: 'two-material' | 'three-material';
+  fineAggType: FineAggregateType;
 }
 
 export function ReportLayout({
@@ -49,6 +49,7 @@ export function ReportLayout({
   showCombined,
   coarseForCombination,
   blendMode,
+  fineAggType,
 }: ReportLayoutProps) {
 
     const getBlendDescription = () => {
@@ -76,7 +77,7 @@ export function ReportLayout({
           <div className="page-break space-y-4">
             <h2 className="mb-4 font-headline text-xl font-bold">Fine Aggregate Results</h2>
             <SieveInputsDisplay sieves={SIEVE_SIZES.FINE} weights={fineWeights} />
-            <SieveResultsDisplay sieves={SIEVE_SIZES.FINE} type="Fine" weights={fineWeights} {...fineResults} />
+            <SieveResultsDisplay sieves={SIEVE_SIZES.FINE} type="Fine" weights={fineWeights} {...fineResults} fineAggType={fineAggType} />
           </div>
         )}
 

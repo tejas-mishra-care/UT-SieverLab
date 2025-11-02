@@ -1,8 +1,7 @@
-
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
-import type { AnalysisResults, ExtendedAggregateType } from "./definitions";
+import type { AnalysisResults, ExtendedAggregateType, FineAggregateType } from "./definitions";
 import { getSievesForType, getSpecLimitsForType, SIEVE_SIZES } from "./sieve-analysis";
 
 type CoarseForCombination = 'Graded' | 'Coarse - 20mm' | 'Coarse - 10mm' | 'Single Size Blend';
@@ -25,6 +24,7 @@ interface PdfData {
   showCombined: boolean;
   coarseForCombination: CoarseForCombination | null;
   blendMode: 'two-material' | 'three-material';
+  fineAggType: FineAggregateType;
 }
 
 // Function to fetch an image and convert it to a Base64 data URI
@@ -189,7 +189,7 @@ export async function generatePdf(data: PdfData) {
     }
   }
   
-  const addSection = async (title: string, results: AnalysisResults, weights: number[], type: ExtendedAggregateType, sieves: number[]) => {
+  const addSection = async (title: string, results: AnalysisResults, weights: number[], type: ExtendedAggregateType, sieves: number[], fineAggType?: FineAggregateType) => {
       checkAndAddPage();
       
       if (yPos > headerHeight) {
@@ -204,7 +204,7 @@ export async function generatePdf(data: PdfData) {
 
       // --- Summary Cards ---
       const summaryBody = [
-          ['Aggregate Type', type],
+          ['Aggregate Type', type === 'Fine' ? `${type} (${fineAggType})` : type],
           [type === 'Fine' ? 'Zone' : 'Classification', results.classification || 'N/A'],
           ['Fineness Modulus', results.finenessModulus?.toFixed(2) || 'N/A']
       ];
@@ -249,7 +249,7 @@ export async function generatePdf(data: PdfData) {
       doc.text("Tabulated Results", pageMargin, yPos);
       yPos += 5;
       
-      const specLimits = getSpecLimitsForType(type, results.classification);
+      const specLimits = getSpecLimitsForType(type, results.classification, fineAggType);
       
       const tableBody = sieves.map((sieve, i) => {
         const limits = specLimits ? specLimits[sieve] : null;
@@ -318,7 +318,7 @@ export async function generatePdf(data: PdfData) {
   }
 
   if (data.fineResults) {
-    await addSection('Fine Aggregate Results', data.fineResults, data.fineWeights, 'Fine', SIEVE_SIZES.FINE);
+    await addSection('Fine Aggregate Results', data.fineResults, data.fineWeights, 'Fine', SIEVE_SIZES.FINE, data.fineAggType);
   }
   if (data.coarseGradedResults) {
     addPageBreakIfNeeded();

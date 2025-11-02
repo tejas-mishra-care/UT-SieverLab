@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from 'react';
@@ -6,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Download, Loader2, Sparkles, SlidersHorizontal } from 'lucide-react';
 import { SieveAnalysisForm } from './sieve-analysis-form';
-import type { AnalysisResults, CoarseAggregateType, SingleSizeType, ExtendedAggregateType } from '@/lib/definitions';
+import type { AnalysisResults, CoarseAggregateType, SingleSizeType, ExtendedAggregateType, FineAggregateType } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Slider } from './ui/slider';
 import { CombinedSieveChart } from './combined-sieve-chart';
@@ -51,6 +50,7 @@ export function SieveAnalysisCalculator() {
 
     const reportRef = React.useRef<HTMLDivElement>(null);
     
+    const [fineAggType, setFineAggType] = React.useState<FineAggregateType>('Natural Sand');
     const [coarseAggType, setCoarseAggType] = React.useState<CoarseAggregateType>('Graded');
     const [activeCoarseTab, setActiveCoarseTab] = React.useState<SingleSizeType | 'graded'>('graded');
 
@@ -96,6 +96,7 @@ export function SieveAnalysisCalculator() {
                 showCombined: isCombinedTabActive,
                 coarseForCombination: blendMode === 'three-material' ? 'Single Size Blend' : coarseForTwoMaterialBlend,
                 blendMode,
+                fineAggType
             });
         } catch (error) {
             console.error("PDF Generation Error:", error);
@@ -337,13 +338,33 @@ export function SieveAnalysisCalculator() {
             </div>
             
             <TabsContent value="fine">
-                <SieveAnalysisForm
-                    aggregateType="Fine"
-                    onCalculate={handleCalculation("Fine", setFineResults)}
-                    isLoading={isCalculating}
-                    weights={fineWeights}
-                    onWeightsChange={setFineWeights}
-                />
+                 <div className='space-y-4'>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Fine Aggregate Type</CardTitle>
+                            <CardDescription>Select the type of fine aggregate to analyze.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Select value={fineAggType} onValueChange={(val) => setFineAggType(val as FineAggregateType)}>
+                                <SelectTrigger className='max-w-sm'>
+                                    <SelectValue placeholder="Select fine aggregate type..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Natural Sand">Natural Sand (River Sand)</SelectItem>
+                                    <SelectItem value="Crushed Sand">Crushed Sand</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </CardContent>
+                    </Card>
+                    <SieveAnalysisForm
+                        aggregateType="Fine"
+                        onCalculate={handleCalculation("Fine", setFineResults)}
+                        isLoading={isCalculating}
+                        weights={fineWeights}
+                        onWeightsChange={setFineWeights}
+                        fineAggType={fineAggType}
+                    />
+                </div>
             </TabsContent>
 
             <TabsContent value="coarse">
@@ -512,6 +533,7 @@ export function SieveAnalysisCalculator() {
                             showCombined={isCombinedTabActive}
                             coarseForCombination={blendMode === 'three-material' ? 'Single Size Blend' : coarseForTwoMaterialBlend}
                             blendMode={blendMode}
+                            fineAggType={fineAggType}
                         />
                     ) : (
                         <Card className="flex items-center justify-center h-64">

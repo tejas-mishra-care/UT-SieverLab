@@ -1,6 +1,6 @@
-
 export type AggregateType = "Fine" | "Coarse";
 export type CoarseAggregateType = "Graded" | "Single Size";
+export type FineAggregateType = "Natural Sand" | "Crushed Sand";
 export type SingleSizeType = "20mm" | "10mm";
 
 export type ExtendedAggregateType = 
@@ -41,4 +41,3 @@ export interface SieveAnalysisTest {
   reportUrl?: string;
   status: 'draft' | 'completed';
 }
-

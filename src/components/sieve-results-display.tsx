@@ -1,4 +1,3 @@
-
 "use client";
 
 import { SieveChart } from "@/components/sieve-chart";
@@ -17,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { ExtendedAggregateType, AnalysisResults } from "@/lib/definitions";
+import type { ExtendedAggregateType, AnalysisResults, FineAggregateType } from "@/lib/definitions";
 import { getSpecLimitsForType } from "@/lib/sieve-analysis";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +25,7 @@ interface SieveResultsDisplayProps extends AnalysisResults {
   sieves: number[];
   type: ExtendedAggregateType;
   weights: number[]; // Added weights here
+  fineAggType?: FineAggregateType;
 }
 
 export function SieveResultsDisplay({
@@ -37,6 +37,7 @@ export function SieveResultsDisplay({
   percentPassing,
   finenessModulus,
   classification,
+  fineAggType
 }: SieveResultsDisplayProps) {
   const chartData = sieves.map((sieve, index) => ({
     sieveSize: sieve,
@@ -46,7 +47,7 @@ export function SieveResultsDisplay({
   // Ensure a unique ID for each chart
   const chartId = `${type.replace(/\s+/g, '-')}-chart`;
 
-  const specLimits = getSpecLimitsForType(type, classification);
+  const specLimits = getSpecLimitsForType(type, classification, fineAggType);
 
   return (
     <div className="space-y-6">
@@ -56,7 +57,7 @@ export function SieveResultsDisplay({
             <CardTitle className="text-sm font-medium">Aggregate Type</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{type}</div>
+            <div className="text-2xl font-bold">{type === 'Fine' ? `${type} (${fineAggType})` : type}</div>
           </CardContent>
         </Card>
         <Card>
