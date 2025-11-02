@@ -19,13 +19,13 @@ export const SPEC_LIMITS_COARSE_GRADED_20MM: Record<number, { min: number; max: 
     63: { min: 100, max: 100 },
     40: { min: 95, max: 100 },
     20: { min: 95, max: 100 },
-    10: { min: 40, max: 70 },
-    4.75: { min: 25, max: 45 },
-    2.36: { min: 15, max: 30 },
-    1.18: { min: 8, max: 20 },
-    0.6: { min: 3, max: 15 },
-    0.3: { min: 0, max: 6 },
-    0.15: { min: 0, max: 2 },
+    10: { min: 40, max: 85 }, // As per table 7, IS 383, for 20mm all-in aggregate.
+    4.75: { min: 25, max: 55 },
+    2.36: { min: 15, max: 40 },
+    1.18: { min: 8, max: 25 },
+    0.6: { min: 5, max: 15 },
+    0.3: { min: 2, max: 8 },
+    0.15: { min: 0, max: 4 },
 };
 
 // IS 383: 2016, Table 2: Single-Sized Aggregates
@@ -161,8 +161,6 @@ export function calculateSieveAnalysis(
 
 /**
  * Classifies fine aggregate into a zone based ONLY on the 600 micron sieve's % passing.
- * The function returns the name of the zone that the 600 micron sieve falls into.
- * The UI will then use this zone to check pass/fail for all other sieves.
  * @param percentPassing - Array of percent passing values.
  * @param sieves - Array of sieve sizes.
  * @param fineAggType - The type of fine aggregate.
@@ -182,56 +180,37 @@ export function classifyFineAggregate(
 
     const limits = fineAggType === 'Crushed Sand' ? ZONING_LIMITS_CRUSHED_SAND : ZONING_LIMITS_NATURAL_SAND;
   
-    // Find the zone based only on the 600 micron sieve
     for (const zone in limits) {
       const limits600 = limits[zone][0.6];
       if (passingValue600 >= limits600.min && passingValue600 <= limits600.max) {
-        // Return the zone name immediately. The UI will handle displaying pass/fail for other sieves.
         return zone; 
       }
     }
     
-    // If the 600 micron value didn't fit in any zone
     return "Does not conform";
 }
   
 
-/**
- * Provides a text-based grading for coarse aggregates.
- * @param percentPassing - Array of percent passing values.
- * @param sieves - Array of sieve sizes.
- * @returns A descriptive string for the grading.
- */
 export function classifyCoarseAggregate(
   percentPassing: number[],
-  sieves: number[]
+  sieves: number[],
+  type: ExtendedAggregateType
 ): string {
-    // This is a simplified classification. A real app would compare against IS 383 Table 7.
-    const passing_10mm_index = sieves.indexOf(10);
-    if (passing_10mm_index === -1) return "Conforms to IS 383";
-
-    const passing_10mm = percentPassing[passing_10mm_index];
-    
-    // Check against graded 20mm spec
-    const gradedLimits = SPEC_LIMITS_COARSE_GRADED_20MM[10];
-    if (passing_10mm >= gradedLimits.min && passing_10mm <= gradedLimits.max) {
-        return "Graded Aggregate (e.g., 20mm Nominal)";
+    const limits = getSpecLimitsForType(type);
+    if (!limits) return "Non-Standard";
+  
+    for (const sieve of sieves) {
+      const index = sieves.indexOf(sieve);
+      const passing = percentPassing[index];
+      const spec = limits[sieve];
+      if (spec && (passing < spec.min || passing > spec.max)) {
+        return "Does not conform";
+      }
     }
-
-    const single20mmLimits = SPEC_LIMITS_COARSE_SINGLE_20MM[10];
-    if (passing_10mm >= single20mmLimits.min && passing_10mm <= single20mmLimits.max) {
-        return "Single Size Aggregate (20mm)";
-    }
-
-    return "Custom/Non-Standard";
+  
+    return "Conforms to IS 383";
 }
 
-/**
- * Calculates the Fineness Modulus for fine aggregate.
- * @param cumulativeRetained The array of cumulative percent retained.
- * @param sieves The array of corresponding sieve sizes.
- * @returns The calculated Fineness Modulus.
- */
 export function calculateFinenessModulus(
   cumulativeRetained: number[],
   sieves: number[]
@@ -248,60 +227,66 @@ export function calculateFinenessModulus(
 
 
 interface Material {
+    name: string;
     passingCurve: Map<number, number>;
 }
 
 export function calculateOptimalBlend(
     materials: Material[]
-  ): number[] | null {
+  ): Record<string, number> | null {
     
     const targetCurve = new Map<number, number>();
-    for (const sieveStr in SPEC_LIMITS_COARSE_GRADED_20MM) {
-        const sieve = parseFloat(sieveStr);
+    const allSievesInSpec = Object.keys(SPEC_LIMITS_COARSE_GRADED_20MM).map(parseFloat);
+
+    for (const sieve of allSievesInSpec) {
         const { min, max } = SPEC_LIMITS_COARSE_GRADED_20MM[sieve];
         targetCurve.set(sieve, (min + max) / 2);
     }
 
-    const allSieves = new Set<number>();
-    materials.forEach(m => m.passingCurve.forEach((_, sieve) => allSieves.add(sieve)));
-    const sortedSieves = Array.from(allSieves).sort((a,b) => b-a);
+    const allSievesInMaterials = new Set<number>();
+    materials.forEach(m => m.passingCurve.forEach((_, sieve) => allSievesInMaterials.add(sieve)));
+    
+    const combinedSieves = new Set([...allSievesInSpec, ...allSievesInMaterials]);
+    const sortedSieves = Array.from(combinedSieves).sort((a,b) => b-a);
 
     let bestFit: { percentages: number[], score: number } | null = null;
-    const step = 5; // Iterate in steps of 5% for performance
+    const step = 2; // Finer step for better accuracy
 
-    if (materials.length === 2) {
-        for (let p1 = 0; p1 <= 100; p1 += step) {
-            const p2 = 100 - p1;
-            const percentages = [p1, p2];
-            const { score, isWithinSpec } = calculateFitScore(percentages, materials, targetCurve, sortedSieves);
+    const numMaterials = materials.length;
+    if (numMaterials < 2) return null;
+
+    // Recursive function to iterate through combinations
+    function findBest(index: number, currentPercentages: number[], remaining: number) {
+        if (index === numMaterials - 1) {
+            const finalPercentages = [...currentPercentages, remaining];
+            const { score, isWithinSpec } = calculateFitScore(finalPercentages, materials, sortedSieves);
             if (isWithinSpec && (!bestFit || score < bestFit.score)) {
-                bestFit = { percentages, score };
+                bestFit = { percentages: finalPercentages, score };
             }
+            return;
         }
-    } else if (materials.length === 3) {
-        for (let p1 = 0; p1 <= 100; p1 += step) {
-            for (let p2 = 0; p2 <= 100 - p1; p2 += step) {
-                const p3 = 100 - p1 - p2;
-                if (p3 < 0) continue;
-                const percentages = [p1, p2, p3];
-                const { score, isWithinSpec } = calculateFitScore(percentages, materials, targetCurve, sortedSieves);
 
-                if (isWithinSpec && (!bestFit || score < bestFit.score)) {
-                    bestFit = { percentages, score };
-                }
-            }
+        for (let p = 0; p <= remaining; p += step) {
+            findBest(index + 1, [...currentPercentages, p], remaining - p);
         }
-    } else {
-        return null;
     }
 
-    return bestFit ? bestFit.percentages : null;
+    findBest(0, [], 100);
+
+    if (bestFit) {
+        const result: Record<string, number> = {};
+        materials.forEach((m, i) => {
+            result[m.name] = bestFit!.percentages[i];
+        });
+        return result;
+    }
+
+    return null;
 }
 
 function calculateFitScore(
     percentages: number[],
     materials: Material[],
-    targetCurve: Map<number, number>,
     sortedSieves: number[]
 ) {
     let totalScore = 0;
@@ -313,18 +298,21 @@ function calculateFitScore(
 
         let combinedPassing = 0;
         for (let i = 0; i < materials.length; i++) {
-            const materialPassing = materials[i].passingCurve.get(sieve) ?? (sieve > Math.max(...materials[i].passingCurve.keys()) ? 100 : 0);
+            const material = materials[i];
+            const materialPassing = material.passingCurve.get(sieve) ?? (sieve > Math.max(...material.passingCurve.keys()) ? 100 : 0);
             combinedPassing += materialPassing * (percentages[i] / 100);
         }
 
         if (combinedPassing < specLimits.min || combinedPassing > specLimits.max) {
             isWithinSpec = false;
-            totalScore += 1_000_000; // Heavy penalty for out-of-spec
+            // Apply a penalty based on how far out of spec it is
+            const deviation = combinedPassing < specLimits.min 
+                ? specLimits.min - combinedPassing 
+                : combinedPassing - specLimits.max;
+            totalScore += 1000 + Math.pow(deviation, 2); // Heavy base penalty + squared deviation
         } else {
-            const targetPassing = targetCurve.get(sieve);
-            if(targetPassing !== undefined) {
-                totalScore += Math.pow(combinedPassing - targetPassing, 2);
-            }
+            const targetPassing = (specLimits.min + specLimits.max) / 2;
+            totalScore += Math.pow(combinedPassing - targetPassing, 2);
         }
     }
     return { score: totalScore, isWithinSpec };

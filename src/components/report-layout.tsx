@@ -3,60 +3,63 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SieveResultsDisplay } from "@/components/sieve-results-display";
 import { CombinedSieveChart } from "@/components/combined-sieve-chart";
-import type { AnalysisResults, FineAggregateType } from "@/lib/definitions";
+import type { AnalysisResults, ExtendedAggregateType, FineAggregateType } from "@/lib/definitions";
 import { SIEVE_SIZES } from "@/lib/sieve-analysis";
 import { SieveInputsDisplay } from "./sieve-inputs-display";
 import { AnalysisDetailsTable } from "./analysis-details-table";
 
-type CoarseForCombination = 'Graded' | 'Coarse - 20mm' | 'Coarse - 10mm' | 'Single Size Blend';
+type BlendSelection = {
+    fine: { type: 'Fine', fineAggType: FineAggregateType } | null;
+    coarse: { type: ExtendedAggregateType, results: AnalysisResults }[];
+}
 
 interface ReportLayoutProps {
   testName: string;
-  fineResults: AnalysisResults | null;
+  fineNaturalSandResults: AnalysisResults | null;
+  fineCrushedSandResults: AnalysisResults | null;
   coarseGradedResults: AnalysisResults | null;
   coarseSingle10mmResults: AnalysisResults | null;
   coarseSingle20mmResults: AnalysisResults | null;
-  fineWeights: number[];
+  fineNaturalSandWeights: number[];
+  fineCrushedSandWeights: number[];
   coarseGradedWeights: number[];
   coarseSingle10mmWeights: number[];
   coarseSingle20mmWeights: number[];
-  combinedChartData: any[]; // Adjust type as needed
-  fineAggregatePercentage: number;
-  coarseAggregatePercentage: number;
-  coarse20mmPercentage?: number;
-  coarse10mmPercentage?: number;
+  combinedChartData: any[];
+  blendSelection: BlendSelection;
+  blendPercentages: Record<string, number>;
   showCombined: boolean;
-  coarseForCombination: CoarseForCombination | null;
-  blendMode: 'two-material' | 'three-material';
-  fineAggType: FineAggregateType;
 }
 
 export function ReportLayout({
   testName,
-  fineResults,
+  fineNaturalSandResults,
+  fineCrushedSandResults,
   coarseGradedResults,
   coarseSingle10mmResults,
   coarseSingle20mmResults,
-  fineWeights,
+  fineNaturalSandWeights,
+  fineCrushedSandWeights,
   coarseGradedWeights,
   coarseSingle10mmWeights,
   coarseSingle20mmWeights,
   combinedChartData,
-  fineAggregatePercentage,
-  coarseAggregatePercentage,
-  coarse20mmPercentage,
-  coarse10mmPercentage,
+  blendSelection,
+  blendPercentages,
   showCombined,
-  coarseForCombination,
-  blendMode,
-  fineAggType,
 }: ReportLayoutProps) {
 
     const getBlendDescription = () => {
-        if (blendMode === 'three-material') {
-            return `Analysis for a mix of ${fineAggregatePercentage}% Fine Aggregate, ${coarse20mmPercentage}% Coarse 20mm, and ${coarse10mmPercentage}% Coarse 10mm.`;
+        if (!blendSelection.fine || blendSelection.coarse.length === 0) {
+            return "No blend selected.";
         }
-        return `Analysis for a mix of ${fineAggregatePercentage}% Fine Aggregate and ${coarseAggregatePercentage}% Coarse Aggregate (Blend with: <span className="font-semibold">${coarseForCombination}</span>)`;
+
+        const parts = [
+            `${blendPercentages[blendSelection.fine.fineAggType]}% ${blendSelection.fine.fineAggType}`,
+            ...blendSelection.coarse.map(c => `${blendPercentages[c.type]}% ${c.type}`)
+        ];
+
+        return `Analysis for a mix of: ${parts.join(', ')}.`;
     }
 
   return (
@@ -73,17 +76,28 @@ export function ReportLayout({
             </p>
         </div>
 
-        {fineResults && (
+        {fineNaturalSandResults && (
           <div className="page-break space-y-4">
-            <h2 className="mb-4 font-headline text-xl font-bold">Fine Aggregate Results</h2>
-            <SieveInputsDisplay sieves={SIEVE_SIZES.FINE} weights={fineWeights} />
-            <SieveResultsDisplay sieves={SIEVE_SIZES.FINE} type="Fine" weights={fineWeights} {...fineResults} fineAggType={fineAggType} />
+            <h2 className="mb-4 font-headline text-xl font-bold">Fine Aggregate (Natural Sand) Results</h2>
+            <SieveInputsDisplay sieves={SIEVE_SIZES.FINE} weights={fineNaturalSandWeights} />
+            <SieveResultsDisplay sieves={SIEVE_SIZES.FINE} type="Fine" weights={fineNaturalSandWeights} {...fineNaturalSandResults} fineAggType="Natural Sand" />
           </div>
+        )}
+
+        {fineCrushedSandResults && (
+          <>
+            {fineNaturalSandResults && <hr className="my-6" />}
+            <div className="page-break space-y-4">
+              <h2 className="mb-4 font-headline text-xl font-bold">Fine Aggregate (Crushed Sand) Results</h2>
+              <SieveInputsDisplay sieves={SIEVE_SIZES.FINE} weights={fineCrushedSandWeights} />
+              <SieveResultsDisplay sieves={SIEVE_SIZES.FINE} type="Fine" weights={fineCrushedSandWeights} {...fineCrushedSandResults} fineAggType="Crushed Sand" />
+            </div>
+          </>
         )}
 
         {coarseGradedResults && (
           <>
-            {fineResults && <hr className="my-6" />}
+            {(fineNaturalSandResults || fineCrushedSandResults) && <hr className="my-6" />}
             <div className="page-break space-y-4">
               <h2 className="mb-4 font-headline text-xl font-bold">Coarse Aggregate (Graded) Results</h2>
               <SieveInputsDisplay sieves={SIEVE_SIZES.COARSE_GRADED} weights={coarseGradedWeights} />
@@ -94,7 +108,7 @@ export function ReportLayout({
         
         {coarseSingle20mmResults && (
           <>
-            {(fineResults || coarseGradedResults) && <hr className="my-6" />}
+            {(fineNaturalSandResults || fineCrushedSandResults || coarseGradedResults) && <hr className="my-6" />}
             <div className="page-break space-y-4">
               <h2 className="mb-4 font-headline text-xl font-bold">Coarse Aggregate (20mm Single Size) Results</h2>
               <SieveInputsDisplay sieves={SIEVE_SIZES.COARSE_SINGLE_20MM} weights={coarseSingle20mmWeights} />
@@ -105,7 +119,7 @@ export function ReportLayout({
 
         {coarseSingle10mmResults && (
           <>
-            {(fineResults || coarseGradedResults || coarseSingle20mmResults) && <hr className="my-6" />}
+            {(fineNaturalSandResults || fineCrushedSandResults || coarseGradedResults || coarseSingle20mmResults) && <hr className="my-6" />}
             <div className="page-break space-y-4">
               <h2 className="mb-4 font-headline text-xl font-bold">Coarse Aggregate (10mm Single Size) Results</h2>
               <SieveInputsDisplay sieves={SIEVE_SIZES.COARSE_SINGLE_10MM} weights={coarseSingle10mmWeights} />
@@ -116,7 +130,7 @@ export function ReportLayout({
 
         {showCombined && (
           <>
-            {(fineResults || coarseGradedResults || coarseSingle10mmResults || coarseSingle20mmResults) && <hr className="my-6" />}
+            {(fineNaturalSandResults || fineCrushedSandResults || coarseGradedResults || coarseSingle10mmResults || coarseSingle20mmResults) && <hr className="my-6" />}
             <div id="combined-gradation-section" className="page-break space-y-6">
                 <div className="space-y-2">
                     <h2 className="font-headline text-xl font-bold">Combined Gradation Results</h2>

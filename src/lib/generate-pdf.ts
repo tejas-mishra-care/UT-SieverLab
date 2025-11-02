@@ -4,27 +4,27 @@ import { format } from "date-fns";
 import type { AnalysisResults, ExtendedAggregateType, FineAggregateType } from "./definitions";
 import { getSievesForType, getSpecLimitsForType, SIEVE_SIZES } from "./sieve-analysis";
 
-type CoarseForCombination = 'Graded' | 'Coarse - 20mm' | 'Coarse - 10mm' | 'Single Size Blend';
+type BlendSelection = {
+    fine: { type: 'Fine', fineAggType: FineAggregateType } | null;
+    coarse: { type: ExtendedAggregateType, results: AnalysisResults }[];
+}
 
 interface PdfData {
   testName: string;
-  fineResults: AnalysisResults | null;
+  fineNaturalSandResults: AnalysisResults | null;
+  fineCrushedSandResults: AnalysisResults | null;
   coarseGradedResults: AnalysisResults | null;
   coarseSingle10mmResults: AnalysisResults | null;
   coarseSingle20mmResults: AnalysisResults | null;
-  fineWeights: number[];
+  fineNaturalSandWeights: number[];
+  fineCrushedSandWeights: number[];
   coarseGradedWeights: number[];
   coarseSingle10mmWeights: number[];
   coarseSingle20mmWeights: number[];
   combinedChartData: any[];
-  fineAggregatePercentage: number;
-  coarseAggregatePercentage: number; // For 2-material blend
-  coarse20mmPercentage?: number; // For 3-material blend
-  coarse10mmPercentage?: number; // For 3-material blend
+  blendSelection: BlendSelection;
+  blendPercentages: Record<string, number>;
   showCombined: boolean;
-  coarseForCombination: CoarseForCombination | null;
-  blendMode: 'two-material' | 'three-material';
-  fineAggType: FineAggregateType;
 }
 
 // Function to fetch an image and convert it to a Base64 data URI
@@ -60,7 +60,6 @@ async function getChartImage(chartId: string): Promise<string | null> {
     
     const svgClone = svgEl.cloneNode(true) as SVGSVGElement;
 
-    // Force application of styles to the cloned SVG
     const originalElements = svgEl.querySelectorAll('path, line, circle, rect, text, .recharts-text, .recharts-legend-item-text');
     const clonedElements = svgClone.querySelectorAll('path, line, circle, rect, text, .recharts-text, .recharts-legend-item-text');
 
@@ -88,7 +87,7 @@ async function getChartImage(chartId: string): Promise<string | null> {
     if (!ctx) return null;
 
     const svgSize = svgEl.getBoundingClientRect();
-    const scale = 1.2; // Reduced scale for smaller file size
+    const scale = 1.2; 
     canvas.width = svgSize.width * scale;
     canvas.height = svgSize.height * scale;
     
@@ -101,7 +100,7 @@ async function getChartImage(chartId: string): Promise<string | null> {
     return new Promise((resolve) => {
         img.onload = () => {
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            resolve(canvas.toDataURL("image/jpeg", 0.85)); // Use JPEG with quality for smaller file size
+            resolve(canvas.toDataURL("image/jpeg", 0.9)); 
         };
         img.onerror = (e) => {
             console.error("Image loading for PDF chart failed.", e);
@@ -125,18 +124,16 @@ export async function generatePdf(data: PdfData) {
   const pageMargin = 15;
   const pageWidth = doc.internal.pageSize.getWidth() - pageMargin * 2;
   const pageHeight = doc.internal.pageSize.getHeight();
-  const headerHeight = 25; // Increased header height for logos
+  const headerHeight = 25; 
   const footerHeight = 15;
   
   let yPos = headerHeight;
 
   const addPageHeader = (pageNumber: number, totalPages: number) => {
-    // UT Logo
     if (utLogoBase64) {
         doc.addImage(utLogoBase64, 'JPEG', pageMargin, 5, 15, 15);
     }
     
-    // ABG Logo
     if (abgLogoBase64) {
         doc.addImage(abgLogoBase64, 'JPEG', doc.internal.pageSize.getWidth() - pageMargin - 18, 5, 18, 15);
     }
@@ -183,7 +180,7 @@ export async function generatePdf(data: PdfData) {
   }
 
   const checkAndAddPage = () => {
-    if (yPos > pageHeight - footerHeight - 40) { // Add a buffer
+    if (yPos > pageHeight - footerHeight - 40) { 
         doc.addPage();
         yPos = headerHeight;
     }
@@ -202,7 +199,6 @@ export async function generatePdf(data: PdfData) {
       doc.text(title, pageMargin, yPos);
       yPos += 6;
 
-      // --- Summary Cards ---
       const summaryBody = [
           ['Aggregate Type', type === 'Fine' ? `${type} (${fineAggType})` : type],
           [type === 'Fine' ? 'Zone' : 'Classification', results.classification || 'N/A'],
@@ -220,7 +216,6 @@ export async function generatePdf(data: PdfData) {
       
       checkAndAddPage();
 
-      // --- Input Table ---
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
@@ -242,7 +237,6 @@ export async function generatePdf(data: PdfData) {
 
       checkAndAddPage();
 
-      // --- Results Table ---
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
@@ -287,8 +281,7 @@ export async function generatePdf(data: PdfData) {
     
     checkAndAddPage();
 
-    // --- Chart ---
-    const chartId = `${type.replace(/\s+/g, '-')}-chart`;
+    const chartId = `${type.replace(/\s+/g, '-')}-${fineAggType ? fineAggType.replace(/\s+/g, '-') : ''}-chart`;
     const chartImage = await getChartImage(chartId);
     
     const chartHeight = 70;
@@ -317,8 +310,12 @@ export async function generatePdf(data: PdfData) {
     }
   }
 
-  if (data.fineResults) {
-    await addSection('Fine Aggregate Results', data.fineResults, data.fineWeights, 'Fine', SIEVE_SIZES.FINE, data.fineAggType);
+  if (data.fineNaturalSandResults) {
+    await addSection('Fine Aggregate (Natural Sand) Results', data.fineNaturalSandResults, data.fineNaturalSandWeights, 'Fine', SIEVE_SIZES.FINE, 'Natural Sand');
+  }
+  if (data.fineCrushedSandResults) {
+    addPageBreakIfNeeded();
+    await addSection('Fine Aggregate (Crushed Sand) Results', data.fineCrushedSandResults, data.fineCrushedSandWeights, 'Fine', SIEVE_SIZES.FINE, 'Crushed Sand');
   }
   if (data.coarseGradedResults) {
     addPageBreakIfNeeded();
@@ -346,10 +343,12 @@ export async function generatePdf(data: PdfData) {
     doc.setFont("helvetica", "normal");
     
     let blendText = '';
-    if(data.blendMode === 'three-material'){
-        blendText = `Blend: ${data.fineAggregatePercentage}% Fine, ${data.coarse20mmPercentage}% Coarse 20mm, ${data.coarse10mmPercentage}% Coarse 10mm`;
-    } else {
-        blendText = `Blend: ${data.fineAggregatePercentage}% Fine, ${data.coarseAggregatePercentage}% Coarse (using ${data.coarseForCombination})`;
+    if (data.blendSelection.fine) {
+        const parts = [
+            `${data.blendPercentages[data.blendSelection.fine.fineAggType]}% ${data.blendSelection.fine.fineAggType}`,
+            ...data.blendSelection.coarse.map(c => `${data.blendPercentages[c.type]}% ${c.type}`)
+        ];
+        blendText = `Blend: ${parts.join(', ')}.`;
     }
 
     doc.text(blendText, pageMargin, yPos);
@@ -357,7 +356,6 @@ export async function generatePdf(data: PdfData) {
     
     checkAndAddPage();
     
-    // --- Combined Table ---
     const sortedData = [...data.combinedChartData].sort((a, b) => b.sieveSize - a.sieveSize);
     autoTable(doc, {
         head: [['Sieve (mm)', 'Lower Limit (%)', 'Upper Limit (%)', 'Combined Passing (%)', 'Remark']],
@@ -390,7 +388,6 @@ export async function generatePdf(data: PdfData) {
     
     checkAndAddPage();
 
-    // --- Combined Chart ---
     const combinedChartImage = await getChartImage('combined-gradation-chart');
     const chartHeight = 80;
     

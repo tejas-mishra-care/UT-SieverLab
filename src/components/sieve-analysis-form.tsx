@@ -33,7 +33,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 interface SieveAnalysisFormProps {
   aggregateType: ExtendedAggregateType;
-  onCalculate: (results: AnalysisResults, weights: number[]) => void;
+  onCalculate: (results: AnalysisResults) => void;
   isLoading: boolean;
   weights: (number | null)[];
   onWeightsChange: (weights: (number | null)[]) => void;
@@ -68,6 +68,16 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, weigh
 
   }, [aggregateType, parentWeights, replace, fields.length]);
 
+  React.useEffect(() => {
+    // This effect ensures the form's internal state is updated when parentWeights change,
+    // without triggering a full replace which can cause focus loss.
+    parentWeights.forEach((weight, index) => {
+        if (form.getValues(`weights.${index}.value`) !== weight) {
+            form.setValue(`weights.${index}.value`, weight);
+        }
+    });
+}, [parentWeights, form]);
+
 
   function handleCalculate(values: FormValues) {
     try {
@@ -91,7 +101,7 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, weigh
         classification = classifyFineAggregate(calculated.percentPassing, currentSieves, fineAggType);
         fm = calculateFinenessModulus(calculated.cumulativeRetained, currentSieves);
       } else {
-        classification = classifyCoarseAggregate(calculated.percentPassing, currentSieves);
+        classification = classifyCoarseAggregate(calculated.percentPassing, currentSieves, aggregateType);
       }
       
       const finalResults: AnalysisResults = {
@@ -100,7 +110,7 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, weigh
         finenessModulus: fm
       };
 
-      onCalculate(finalResults, weights);
+      onCalculate(finalResults);
 
     } catch (error) {
       console.error("Calculation error:", error);
@@ -113,9 +123,10 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, weigh
   }
 
   const handleWeightChange = (index: number, value: number | null) => {
-    const newWeights = [...form.getValues().weights.map(w => w.value)];
+    const newWeights = [...parentWeights];
     newWeights[index] = value;
     onWeightsChange(newWeights);
+    form.setValue(`weights.${index}.value`, value, { shouldValidate: true });
   };
 
 
@@ -124,7 +135,7 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, weigh
       <form onSubmit={form.handleSubmit(handleCalculate)}>
         <Card>
           <CardHeader>
-            <CardTitle>{aggregateType} Aggregate Details {aggregateType === 'Fine' && ` - ${fineAggType}`}</CardTitle>
+            <CardTitle>{aggregateType} Aggregate Details {fineAggType ? `- ${fineAggType}`: ''}</CardTitle>
             <CardDescription>
               Enter the weight (in grams) retained on each sieve and in the pan.
             </CardDescription>
@@ -155,11 +166,9 @@ export function SieveAnalysisForm({ aggregateType, onCalculate, isLoading, weigh
                                   type="number"
                                   step="0.1"
                                   placeholder="Enter weight"
-                                  {...controllerField}
                                   value={controllerField.value ?? ""}
                                   onChange={event => {
                                       const val = event.target.value === '' ? null : parseFloat(event.target.value);
-                                      controllerField.onChange(val);
                                       handleWeightChange(index, val);
                                   }}
                                   className="max-w-sm"

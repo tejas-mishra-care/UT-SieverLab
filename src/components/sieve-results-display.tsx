@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 interface SieveResultsDisplayProps extends AnalysisResults {
   sieves: number[];
   type: ExtendedAggregateType;
-  weights: number[]; // Added weights here
+  weights: number[];
   fineAggType?: FineAggregateType;
 }
 
@@ -44,8 +44,7 @@ export function SieveResultsDisplay({
     percentPassing: percentPassing[index],
   })).filter(d => d.percentPassing !== undefined);
 
-  // Ensure a unique ID for each chart
-  const chartId = `${type.replace(/\s+/g, '-')}-chart`;
+  const chartId = `${type.replace(/\s+/g, '-')}-${fineAggType ? fineAggType.replace(/\s+/g, '-') : ''}-chart`;
 
   const specLimits = getSpecLimitsForType(type, classification, fineAggType);
 
