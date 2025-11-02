@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from 'react';
@@ -62,10 +63,9 @@ export function SieveAnalysisCalculator() {
         setter: React.Dispatch<React.SetStateAction<AnalysisResults | null>>,
         weightsSetter: React.Dispatch<React.SetStateAction<(number|null)[]>>
     ) => {
-        return (results: AnalysisResults, weights: number[]) => {
+        return (results: AnalysisResults) => {
             setIsCalculating(true);
             setter(results);
-            weightsSetter(weights);
             toast({ title: "Calculation complete!" });
             setIsCalculating(false);
         };
@@ -553,11 +553,11 @@ export function SieveAnalysisCalculator() {
                             coarseGradedResults={coarseGradedResults}
                             coarseSingle10mmResults={coarseSingle10mmResults}
                             coarseSingle20mmResults={coarseSingle20mmResults}
-                            fineNaturalSandWeights={fineNaturalSandWeights.map(w => w || 0)}
-                            fineCrushedSandWeights={fineCrushedSandWeights.map(w => w || 0)}
-                            coarseGradedWeights={coarseGradedWeights.map(w => w || 0)}
-                            coarseSingle10mmWeights={coarseSingle10mmWeights.map(w=>w||0)}
-                            coarseSingle20mmWeights={coarseSingle20mmWeights.map(w=>w||0)}
+                            fineNaturalSandWeights={(fineNaturalSandWeights || []).map(w => w || 0)}
+                            fineCrushedSandWeights={(fineCrushedSandWeights || []).map(w => w || 0)}
+                            coarseGradedWeights={(coarseGradedWeights || []).map(w => w || 0)}
+                            coarseSingle10mmWeights={(coarseSingle10mmWeights || []).map(w=>w||0)}
+                            coarseSingle20mmWeights={(coarseSingle20mmWeights || []).map(w=>w||0)}
                             combinedChartData={combinedChartData}
                             blendSelection={blendSelection}
                             blendPercentages={blendPercentages}
@@ -573,3 +573,4 @@ export function SieveAnalysisCalculator() {
         </Tabs>
     );
 }
+
